@@ -66,7 +66,15 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
         </div>
       </div>
 
-      <InvoiceActions invoiceId={id} status={invoice.status} invoiceNumber={invoice.invoice_number} />
+      <InvoiceActions
+        invoiceId={id}
+        status={invoice.status}
+        invoiceNumber={invoice.invoice_number}
+        clientEmail={client?.email}
+        clientPhone={client?.phone}
+        companyName={company?.trade_name}
+        amountDue={invoice.amount_due}
+      />
 
       <Card>
         <CardContent className="p-4 space-y-4">

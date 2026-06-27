@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
-import { Building2, Mail, User } from 'lucide-react'
+import { Building2, Mail, User, FileText } from 'lucide-react'
 
 const sections = [
   {
@@ -8,6 +8,12 @@ const sections = [
     icon: Building2,
     title: 'Mon entreprise',
     desc: 'Nom, SIRET, adresse, logo, mentions légales',
+  },
+  {
+    href: '/parametres/modele-document',
+    icon: FileText,
+    title: 'Modèle de documents',
+    desc: 'Importez un devis existant — l\'IA reproduit votre style',
   },
   {
     href: '/parametres/gmail',

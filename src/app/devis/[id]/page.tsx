@@ -76,7 +76,15 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {/* Actions principales */}
-      <QuoteActions quoteId={id} status={quote.status} clientEmail={client?.email} quoteNumber={quote.quote_number} />
+      <QuoteActions
+        quoteId={id}
+        status={quote.status}
+        clientEmail={client?.email}
+        clientPhone={client?.phone}
+        quoteNumber={quote.quote_number}
+        quoteTitle={quote.title}
+        companyName={company?.trade_name}
+      />
 
       {/* Aperçu du devis */}
       <Card>

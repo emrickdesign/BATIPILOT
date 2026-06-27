@@ -25,19 +25,25 @@ export default async function ClientsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
+  // Les prospects (leads pas encore convertis) ont leur propre onglet.
   const { data: clients } = await supabase
     .from('clients')
     .select('*')
     .eq('user_id', user.id)
-    .neq('status', 'archive')
+    .not('status', 'in', '(nouveau,infos_a_recuperer,devis_a_faire,devis_envoye,devis_refuse,archive)')
     .order('created_at', { ascending: false })
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">Mes clients</h1>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Mes clients</h1>
+          <p className="text-gray-500 mt-1 text-sm">
+            Vos clients convertis. Les pistes sont dans <Link href="/prospects" className="text-[#FF6A00] hover:underline">Prospects</Link>.
+          </p>
+        </div>
         <Link href="/clients/nouveau">
-          <Button className="h-10 gap-2">
+          <Button className="h-10 gap-2 shadow-sm">
             <Plus className="w-4 h-4" />
             Ajouter un client
           </Button>

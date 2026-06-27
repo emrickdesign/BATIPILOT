@@ -1,11 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Tag, Upload } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
 import SeedPrixButton from './SeedPrixButton'
+import PrixList from './PrixList'
 
 export default async function PrixPage() {
   const supabase = await createClient()
@@ -17,10 +16,6 @@ export default async function PrixPage() {
     .select('*, price_items(*)')
     .eq('user_id', user.id)
     .order('sort_order')
-
-  const unitLabels: Record<string, string> = {
-    m2: 'm²', ml: 'ml', u: 'unité', forfait: 'forfait', h: 'heure', j: 'jour', piece: 'pièce'
-  }
 
   const isEmpty = !categories?.length
 
@@ -56,44 +51,7 @@ export default async function PrixPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {categories?.map(cat => {
-            const items = (cat.price_items as any[]).filter(i => i.is_active)
-            if (!items.length) return null
-            return (
-              <Card key={cat.id}>
-                <CardHeader className="pb-2 pt-4 px-4">
-                  <CardTitle className="text-base font-semibold text-gray-800">{cat.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="px-4 pb-4">
-                  <div className="space-y-2">
-                    {items.map((item: any) => (
-                      <Link key={item.id} href={`/prix/${item.id}`}>
-                        <div className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-                          <div className="min-w-0">
-                            <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                            {item.description && (
-                              <span className="text-xs text-gray-400 ml-2">{item.description}</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0 ml-3">
-                            <Badge variant="outline" className="text-xs">
-                              {unitLabels[item.unit] || item.unit}
-                            </Badge>
-                            <span className="font-semibold text-sm text-gray-900 w-20 text-right">
-                              {item.unit_price_ht > 0 ? formatCurrency(item.unit_price_ht) : '—'}
-                            </span>
-                            <span className="text-xs text-gray-400">HT</span>
-                          </div>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+        <PrixList initialCategories={(categories as any) || []} />
       )}
     </div>
   )

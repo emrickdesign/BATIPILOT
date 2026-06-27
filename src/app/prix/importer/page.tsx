@@ -23,13 +23,14 @@ export default function ImporterPrixPage() {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const allowed = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
-    if (!allowed.includes(file.type)) {
-      toast.error('Format non supporté. Utilisez PDF, JPG ou PNG.')
+    const name = file.name.toLowerCase()
+    const okExt = ['.pdf', '.jpg', '.jpeg', '.png', '.webp', '.docx', '.doc', '.xlsx', '.xls', '.csv', '.txt']
+    if (!okExt.some(ext => name.endsWith(ext))) {
+      toast.error('Format non supporté. PDF, Word, Excel, CSV, JPG ou PNG.')
       return
     }
-    if (file.size > 10 * 1024 * 1024) {
-      toast.error('Fichier trop lourd (max 10 Mo)')
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('Fichier trop lourd (max 15 Mo)')
       return
     }
 
@@ -111,15 +112,15 @@ export default function ImporterPrixPage() {
             <div>
               <p className="font-medium text-gray-700">Importez votre document de prix</p>
               <p className="text-sm text-gray-500 mt-1">
-                Devis existant, bordereau de prix, liste Excel en PDF, Word scanné...
-                <br />L&apos;IA va analyser et extraire toutes vos prestations et tarifs.
+                Devis existant, bordereau de prix, liste Excel, document Word, même mal structuré...
+                <br />L&apos;IA range tout en catégories claires avec les bons tarifs.
               </p>
             </div>
-            <div className="text-xs text-gray-400">Formats acceptés : PDF, JPG, PNG — Max 10 Mo</div>
+            <div className="text-xs text-gray-400">PDF, Word, Excel, CSV, JPG, PNG — Max 15 Mo</div>
             <Button onClick={() => fileRef.current?.click()} size="lg" className="gap-2">
               <Upload className="w-4 h-4" /> Choisir un fichier
             </Button>
-            <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" className="hidden" onChange={handleFile} />
+            <input ref={fileRef} type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.docx,.doc,.xlsx,.xls,.csv,.txt" className="hidden" onChange={handleFile} />
           </CardContent>
         </Card>
       )}

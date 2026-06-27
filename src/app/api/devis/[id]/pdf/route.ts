@@ -28,18 +28,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n)
   const fmtDate = (d: string) => new Date(d).toLocaleDateString('fr-FR')
 
+  const tmpl = (company as any)?.template_style || {}
+  const primaryColor = tmpl.primary_color || '#1a1a2e'
+  const accentColor = tmpl.primary_color ? `${tmpl.primary_color}18` : '#eff6ff'
+  const accentBorder = tmpl.primary_color || '#2563eb'
+  const signatureText = tmpl.signature_block || 'Bon pour accord<br>Date et signature du client'
+  const useAlternateRows = !tmpl.table_style || tmpl.table_style?.includes('altern')
+
   const html = `<!DOCTYPE html>
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: Arial, sans-serif; font-size: 11px; color: #111; padding: 30px 40px; max-width: 800px; margin: 0 auto; }
+  body { font-family: ${tmpl.font_style === 'serif' ? 'Georgia, serif' : 'Arial, sans-serif'}; font-size: 11px; color: #111; padding: 30px 40px; max-width: 800px; margin: 0 auto; }
   .header { display: flex; justify-content: space-between; margin-bottom: 30px; }
-  .company h1 { font-size: 18px; font-weight: bold; color: #1a1a2e; margin-bottom: 4px; }
+  .company h1 { font-size: 18px; font-weight: bold; color: ${primaryColor}; margin-bottom: 4px; }
   .company p { color: #555; line-height: 1.5; }
   .doc-info { text-align: right; }
-  .doc-info .doc-number { font-size: 16px; font-weight: bold; color: #1a1a2e; }
+  .doc-info .doc-number { font-size: 16px; font-weight: bold; color: ${primaryColor}; }
   .doc-info .doc-type { font-size: 12px; color: #777; margin-bottom: 8px; }
   .parties { display: flex; justify-content: space-between; margin-bottom: 24px; padding: 16px; background: #f8f9fa; border-radius: 6px; }
   .parties .label { font-size: 10px; color: #777; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
@@ -47,14 +54,14 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   .parties p { color: #555; line-height: 1.6; }
   .meta { margin-bottom: 16px; display: flex; gap: 24px; font-size: 11px; color: #555; }
   .meta strong { color: #111; }
-  .object { margin-bottom: 20px; padding: 10px 14px; border-left: 3px solid #2563eb; background: #eff6ff; }
-  .object p { font-size: 11px; color: #1d4ed8; }
+  .object { margin-bottom: 20px; padding: 10px 14px; border-left: 3px solid ${accentBorder}; background: ${accentColor}; }
+  .object p { font-size: 11px; color: ${primaryColor}; }
   table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
-  thead tr { background: #1a1a2e; color: white; }
+  thead tr { background: ${primaryColor}; color: white; }
   thead th { padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
   thead th:not(:first-child) { text-align: right; }
   tbody tr { border-bottom: 1px solid #f0f0f0; }
-  tbody tr:nth-child(even) { background: #fafafa; }
+  ${useAlternateRows ? 'tbody tr:nth-child(even) { background: #fafafa; }' : ''}
   tbody td { padding: 8px 10px; vertical-align: top; }
   tbody td:not(:first-child) { text-align: right; }
   .designation { font-weight: 600; }
@@ -62,17 +69,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   .totals { display: flex; justify-content: flex-end; margin-bottom: 20px; }
   .totals-box { width: 260px; }
   .totals-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid #f0f0f0; font-size: 12px; }
-  .totals-row.total-ttc { font-size: 14px; font-weight: bold; border-bottom: 2px solid #1a1a2e; padding: 8px 0; }
-  .totals-row.acompte { color: #2563eb; font-weight: 600; }
+  .totals-row.total-ttc { font-size: 14px; font-weight: bold; border-bottom: 2px solid ${primaryColor}; padding: 8px 0; }
+  .totals-row.acompte { color: ${accentBorder}; font-weight: 600; }
   .notes { font-size: 10px; color: #555; margin-bottom: 16px; padding: 10px; background: #f8f9fa; border-radius: 4px; }
   .legal { font-size: 9px; color: #999; border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px; }
   .signature { margin-top: 30px; display: flex; justify-content: flex-end; }
   .signature-box { border: 1px solid #ddd; padding: 12px 20px; text-align: center; width: 200px; }
   .signature-box .label { font-size: 10px; color: #777; margin-bottom: 30px; }
-  @media print { body { padding: 20px; } }
+  @media print {
+    body { padding: 20px; }
+    .no-print { display: none !important; }
+    @page { margin: 15mm; size: A4; }
+  }
+  .print-btn { position: fixed; bottom: 24px; right: 24px; background: ${primaryColor}; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+  .print-btn:hover { opacity: 0.9; }
 </style>
 </head>
 <body>
+<button class="print-btn no-print" onclick="window.print()">⬇ Télécharger en PDF</button>
 <div class="header">
   <div class="company">
     <h1>${company?.trade_name || 'Votre entreprise'}</h1>
@@ -146,16 +160,16 @@ ${quote.title || quote.description ? `
   </div>
 </div>
 
-${quote.notes ? `<div class="notes"><strong>Notes :</strong> ${quote.notes}</div>` : ''}
+${quote.notes ? `<div class="notes"><strong>Modalités de paiement :</strong> ${quote.notes}</div>` : ''}
 
 <div class="signature">
   <div class="signature-box">
-    <div class="label">Bon pour accord<br>Date et signature du client</div>
+    <div class="label">${signatureText}</div>
   </div>
 </div>
 
 ${quote.legal_mentions ? `<div class="legal">${quote.legal_mentions}</div>` : ''}
-${company?.payment_terms ? `<div class="legal">Conditions de règlement : ${company.payment_terms}</div>` : ''}
+<script>window.addEventListener('load', () => setTimeout(() => window.print(), 400))</script>
 </body>
 </html>`
 

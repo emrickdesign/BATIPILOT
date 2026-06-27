@@ -7,9 +7,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, monospace;
+  --font-heading: var(--font-jakarta), var(--font-inter), sans-serif;
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-marine: var(--marine);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,38 +52,54 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* ─── Charte graphique BatiPilot ─────────────────────────────── */
+  --background: #ffffff;
+  --foreground: #334155;            /* Gris texte */
+  --card: #ffffff;
+  --card-foreground: #1e293b;
+  --popover: #ffffff;
+  --popover-foreground: #1e293b;
+  --primary: #FF6A00;               /* Chantier (orange) — bouton primaire */
+  --primary-foreground: #ffffff;
+  --secondary: #F1F5F9;             /* Gris clair */
+  --secondary-foreground: #0F172A;
+  --muted: #F1F5F9;
+  --muted-foreground: #64748B;      /* Gris moyen */
+  --accent: #FFF1E6;                /* Sable orangé léger */
+  --accent-foreground: #C2410C;
+  --destructive: #DC2626;
+  --border: #E7E9EE;
+  --input: #E2E8F0;
+  --ring: #FF6A00;
+  --chart-1: #FF6A00;               /* Chantier */
+  --chart-2: #2563EB;               /* Action */
+  --chart-3: #16A34A;               /* Succès */
+  --chart-4: #7C3AED;               /* Accent */
+  --chart-5: #0F172A;               /* Marine */
+  --radius: 0.875rem;
+
+  /* Marque BatiPilot */
+  --brand: #FF6A00;                 /* Chantier */
+  --brand-strong: #E85D00;
+  --brand-soft: #FFF1E6;
+  --brand-foreground: #ffffff;
+  --marine: #0F172A;                /* Marine (sidebar, titres forts) */
+  --sable: #F7F3EE;
+
+  /* Échelle d'élévation (ombres douces premium) */
+  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06);
+  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 6px -2px rgb(15 23 42 / 0.05);
+  --shadow-lg: 0 12px 28px -6px rgb(15 23 42 / 0.12), 0 6px 12px -6px rgb(15 23 42 / 0.07);
+  --shadow-brand: 0 8px 24px -6px rgb(255 106 0 / 0.4);
+  --sidebar: #0F172A;                       /* Marine */
+  --sidebar-foreground: #CBD5E1;
+  --sidebar-primary: #FF6A00;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: rgb(255 255 255 / 0.06);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: rgb(255 255 255 / 0.08);
+  --sidebar-ring: #FF6A00;
 }
 
 .dark {
@@ -127,4 +146,65 @@
   html {
     @apply font-sans;
   }
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
+    letter-spacing: -0.02em;
+  }
+  /* Chiffres alignés pour prix et tableaux (anti-saut de mise en page) */
+  .tabular-nums, .font-bold, .font-semibold {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* ─── Animations & micro-interactions (skill potentieel-design) ───────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pop-in {
+  0%   { opacity: 0; transform: scale(0.96); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes shimmer {
+  100% { transform: translateX(100%); }
+}
+
+.animate-fade-up { animation: fade-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-fade-in { animation: fade-in 0.4s ease-out both; }
+.animate-pop-in  { animation: pop-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Carte interactive : élévation + léger soulèvement au survol */
+.card-interactive {
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;
+  will-change: transform;
+}
+.card-interactive:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lg);
+}
+.card-interactive:active {
+  transform: translateY(-1px) scale(0.995);
+}
+
+/* Effet de surbrillance qui balaie (boutons premium) */
+.sheen { position: relative; overflow: hidden; }
+.sheen::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(110deg, transparent 30%, oklch(1 0 0 / 0.25) 50%, transparent 70%);
+  transform: translateX(-100%);
+}
+.sheen:hover::after { animation: shimmer 0.9s ease; }
+
+/* Respect de prefers-reduced-motion (accessibilité) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  .card-interactive:hover { transform: none; }
 }

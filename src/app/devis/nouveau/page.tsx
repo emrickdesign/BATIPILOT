@@ -20,6 +20,8 @@ function DevisForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const preselectedClient = searchParams.get('client')
+  const preselectedProject = searchParams.get('project')
+  const [projectInfo, setProjectInfo] = useState<{ title: string; address: string | null } | null>(null)
 
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -54,6 +56,54 @@ function DevisForm() {
     const client = clients.find(c => c.id === selectedClientId)
     if (client?.site_address && !siteAddress) setSiteAddress(client.site_address)
   }, [selectedClientId, clients, siteAddress])
+
+  // Pré-remplir depuis le chantier rattaché
+  useEffect(() => {
+    if (!preselectedProject) return
+    const supabase = createClient()
+    supabase.from('projects').select('title, address').eq('id', preselectedProject).single()
+      .then(({ data }) => {
+        if (!data) return
+        setProjectInfo({ title: data.title, address: data.address })
+        setTitle(prev => prev || data.title || '')
+        if (data.address) setSiteAddress(prev => prev || data.address)
+      })
+  }, [preselectedProject])
+
+  // Pré-remplir depuis l'analyse de plan (sessionStorage)
+  useEffect(() => {
+    if (searchParams.get('from') !== 'plan') return
+    try {
+      const raw = sessionStorage.getItem('devis_prefill')
+      if (!raw) return
+      const data = JSON.parse(raw)
+      if (data.title) setTitle(data.title)
+      if (Array.isArray(data.lines)) {
+        setLines(data.lines.map((l: any, i: number) => {
+          const qty = Number(l.quantity) || 1
+          const pu = Number(l.unit_price_ht) || 0
+          const discount = 0
+          return {
+            tempId: crypto.randomUUID(),
+            price_item_id: undefined,
+            category: l.category || '',
+            designation: l.designation || '',
+            description: l.description || '',
+            quantity: qty,
+            unit: l.unit || 'u',
+            unit_price_ht: pu,
+            vat_rate: l.vat_rate || 10,
+            discount_percent: discount,
+            total_ht: qty * pu,
+            sort_order: i,
+            needs_verification: false,
+          }
+        }))
+      }
+      sessionStorage.removeItem('devis_prefill')
+      toast.success('Lignes importées depuis l\'analyse de plan')
+    } catch { /* ignore */ }
+  }, [searchParams])
 
   const filteredItems = priceItems.filter(p =>
     p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -117,6 +167,7 @@ function DevisForm() {
     const { data: quote, error } = await supabase.from('quotes').insert({
       user_id: user.id,
       client_id: selectedClientId,
+      project_id: preselectedProject || null,
       quote_number: quoteNumber,
       title,
       description,
@@ -202,6 +253,11 @@ function DevisForm() {
           <CardTitle className="text-base">Projet</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 space-y-3">
+          {projectInfo && (
+            <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-sm text-blue-700">
+              <span>🏗️ Devis rattaché au chantier <strong>{projectInfo.title}</strong></span>
+            </div>
+          )}
           <div className="space-y-1">
             <Label>Objet du devis</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Rénovation salle de bain" />
@@ -428,8 +484,8 @@ function DevisForm() {
               </div>
             </div>
             <div className="space-y-1">
-              <Label>Notes (visibles sur le devis)</Label>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Conditions particulières, précisions..." />
+              <Label>Modalités de paiement <span className="text-gray-400 font-normal">(visible sur le devis)</span></Label>
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Ex: 30% d'acompte à la commande, solde à réception des travaux" />
             </div>
           </CardContent>
         )}

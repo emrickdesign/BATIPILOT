@@ -11,11 +11,26 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import EntrepriseSearch from '@/components/EntrepriseSearch'
+import type { CompanyResult } from '@/lib/siret'
 
 export default function NouveauClientPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [type, setType] = useState<'particulier' | 'professionnel'>('particulier')
+  // Champs pré-remplissables par la recherche entreprise (contrôlés).
+  const [companyName, setCompanyName] = useState('')
+  const [siret, setSiret] = useState('')
+  const [billingAddress, setBillingAddress] = useState('')
+
+  function fillFromCompany(c: CompanyResult) {
+    setType('professionnel')
+    setCompanyName(c.name)
+    setSiret(c.siret)
+    const addr = [c.address].filter(Boolean).join('')
+    setBillingAddress(addr || [c.postalCode, c.city].filter(Boolean).join(' '))
+    toast.success('Entreprise importée')
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -59,7 +74,7 @@ export default function NouveauClientPage() {
             <ArrowLeft className="w-4 h-4" /> Retour
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Nouveau client</h1>
+        <h1 className="text-2xl font-heading font-bold text-marine">Nouveau client</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -77,7 +92,7 @@ export default function NouveauClientPage() {
                   onClick={() => setType(t)}
                   className={`py-3 rounded-lg border-2 text-sm font-medium transition-colors ${
                     type === t
-                      ? 'border-blue-500 bg-blue-50 text-blue-700'
+                      ? 'border-[#FF6A00] bg-orange-50 text-[#FF6A00]'
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
                   }`}
                 >
@@ -95,10 +110,17 @@ export default function NouveauClientPage() {
           </CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
             {type === 'professionnel' && (
-              <div className="space-y-1">
-                <Label htmlFor="company_name">Nom de la société *</Label>
-                <Input id="company_name" name="company_name" placeholder="Société Dupont" />
-              </div>
+              <>
+                <div className="space-y-1">
+                  <Label>Rechercher l&apos;entreprise (annuaire officiel)</Label>
+                  <EntrepriseSearch onSelect={fillFromCompany} />
+                  <p className="text-xs text-slate-400">Pré-remplit le nom, le SIRET et l&apos;adresse automatiquement.</p>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="company_name">Nom de la société *</Label>
+                  <Input id="company_name" name="company_name" value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Société Dupont" />
+                </div>
+              </>
             )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -121,7 +143,7 @@ export default function NouveauClientPage() {
             {type === 'professionnel' && (
               <div className="space-y-1">
                 <Label htmlFor="siret">SIRET</Label>
-                <Input id="siret" name="siret" placeholder="123 456 789 00012" />
+                <Input id="siret" name="siret" value={siret} onChange={(e) => setSiret(e.target.value)} placeholder="123 456 789 00012" />
               </div>
             )}
           </CardContent>
@@ -135,7 +157,7 @@ export default function NouveauClientPage() {
           <CardContent className="px-4 pb-4 space-y-3">
             <div className="space-y-1">
               <Label htmlFor="billing_address">Adresse de facturation</Label>
-              <Textarea id="billing_address" name="billing_address" rows={2} placeholder="12 rue de la Paix, 75001 Paris" />
+              <Textarea id="billing_address" name="billing_address" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} rows={2} placeholder="12 rue de la Paix, 75001 Paris" />
             </div>
             <div className="space-y-1">
               <Label htmlFor="site_address">Adresse du chantier (si différente)</Label>

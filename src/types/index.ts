@@ -6,6 +6,11 @@ export type ClientStatus =
   | 'chantier_en_cours' | 'facture_a_envoyer' | 'facture_envoyee'
   | 'paye' | 'termine' | 'archive'
 
+export type ProjectStatus =
+  | 'demande_recue' | 'visite_a_prevoir' | 'devis_a_faire' | 'devis_envoye'
+  | 'devis_accepte' | 'a_planifier' | 'planifie' | 'en_cours' | 'en_pause'
+  | 'termine' | 'a_facturer' | 'facture' | 'paye' | 'archive'
+
 export type QuoteStatus =
   | 'brouillon' | 'pret' | 'envoye' | 'accepte' | 'refuse' | 'expire' | 'transforme'
 
@@ -62,6 +67,100 @@ export interface Client {
   notes?: string
   status: ClientStatus
   created_at: string
+}
+
+export interface Project {
+  id: string
+  user_id: string
+  client_id?: string
+  title: string
+  description?: string
+  address?: string
+  project_type?: string
+  status: ProjectStatus
+  start_date?: string
+  end_date?: string
+  notes?: string
+  created_at: string
+  clients?: Client
+}
+
+export interface Employee {
+  id: string
+  user_id: string
+  full_name: string
+  role?: string
+  skills: string[]
+  phone?: string
+  email?: string
+  hourly_cost?: number
+  color: string
+  active: boolean
+  notes?: string
+  created_at: string
+}
+
+export interface Assignment {
+  id: string
+  user_id: string
+  employee_id: string
+  project_id: string
+  date: string
+  note?: string
+  created_at: string
+}
+
+export interface TimeEntry {
+  id: string
+  user_id: string
+  employee_id: string
+  project_id?: string
+  date: string
+  hours: number
+  note?: string
+  status: 'declare' | 'valide' | 'refuse'
+  created_at: string
+}
+
+export type ExpenseStatus = 'a_verifier' | 'valide' | 'envoye_comptable' | 'archive'
+export type ExpenseSource = 'ticket' | 'banque' | 'manuel'
+
+export interface Expense {
+  id: string
+  user_id: string
+  project_id?: string
+  supplier?: string
+  expense_date?: string
+  amount_ttc: number
+  amount_ht: number
+  vat_amount: number
+  vat_rate?: number
+  category?: string
+  payment_method?: string
+  ticket_number?: string
+  storage_path?: string
+  notes?: string
+  status: ExpenseStatus
+  source: ExpenseSource
+  reconciled: boolean
+  created_at: string
+  projects?: Project
+}
+
+export interface Document {
+  id: string
+  user_id: string
+  client_id?: string
+  project_id?: string
+  name: string
+  category?: string
+  storage_path: string
+  file_type?: string
+  file_size?: number
+  notes?: string
+  created_at: string
+  clients?: Client
+  projects?: Project
 }
 
 export interface PriceCategory {
