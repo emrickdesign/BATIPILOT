@@ -321,7 +321,7 @@ export default function EmailsPage() {
 
       {/* Dialog import complet */}
       <Dialog open={importState.open} onOpenChange={() => {}}>
-        <DialogContent className="max-w-md" onPointerDownOutside={e => e.preventDefault()}>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Import de l'historique Gmail</DialogTitle>
           </DialogHeader>
