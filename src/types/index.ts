@@ -122,6 +122,44 @@ export interface TimeEntry {
   created_at: string
 }
 
+export interface Vehicle {
+  id: string
+  user_id: string
+  name: string
+  plate?: string | null
+  driver_employee_id?: string | null
+  active: boolean
+  notes?: string | null
+  created_at: string
+}
+
+export interface VehicleLog {
+  id: string
+  user_id: string
+  vehicle_id: string
+  project_id?: string | null
+  date: string
+  hours_present: number
+  km?: number | null
+  note?: string | null
+  created_at: string
+}
+
+export type BankTxStatus = 'a_rapprocher' | 'rapproche' | 'ignore'
+
+export interface BankTransaction {
+  id: string
+  user_id: string
+  tx_date?: string | null
+  label?: string | null
+  amount: number
+  status: BankTxStatus
+  matched_invoice_id?: string | null
+  matched_client_id?: string | null
+  imported_at: string
+  created_at: string
+}
+
 export type PresenceType = 'arrivee' | 'depart' | 'pause' | 'reprise' | 'photo'
 
 export interface PresenceEvent {

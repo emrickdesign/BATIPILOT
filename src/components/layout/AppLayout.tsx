@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Mail, FileText, Receipt,
-  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, Camera
+  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, Camera, Landmark, Truck, Sparkles, ShieldCheck, GitCompare
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
@@ -40,6 +40,8 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
       { href: '/heures', label: 'Heures', icon: Clock },
       { href: '/pointage', label: 'Pointage', icon: Camera },
       { href: '/equipe', label: 'Équipe', icon: Users2 },
+      { href: '/vehicules', label: 'Véhicules', icon: Truck },
+      { href: '/controle', label: 'Contrôle h/véhic.', icon: GitCompare },
     ],
   },
   {
@@ -48,6 +50,7 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
     items: [
       { href: '/tickets', label: 'Scan tickets', icon: ReceiptText },
       { href: '/depenses', label: 'Dépenses', icon: Wallet },
+      { href: '/banque', label: 'Banque', icon: Landmark },
       { href: '/comptable', label: 'Comptable', icon: Calculator },
       { href: '/documents', label: 'Documents', icon: FolderOpen },
     ],
