@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Mail, FileText, Receipt,
-  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3
+  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
@@ -28,6 +28,7 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
       { href: '/clients', label: 'Clients', icon: Users },
       { href: '/devis', label: 'Devis', icon: FileText },
       { href: '/factures', label: 'Factures', icon: Receipt },
+      { href: '/relances', label: 'Relances', icon: BellRing },
     ],
   },
   {

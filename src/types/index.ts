@@ -226,6 +226,7 @@ export interface Quote {
   legal_mentions?: string
   pdf_url?: string
   from_plan_analysis: boolean
+  reminded_at?: string | null
   created_at: string
   updated_at: string
   clients?: Client
