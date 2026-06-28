@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Mail, FileText, Receipt,
-  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, Camera, Landmark, Truck, Sparkles, ShieldCheck, GitCompare
+  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, Camera, Landmark, Truck, Sparkles, ShieldCheck, GitCompare, Sun
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
@@ -15,6 +15,7 @@ type NavLink = { href: string; label: string; icon: any }
 // Accès direct (hors groupes), épinglé en haut
 const topNav: NavLink[] = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+  { href: '/resume', label: 'Résumé du jour', icon: Sun },
   { href: '/reporting', label: 'Reporting', icon: BarChart3 },
 ]
 
@@ -60,8 +61,10 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
     label: 'Outils',
     items: [
       { href: '/emails', label: 'Mes mails', icon: Mail },
+      { href: '/automatisations', label: 'Automatisations', icon: Sparkles },
       { href: '/prix', label: 'Mes prix', icon: Tag },
       { href: '/plans', label: 'Analyser un plan', icon: ScanLine },
+      { href: '/roles', label: 'Utilisateurs & rôles', icon: ShieldCheck },
     ],
   },
 ]
