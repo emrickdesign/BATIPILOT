@@ -122,6 +122,20 @@ export interface TimeEntry {
   created_at: string
 }
 
+export type PresenceType = 'arrivee' | 'depart' | 'pause' | 'reprise' | 'photo'
+
+export interface PresenceEvent {
+  id: string
+  user_id: string
+  employee_id?: string | null
+  project_id?: string | null
+  type: PresenceType
+  photo_path?: string | null
+  note?: string | null
+  occurred_at: string
+  created_at: string
+}
+
 export type ExpenseStatus = 'a_verifier' | 'valide' | 'envoye_comptable' | 'archive'
 export type ExpenseSource = 'ticket' | 'banque' | 'manuel'
 

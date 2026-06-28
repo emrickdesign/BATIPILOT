@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Mail, FileText, Receipt,
-  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing
+  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, Camera
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
@@ -38,6 +38,7 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
       { href: '/chantiers', label: 'Chantiers', icon: HardHat },
       { href: '/planning', label: 'Planning', icon: CalendarDays },
       { href: '/heures', label: 'Heures', icon: Clock },
+      { href: '/pointage', label: 'Pointage', icon: Camera },
       { href: '/equipe', label: 'Équipe', icon: Users2 },
     ],
   },
@@ -47,6 +48,7 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
     items: [
       { href: '/tickets', label: 'Scan tickets', icon: ReceiptText },
       { href: '/depenses', label: 'Dépenses', icon: Wallet },
+      { href: '/comptable', label: 'Comptable', icon: Calculator },
       { href: '/documents', label: 'Documents', icon: FolderOpen },
     ],
   },
