@@ -191,7 +191,7 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <Kpi label="Devis envoyés" value={String(d.devisEnvoyes)} icon={Send} tile="bg-blue-100 text-blue-600" />
           <Kpi label="Devis acceptés" value={String(d.devisAcceptes)} icon={CheckCircle2} tile="bg-emerald-100 text-emerald-600" />
-          <Kpi label="Taux d'acceptation" value={`${d.tauxAccept} %`} icon={Percent} tile="bg-orange-100 text-orange-600" sub={`${d.devisRefuses} refusé${d.devisRefuses > 1 ? 's' : ''}`} />
+          <Kpi label="Taux d'acceptation" value={`${d.tauxAccept} %`} icon={Percent} tile="bg-accent text-primary" sub={`${d.devisRefuses} refusé${d.devisRefuses > 1 ? 's' : ''}`} />
           <Kpi label="En attente" value={String(d.devisEnAttente)} icon={Clock} tile="bg-amber-100 text-amber-600" />
           <Kpi label="Montant devisé" value={formatCurrency(d.montantDevise)} icon={FileText} tile="bg-violet-100 text-violet-600" sub="TTC, hors brouillons" />
           <Kpi label="Montant signé" value={formatCurrency(d.montantSigne)} icon={Target} tile="bg-emerald-100 text-emerald-600" sub="devis acceptés TTC" />
@@ -203,7 +203,7 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-3">
-              <Kpi label="En cours" value={String(d.chantiersEnCours)} icon={HardHat} tile="bg-orange-100 text-orange-600" />
+              <Kpi label="En cours" value={String(d.chantiersEnCours)} icon={HardHat} tile="bg-accent text-primary" />
               <Kpi label="Terminés" value={String(d.chantiersTermines)} icon={CheckCircle2} tile="bg-emerald-100 text-emerald-600" />
               <Kpi label="En retard" value={String(d.chantiersEnRetard)} icon={XCircle} tile="bg-rose-100 text-rose-600" />
             </div>
@@ -239,7 +239,7 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
                       {d.marges.map(m => (
                         <tr key={m.id} className="border-b border-gray-50 last:border-0">
                           <td className="py-2">
-                            <Link href={`/chantiers/${m.id}`} className="text-marine hover:text-[#FF6A00] font-medium truncate block max-w-[180px]">{m.title}</Link>
+                            <Link href={`/chantiers/${m.id}`} className="text-marine hover:text-primary font-medium truncate block max-w-[180px]">{m.title}</Link>
                           </td>
                           <td className="py-2 text-right tabular-nums text-gray-600">{formatCurrency(m.rev)}</td>
                           <td className="py-2 text-right tabular-nums text-gray-600">{formatCurrency(m.cost)}</td>
@@ -260,7 +260,7 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="grid grid-cols-1 gap-3">
             <Kpi label="Heures déclarées" value={`${d.heuresDeclarees} h`} icon={Clock} tile="bg-blue-100 text-blue-600" sub={`${d.heuresValidees} h validées`} />
-            <Kpi label="Masse salariale" value={formatCurrency(d.masseSalariale)} icon={Wallet} tile="bg-orange-100 text-orange-600" sub="coût main-d'œuvre déclaré" />
+            <Kpi label="Masse salariale" value={formatCurrency(d.masseSalariale)} icon={Wallet} tile="bg-accent text-primary" sub="coût main-d'œuvre déclaré" />
           </div>
           <Card className="lg:col-span-2 border border-gray-200/80 bg-white">
             <CardContent className="p-5">

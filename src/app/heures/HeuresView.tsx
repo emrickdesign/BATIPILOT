@@ -245,7 +245,7 @@ export default function HeuresView({
                 const p = projById.get(id)
                 return (
                   <div key={id} className="flex items-center gap-2 text-sm">
-                    <Link href={`/chantiers/${id}`} className="flex-1 truncate text-gray-700 hover:text-[#FF6A00]">{p?.title || 'Chantier'}</Link>
+                    <Link href={`/chantiers/${id}`} className="flex-1 truncate text-gray-700 hover:text-primary">{p?.title || 'Chantier'}</Link>
                     <span className="font-medium tabular-nums">{h.toFixed(1).replace('.0', '')} h</span>
                   </div>
                 )
@@ -258,7 +258,7 @@ export default function HeuresView({
   )
 }
 
-const sel = 'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6A00]'
+const sel = 'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (

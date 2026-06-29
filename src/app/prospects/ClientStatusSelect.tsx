@@ -36,7 +36,7 @@ export default function ClientStatusSelect({
       disabled={saving}
       onClick={e => e.stopPropagation()}
       onChange={e => change(e.target.value as ClientStatus)}
-      className={`h-7 rounded-full border-0 pl-2.5 pr-1 text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#FF6A00] ${clientStatusColors[status]}`}
+      className={`h-7 rounded-full border-0 pl-2.5 pr-1 text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary ${clientStatusColors[status]}`}
     >
       {prospectPipelineStatuses.map(s => (
         <option key={s} value={s} className="bg-white text-gray-900">

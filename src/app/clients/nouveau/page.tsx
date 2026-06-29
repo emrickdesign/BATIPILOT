@@ -92,7 +92,7 @@ export default function NouveauClientPage() {
                   onClick={() => setType(t)}
                   className={`py-3 rounded-lg border-2 text-sm font-medium transition-colors ${
                     type === t
-                      ? 'border-[#FF6A00] bg-orange-50 text-[#FF6A00]'
+                      ? 'border-primary bg-accent text-primary'
                       : 'border-gray-200 text-gray-600 hover:border-gray-300'
                   }`}
                 >

@@ -28,7 +28,7 @@ export default async function RolesPage() {
       {/* Admin */}
       <div className="animate-fade-up">
         <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Compte principal</h2>
-        <Card className="border border-orange-200 bg-orange-50/40">
+        <Card className="border border-primary/30 bg-accent/40">
           <CardContent className="p-4 flex items-center gap-3">
             <span className="grid place-items-center w-11 h-11 rounded-full bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] text-white font-bold flex-shrink-0">
               {employeeInitials(adminName)}
@@ -37,7 +37,7 @@ export default async function RolesPage() {
               <div className="font-semibold text-marine truncate">{adminName}</div>
               <div className="text-xs text-gray-500">{user.email}</div>
             </div>
-            <Badge className="bg-orange-100 text-orange-700 border-0 gap-1"><Crown className="w-3.5 h-3.5" /> Admin / dirigeant</Badge>
+            <Badge className="bg-accent text-primary border-0 gap-1"><Crown className="w-3.5 h-3.5" /> Admin / dirigeant</Badge>
           </CardContent>
         </Card>
       </div>
@@ -46,7 +46,7 @@ export default async function RolesPage() {
       <div className="animate-fade-up">
         <div className="flex items-center justify-between mb-3">
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Accès de l&apos;équipe</h2>
-          <Link href="/equipe" className="text-xs font-medium text-[#FF6A00] hover:underline inline-flex items-center gap-1">
+          <Link href="/equipe" className="text-xs font-medium text-primary hover:underline inline-flex items-center gap-1">
             <UserPlus className="w-3.5 h-3.5" /> Gérer l&apos;équipe
           </Link>
         </div>

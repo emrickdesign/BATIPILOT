@@ -59,7 +59,7 @@ export default function EntrepriseSearch({ onSelect }: { onSelect: (c: CompanyRe
     <div ref={boxRef} className="relative">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#FF6A00] animate-spin" />}
+        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />}
         <Input
           value={q}
           onChange={(e) => setQ(e.target.value)}
@@ -82,7 +82,7 @@ export default function EntrepriseSearch({ onSelect }: { onSelect: (c: CompanyRe
               className="w-full text-left px-4 py-2.5 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
             >
               <div className="flex items-center gap-2">
-                <Building2 className="w-4 h-4 text-[#FF6A00] flex-shrink-0" />
+                <Building2 className="w-4 h-4 text-primary flex-shrink-0" />
                 <span className="font-medium text-marine text-sm truncate">{c.name}</span>
                 {!c.active && (
                   <span className="inline-flex items-center gap-1 text-[11px] text-rose-600">

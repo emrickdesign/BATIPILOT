@@ -88,7 +88,7 @@ export default async function RelancesPage() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up">
-        <Kpi label="Devis à relancer" value={String(d.nbARelancer)} icon={Clock} tile="bg-orange-100 text-orange-600" />
+        <Kpi label="Devis à relancer" value={String(d.nbARelancer)} icon={Clock} tile="bg-accent text-primary" />
         <Kpi label="En attente de signature" value={formatCurrency(d.montantEnAttenteSignature)} icon={TrendingUp} tile="bg-violet-100 text-violet-600" sub="devis envoyés (TTC)" />
         <Kpi label="Factures en retard" value={String(d.nbFacturesEnRetard)} icon={AlertTriangle} tile="bg-rose-100 text-rose-600" />
         <Kpi label="Reste à encaisser" value={formatCurrency(d.montantAEncaisser)} icon={Wallet} tile="bg-emerald-100 text-emerald-600" />
@@ -109,11 +109,11 @@ export default async function RelancesPage() {
                   const j = daysSince(q.issue_date)
                   return (
                     <div key={q.id} className="flex items-center gap-3 py-2.5 px-1">
-                      <span className="grid place-items-center w-9 h-9 rounded-lg bg-orange-100 text-orange-600 flex-shrink-0">
+                      <span className="grid place-items-center w-9 h-9 rounded-lg bg-accent text-primary flex-shrink-0">
                         <FileText className="w-4 h-4" />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <Link href={`/devis/${q.id}`} className="text-sm font-medium text-marine hover:text-[#FF6A00] truncate block">
+                        <Link href={`/devis/${q.id}`} className="text-sm font-medium text-marine hover:text-primary truncate block">
                           {clientDisplayName(q.clients as unknown as ClientLite)} · <span className="font-mono text-xs text-gray-400">{q.quote_number}</span>
                         </Link>
                         <div className="flex items-center gap-2 mt-0.5">

@@ -121,7 +121,7 @@ export default function PlanningView({
               <div className="grid" style={{ gridTemplateColumns: '180px repeat(7, 1fr)' }}>
                 <div className="p-3 text-xs font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100">Chantier</div>
                 {days.map((d, i) => (
-                  <div key={d} className={`p-3 text-center border-b border-l border-gray-100 ${d === todayIso ? 'bg-[#FFF1E6]' : ''}`}>
+                  <div key={d} className={`p-3 text-center border-b border-l border-gray-100 ${d === todayIso ? 'bg-accent' : ''}`}>
                     <div className="text-xs font-semibold text-marine">{DAY_LABELS[i]}</div>
                     <div className="text-[11px] text-gray-400">{fmtShort(d)}</div>
                   </div>
@@ -133,7 +133,7 @@ export default function PlanningView({
                 <div key={p.id} className="grid border-b border-gray-100 last:border-0" style={{ gridTemplateColumns: '180px repeat(7, 1fr)' }}>
                   <div className="p-3 flex items-center gap-2 min-w-0">
                     <HardHat className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                    <Link href={`/chantiers/${p.id}`} className="text-sm font-medium text-gray-800 truncate hover:text-[#FF6A00]">{p.title}</Link>
+                    <Link href={`/chantiers/${p.id}`} className="text-sm font-medium text-gray-800 truncate hover:text-primary">{p.title}</Link>
                   </div>
                   {days.map(d => {
                     const cell = cellMap.get(`${p.id}|${d}`) || []
@@ -163,7 +163,7 @@ export default function PlanningView({
                           <select
                             value="" disabled={busy}
                             onChange={e => { addAssignment(p.id, d, e.target.value); e.target.value = '' }}
-                            className="mt-1 w-full h-6 text-[11px] rounded border border-dashed border-gray-200 bg-transparent text-gray-400 hover:border-[#FF6A00] hover:text-[#FF6A00] cursor-pointer focus:outline-none">
+                            className="mt-1 w-full h-6 text-[11px] rounded border border-dashed border-gray-200 bg-transparent text-gray-400 hover:border-primary hover:text-primary cursor-pointer focus:outline-none">
                             <option value="">+ Affecter</option>
                             {available.map(e => <option key={e.id} value={e.id} className="text-gray-900">{e.full_name}</option>)}
                           </select>

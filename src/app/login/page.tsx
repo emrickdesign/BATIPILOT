@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { HardHat } from 'lucide-react'
 import { toast } from 'sonner'
 
 export default function LoginPage() {
@@ -30,12 +31,14 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-app-bg p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="text-4xl mb-2">🏗️</div>
-          <CardTitle className="text-2xl font-bold">BatiPilot</CardTitle>
-          <p className="text-gray-500 text-sm">Votre assistant administratif</p>
+        <CardHeader className="text-center items-center gap-3 pt-2">
+          <span className="grid place-items-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] shadow-[var(--shadow-brand)]">
+            <HardHat className="w-7 h-7 text-white" strokeWidth={2.2} />
+          </span>
+          <CardTitle className="text-2xl font-bold font-heading">Bati<span className="text-primary">Pilot</span></CardTitle>
+          <p className="text-muted-foreground text-sm -mt-1">Votre assistant administratif</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -65,9 +68,9 @@ export default function LoginPage() {
               {loading ? 'Connexion...' : 'Se connecter'}
             </Button>
           </form>
-          <div className="mt-4 text-center text-sm text-gray-500">
+          <div className="mt-5 text-center text-sm text-muted-foreground">
             Pas encore de compte ?{' '}
-            <a href="/register" className="text-blue-600 hover:underline font-medium">
+            <a href="/register" className="text-primary hover:underline font-medium">
               Créer un compte
             </a>
           </div>

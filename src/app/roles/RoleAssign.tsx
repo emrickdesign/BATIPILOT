@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { accessRoleOrder, accessRoleLabels } from '@/lib/roles'
 
-const selectClass = 'h-9 rounded-md border border-gray-200 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6A00]'
+const selectClass = 'h-9 rounded-md border border-gray-200 bg-white px-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 export default function RoleAssign({ employeeId, current }: { employeeId: string; current: string | null }) {
   const [value, setValue] = useState(current || '')

@@ -106,19 +106,32 @@ function CaChart({ data }: { data: { label: string; value: number }[] }) {
     const y = H - P - (d.value / max) * (H - 2 * P - 10)
     return [x, y] as const
   })
-  const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')
+  // Courbe lissée (Catmull-Rom → Bézier cubique)
+  const line = pts.length < 2
+    ? `M${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
+    : pts.reduce((d, p, i) => {
+        if (i === 0) return `M${p[0].toFixed(1)},${p[1].toFixed(1)}`
+        const p0 = pts[i - 2] || pts[i - 1]
+        const p1 = pts[i - 1]
+        const p2 = p
+        const p3 = pts[i + 1] || p
+        const t = 0.18
+        const c1x = p1[0] + (p2[0] - p0[0]) * t, c1y = p1[1] + (p2[1] - p0[1]) * t
+        const c2x = p2[0] - (p3[0] - p1[0]) * t, c2y = p2[1] - (p3[1] - p1[1]) * t
+        return `${d} C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2[0].toFixed(1)},${p2[1].toFixed(1)}`
+      }, '')
   const area = `${line} L${pts[pts.length - 1][0].toFixed(1)},${H} L${pts[0][0].toFixed(1)},${H} Z`
   return (
-    <svg viewBox={`0 0 ${W} ${H + 18}`} className="w-full" preserveAspectRatio="none">
+    <svg viewBox={`0 0 ${W} ${H + 18}`} className="w-full">
       <defs>
         <linearGradient id="caFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2563EB" stopOpacity="0.18" />
-          <stop offset="100%" stopColor="#2563EB" stopOpacity="0" />
+          <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.20" />
+          <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path d={area} fill="url(#caFill)" />
-      <path d={line} fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-      {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3" fill="#2563EB" />)}
+      <path d={line} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3.5" fill="#fff" stroke="var(--primary)" strokeWidth="2" />)}
       {data.map((d, i) => (
         <text key={i} x={pts[i][0]} y={H + 14} textAnchor="middle" fontSize="11" fill="#94A3B8">{d.label}</text>
       ))}
@@ -138,15 +151,15 @@ export default async function DashboardPage() {
   const initials = (profile?.full_name || user.email || 'BP').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
 
   const kpis = [
-    { label: 'Devis en attente', value: String(d.devisEnAttente), icon: Clock, tile: 'bg-orange-100 text-orange-600', href: '/devis?statut=envoye' },
-    { label: 'Factures à envoyer', value: String(d.facturesAEnvoyer), icon: Send, tile: 'bg-blue-100 text-blue-600', href: '/factures?statut=brouillon' },
-    { label: "Chiffre d'affaires (HT)", value: formatCurrency(d.caHt), icon: TrendingUp, tile: 'bg-emerald-100 text-emerald-600', href: '/factures' },
-    { label: 'Factures payées', value: String(d.facturesPayees), icon: CheckCircle2, tile: 'bg-violet-100 text-violet-600', href: '/factures?statut=payee' },
+    { label: 'Devis en attente', value: String(d.devisEnAttente), icon: Clock, tile: 'bg-accent text-primary', href: '/devis?statut=envoye', hero: false },
+    { label: 'Factures à envoyer', value: String(d.facturesAEnvoyer), icon: Send, tile: 'bg-blue-100 text-blue-600', href: '/factures?statut=brouillon', hero: false },
+    { label: "Chiffre d'affaires (HT)", value: formatCurrency(d.caHt), icon: TrendingUp, tile: 'bg-emerald-100 text-emerald-600', href: '/factures', hero: true },
+    { label: 'Factures payées', value: String(d.facturesPayees), icon: CheckCircle2, tile: 'bg-violet-100 text-violet-600', href: '/factures?statut=payee', hero: false },
   ]
 
   const actions = [
     { href: '/emails', label: 'Nouvel email', icon: Mail, tile: 'bg-blue-500' },
-    { href: '/devis/nouveau', label: 'Créer un devis', icon: FileText, tile: 'bg-orange-500' },
+    { href: '/devis/nouveau', label: 'Créer un devis', icon: FileText, tile: 'bg-primary' },
     { href: '/chantiers/nouveau', label: 'Nouveau chantier', icon: HardHat, tile: 'bg-blue-600' },
     { href: '/factures/nouveau', label: 'Créer une facture', icon: Receipt, tile: 'bg-violet-500' },
     { href: '/tickets', label: 'Scanner un ticket', icon: ReceiptText, tile: 'bg-rose-500' },
@@ -156,13 +169,13 @@ export default async function DashboardPage() {
   ]
 
   const chantierKpis = [
-    { label: 'Chantiers en cours', value: d.chantiersEnCoursCount, icon: PlayCircle, tile: 'bg-orange-100 text-orange-600' },
+    { label: 'Chantiers en cours', value: d.chantiersEnCoursCount, icon: PlayCircle, tile: 'bg-accent text-primary' },
     { label: 'À planifier', value: d.chantiersAPlanifierCount, icon: CalendarClock, tile: 'bg-amber-100 text-amber-600' },
     { label: 'En retard', value: d.chantiersEnRetardCount, icon: AlertTriangle, tile: 'bg-rose-100 text-rose-600' },
   ]
 
   const actIcon: Record<string, LucideIcon> = { devis: FileText, facture: Receipt, client: Users, chantier: HardHat }
-  const actTile: Record<string, string> = { devis: 'bg-orange-100 text-orange-600', facture: 'bg-violet-100 text-violet-600', client: 'bg-emerald-100 text-emerald-600', chantier: 'bg-blue-100 text-blue-600' }
+  const actTile: Record<string, string> = { devis: 'bg-accent text-primary', facture: 'bg-violet-100 text-violet-600', client: 'bg-emerald-100 text-emerald-600', chantier: 'bg-blue-100 text-blue-600' }
 
   return (
     <div className="space-y-6">
@@ -170,7 +183,7 @@ export default async function DashboardPage() {
       <div className="flex items-start justify-between gap-4 animate-fade-up">
         <div>
           <h1 className="text-2xl md:text-[28px] font-bold text-[#0F172A]">
-            Bonjour <span className="text-[#FF6A00]">{prenom}</span> <span className="inline-block">👋</span>
+            Bonjour <span className="text-primary">{prenom}</span> <span className="inline-block">👋</span>
           </h1>
           <p className="text-gray-500 mt-1 text-sm md:text-base">Voici un aperçu de votre activité aujourd&apos;hui.</p>
         </div>
@@ -191,13 +204,13 @@ export default async function DashboardPage() {
           const Icon = k.icon
           return (
             <Link key={k.label} href={k.href} className="animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
-              <Card className="card-interactive border border-gray-200/80 bg-white h-full">
+              <Card className={`card-interactive h-full ${k.hero ? 'border-0 bg-primary text-primary-foreground shadow-[var(--shadow-brand)]' : 'border border-gray-200/80 bg-white'}`}>
                 <CardContent className="p-4">
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-500 font-medium">{k.label}</span>
-                    <span className={`grid place-items-center w-8 h-8 rounded-lg ${k.tile}`}><Icon className="w-4 h-4" /></span>
+                    <span className={`text-sm font-medium ${k.hero ? 'text-white/85' : 'text-gray-500'}`}>{k.label}</span>
+                    <span className={`grid place-items-center w-8 h-8 rounded-lg ${k.hero ? 'bg-white/20 text-white' : k.tile}`}><Icon className="w-4 h-4" /></span>
                   </div>
-                  <div className="text-[26px] font-bold text-[#0F172A] mt-2 leading-none">{k.value}</div>
+                  <div className={`text-[26px] font-bold mt-2 leading-none ${k.hero ? 'text-white' : 'text-[#0F172A]'}`}>{k.value}</div>
                 </CardContent>
               </Card>
             </Link>

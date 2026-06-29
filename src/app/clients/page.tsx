@@ -16,7 +16,7 @@ const statusLabels: Record<string, string> = {
 const statusColors: Record<string, string> = {
   nouveau: 'bg-gray-100 text-gray-700', devis_a_faire: 'bg-yellow-100 text-yellow-700',
   devis_envoye: 'bg-blue-100 text-blue-700', devis_accepte: 'bg-green-100 text-green-700',
-  chantier_en_cours: 'bg-orange-100 text-orange-700', facture_a_envoyer: 'bg-purple-100 text-purple-700',
+  chantier_en_cours: 'bg-accent text-primary', facture_a_envoyer: 'bg-purple-100 text-purple-700',
   paye: 'bg-green-100 text-green-800', termine: 'bg-gray-100 text-gray-500',
 }
 
@@ -39,7 +39,7 @@ export default async function ClientsPage() {
         <div>
           <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Mes clients</h1>
           <p className="text-gray-500 mt-1 text-sm">
-            Vos clients convertis. Les pistes sont dans <Link href="/prospects" className="text-[#FF6A00] hover:underline">Prospects</Link>.
+            Vos clients convertis. Les pistes sont dans <Link href="/prospects" className="text-primary hover:underline">Prospects</Link>.
           </p>
         </div>
         <Link href="/clients/nouveau">

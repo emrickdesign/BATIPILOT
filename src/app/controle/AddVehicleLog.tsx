@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 
-const selectClass = 'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6A00]'
+const selectClass = 'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 export default function AddVehicleLog({ vehicles, projects }: {
   vehicles: { id: string; name: string }[]
@@ -45,7 +45,7 @@ export default function AddVehicleLog({ vehicles, projects }: {
   if (vehicles.length === 0) return null
 
   return open ? (
-    <Card className="border border-[#FF6A00]/30 bg-white">
+    <Card className="border border-primary/30 bg-white">
       <CardContent className="p-4 grid sm:grid-cols-5 gap-3 items-end">
         <div className="space-y-1">
           <Label>Véhicule</Label>

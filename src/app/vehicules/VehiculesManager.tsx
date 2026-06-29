@@ -15,7 +15,7 @@ import type { Vehicle, Employee } from '@/types'
 
 type Draft = { id?: string; name: string; plate: string; driver_employee_id: string; active: boolean; notes: string }
 const empty: Draft = { name: '', plate: '', driver_employee_id: '', active: true, notes: '' }
-const selectClass = 'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6A00]'
+const selectClass = 'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 export default function VehiculesManager({ vehicles, employees }: { vehicles: Vehicle[]; employees: Employee[] }) {
   const router = useRouter()
@@ -59,7 +59,7 @@ export default function VehiculesManager({ vehicles, employees }: { vehicles: Ve
       </div>
 
       {draft && (
-        <Card className="border border-[#FF6A00]/30 bg-white">
+        <Card className="border border-primary/30 bg-white">
           <CardContent className="p-4 space-y-3">
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -79,7 +79,7 @@ export default function VehiculesManager({ vehicles, employees }: { vehicles: Ve
               </div>
               <div className="flex items-end">
                 <label className="flex items-center gap-2 text-sm text-gray-700">
-                  <input type="checkbox" checked={draft.active} onChange={e => set('active', e.target.checked)} className="w-4 h-4 accent-[#FF6A00]" />
+                  <input type="checkbox" checked={draft.active} onChange={e => set('active', e.target.checked)} className="w-4 h-4 accent-[var(--primary)]" />
                   Véhicule actif
                 </label>
               </div>

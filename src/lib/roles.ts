@@ -37,3 +37,27 @@ export const rolePermissions: Record<AccessRole, string[]> = {
 }
 
 export const accessRoleOrder: AccessRole[] = ['admin', 'secretaire', 'chef_equipe', 'salarie', 'comptable', 'commercial', 'lecteur']
+
+// ─── Pôle d'interface (accent de couleur) par rôle ──────────────────────────
+// Pilote l'attribut `data-pole` sur <html> → reteinte toute l'app (cf. globals.css).
+export type Pole = 'commercial' | 'terrain' | 'gestion' | 'direction'
+
+export const roleToPole: Record<AccessRole, Pole> = {
+  admin: 'direction',
+  secretaire: 'gestion',
+  chef_equipe: 'terrain',
+  salarie: 'terrain',
+  comptable: 'gestion',
+  commercial: 'commercial',
+  lecteur: 'direction',
+}
+
+export const poleLabels: Record<Pole, string> = {
+  commercial: 'Commercial',
+  terrain: 'Terrain & chantier',
+  gestion: 'Gestion & administratif',
+  direction: 'Direction',
+}
+
+export const isPole = (v: unknown): v is Pole =>
+  v === 'commercial' || v === 'terrain' || v === 'gestion' || v === 'direction'

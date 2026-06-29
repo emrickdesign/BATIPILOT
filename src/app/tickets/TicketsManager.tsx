@@ -31,7 +31,7 @@ type Draft = {
 }
 
 const selectClass =
-  'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6A00]'
+  'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 const str = (v: unknown) => (v === null || v === undefined ? '' : String(v))
 
@@ -190,7 +190,7 @@ export default function TicketsManager({
       {/* Totaux + export */}
       {expenses.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <MiniStat label="Total tickets" value={formatCurrency(totalTTC)} tile="bg-orange-100 text-orange-600" icon={<ReceiptText className="w-4 h-4" />} />
+          <MiniStat label="Total tickets" value={formatCurrency(totalTTC)} tile="bg-accent text-primary" icon={<ReceiptText className="w-4 h-4" />} />
           <MiniStat label="À vérifier" value={String(aVerifier)} tile="bg-amber-100 text-amber-600" icon={<Search className="w-4 h-4" />} />
           <MiniStat label="Tickets" value={String(expenses.length)} tile="bg-violet-100 text-violet-600" icon={<FileText className="w-4 h-4" />} />
           <button onClick={handleExport} className="text-left">
@@ -207,9 +207,9 @@ export default function TicketsManager({
 
       {/* Formulaire de validation */}
       {draft && (
-        <Card className="border-2 border-[#FF6A00]/30">
+        <Card className="border-2 border-primary/30">
           <CardContent className="p-4 space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium text-[#FF6A00]">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
               <Camera className="w-4 h-4" /> Vérifiez les informations lues, puis enregistrez
             </div>
             <div className="grid md:grid-cols-[1fr_220px] gap-4">
@@ -248,7 +248,7 @@ export default function TicketsManager({
               </div>
               {draft.signedUrl && (
                 <a href={draft.signedUrl} target="_blank" rel="noopener noreferrer"
-                  className="block rounded-lg border border-gray-200 overflow-hidden bg-gray-50 hover:border-[#FF6A00] transition-colors">
+                  className="block rounded-lg border border-gray-200 overflow-hidden bg-gray-50 hover:border-primary transition-colors">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={draft.signedUrl} alt="Ticket" className="w-full h-[220px] object-contain" />
                 </a>
@@ -366,7 +366,7 @@ function Chip({ active, onClick, children }: { active: boolean; onClick: () => v
   return (
     <button type="button" onClick={onClick}
       className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-        active ? 'border-[#FF6A00] bg-[#FFF1E6] text-[#FF6A00]' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+        active ? 'border-primary bg-accent text-primary' : 'border-gray-200 text-gray-600 hover:border-gray-300'
       }`}>
       {children}
     </button>

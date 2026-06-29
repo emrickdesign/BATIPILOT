@@ -24,7 +24,7 @@ const empty: Draft = {
 }
 
 const selectClass =
-  'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6A00]'
+  'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 export default function EquipeManager({ employees }: { employees: Employee[] }) {
   const router = useRouter()
@@ -105,7 +105,7 @@ export default function EquipeManager({ employees }: { employees: Employee[] }) 
 
       {/* Formulaire ajout/édition */}
       {draft && (
-        <Card className="border-2 border-[#FF6A00]/30">
+        <Card className="border-2 border-primary/30">
           <CardContent className="p-4 space-y-4">
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1"><Label className="text-xs text-gray-500">Nom complet *</Label>
@@ -122,7 +122,7 @@ export default function EquipeManager({ employees }: { employees: Employee[] }) 
                 {skillOptions.map(s => (
                   <button key={s} type="button" onClick={() => toggleSkill(s)}
                     className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                      draft.skills.includes(s) ? 'border-[#FF6A00] bg-[#FFF1E6] text-[#FF6A00]' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                      draft.skills.includes(s) ? 'border-primary bg-accent text-primary' : 'border-gray-200 text-gray-600 hover:border-gray-300'
                     }`}>{s}</button>
                 ))}
               </div>
@@ -185,7 +185,7 @@ export default function EquipeManager({ employees }: { employees: Employee[] }) 
                   </div>
                   {e.skills?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
-                      {e.skills.map(s => <Badge key={s} className="bg-orange-50 text-orange-700 border-0 text-[11px]">{s}</Badge>)}
+                      {e.skills.map(s => <Badge key={s} className="bg-accent text-primary border-0 text-[11px]">{s}</Badge>)}
                     </div>
                   )}
                 </div>

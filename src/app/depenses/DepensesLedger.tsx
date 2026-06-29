@@ -23,10 +23,10 @@ type Exp = Expense & { projects?: { title?: string } | null }
 type ProjectOption = { id: string; title: string }
 
 const selectClass =
-  'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FF6A00]'
+  'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 const sourceColors: Record<string, string> = {
-  ticket: 'bg-orange-100 text-orange-700',
+  ticket: 'bg-accent text-primary',
   banque: 'bg-blue-100 text-blue-700',
   manuel: 'bg-gray-100 text-gray-600',
 }
@@ -170,7 +170,7 @@ export default function DepensesLedger({
                       <div key={cat} className="flex items-center gap-2 text-sm">
                         <span className="w-32 truncate text-gray-600">{cat}</span>
                         <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-                          <div className="h-full bg-[#FF6A00]/70" style={{ width: `${pct}%` }} />
+                          <div className="h-full bg-primary/70" style={{ width: `${pct}%` }} />
                         </div>
                         <span className="w-20 text-right font-medium tabular-nums">{formatCurrency(amount)}</span>
                       </div>
@@ -232,7 +232,7 @@ export default function DepensesLedger({
               return (
                 <button key={s} type="button" onClick={() => setSourceFilter(s)}
                   className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                    sourceFilter === s ? 'border-[#FF6A00] bg-[#FFF1E6] text-[#FF6A00]' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    sourceFilter === s ? 'border-primary bg-accent text-primary' : 'border-gray-200 text-gray-600 hover:border-gray-300'
                   }`}>
                   {s === 'tous' ? 'Toutes' : expenseSourceLabels[s]} ({n})
                 </button>

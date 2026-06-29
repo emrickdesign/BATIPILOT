@@ -69,10 +69,10 @@ export default async function ProspectsPage() {
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <Link href={`/clients/${p.id}`} className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-orange-50 flex items-center justify-center flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
                       {p.type === 'professionnel'
-                        ? <Building2 className="w-5 h-5 text-[#FF6A00]" />
-                        : <User className="w-5 h-5 text-[#FF6A00]" />}
+                        ? <Building2 className="w-5 h-5 text-primary" />
+                        : <User className="w-5 h-5 text-primary" />}
                     </div>
                     <div className="min-w-0">
                       <div className="font-semibold text-gray-900 truncate">{clientDisplayName(p)}</div>

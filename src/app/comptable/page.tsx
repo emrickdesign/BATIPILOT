@@ -122,7 +122,7 @@ export default async function ComptablePage() {
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   <Stat icon={ReceiptText} value={String(m.nbTickets)} label="tickets / dépenses" tone="bg-rose-100 text-rose-600" />
-                  <Stat icon={Wallet} value={formatCurrency(m.totalDepenses)} label="total dépenses TTC" tone="bg-orange-100 text-orange-600" />
+                  <Stat icon={Wallet} value={formatCurrency(m.totalDepenses)} label="total dépenses TTC" tone="bg-accent text-primary" />
                   <Stat icon={FileWarning} value={String(m.aVerifier)} label="à vérifier" tone="bg-amber-100 text-amber-600" />
                   <Stat icon={Send} value={String(m.envoyeCompta)} label="envoyés compta" tone="bg-violet-100 text-violet-600" />
                   <Stat icon={FileText} value={String(m.facturesTransmises)} label="factures transmises" tone="bg-blue-100 text-blue-600" />

@@ -6,6 +6,7 @@
 
 @theme inline {
   --color-background: var(--background);
+  --color-app-bg: var(--app-bg);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
@@ -54,6 +55,7 @@
 :root {
   /* ─── Charte graphique BatiPilot ─────────────────────────────── */
   --background: #ffffff;
+  --app-bg: #F4F6F5;                /* Fond app doux (style Fynix) */
   --foreground: #334155;            /* Gris texte */
   --card: #ffffff;
   --card-foreground: #1e293b;
@@ -91,7 +93,7 @@
   --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06);
   --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 6px -2px rgb(15 23 42 / 0.05);
   --shadow-lg: 0 12px 28px -6px rgb(15 23 42 / 0.12), 0 6px 12px -6px rgb(15 23 42 / 0.07);
-  --shadow-brand: 0 8px 24px -6px rgb(255 106 0 / 0.4);
+  --shadow-brand: 0 8px 24px -6px color-mix(in oklch, var(--brand) 40%, transparent);
   --sidebar: #0F172A;                       /* Marine */
   --sidebar-foreground: #CBD5E1;
   --sidebar-primary: #FF6A00;
@@ -100,6 +102,39 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgb(255 255 255 / 0.08);
   --sidebar-ring: #FF6A00;
+}
+
+/* ─── Accent dynamique par pôle ──────────────────────────────────
+   L'app pose `data-pole` sur <html> selon le pôle de l'utilisateur.
+   Chaque pôle remappe l'accent ; le marine reste l'encre commune.
+   Pôle par défaut (aucun attribut) = Commercial / orange = rendu actuel. */
+[data-pole="commercial"] {
+  --primary: #FF6A00; --primary-foreground: #ffffff;
+  --ring: #FF6A00; --brand: #FF6A00; --brand-strong: #E85D00; --brand-soft: #FFF1E6;
+  --accent: #FFF1E6; --accent-foreground: #9A3412;
+  --sidebar-primary: #FF6A00; --sidebar-ring: #FF6A00;
+  --chart-1: #FF6A00;
+}
+[data-pole="terrain"] {
+  --primary: #2E8FFF; --primary-foreground: #ffffff;
+  --ring: #2E8FFF; --brand: #2E8FFF; --brand-strong: #1F73D6; --brand-soft: #E8F2FF;
+  --accent: #E8F2FF; --accent-foreground: #0B4B8F;
+  --sidebar-primary: #2E8FFF; --sidebar-ring: #2E8FFF;
+  --chart-1: #2E8FFF;
+}
+[data-pole="gestion"] {
+  --primary: #8B5CF6; --primary-foreground: #ffffff;
+  --ring: #8B5CF6; --brand: #8B5CF6; --brand-strong: #7338F0; --brand-soft: #F0EBFE;
+  --accent: #F0EBFE; --accent-foreground: #4B2A9E;
+  --sidebar-primary: #8B5CF6; --sidebar-ring: #8B5CF6;
+  --chart-1: #8B5CF6;
+}
+[data-pole="direction"] {
+  --primary: #0F172A; --primary-foreground: #ffffff;
+  --ring: #0F172A; --brand: #0F172A; --brand-strong: #0B1220; --brand-soft: #E8EBF0;
+  --accent: #E8EBF0; --accent-foreground: #0F172A;
+  --sidebar-primary: #334155; --sidebar-ring: #475569;
+  --chart-1: #0F172A;
 }
 
 .dark {

@@ -45,7 +45,7 @@ async function getSuggestions(userId: string): Promise<Suggestion[]> {
   }
   // Devis envoyé depuis >7j non relancé récemment → relancer
   const aRelancer = quotes.filter(q => q.status === 'envoye' && daysSince(q.issue_date) >= 7 && (!q.reminded_at || daysSince(q.reminded_at) >= 7))
-  if (aRelancer.length) out.push({ id: 'relances', icon: BellRing, tile: 'bg-orange-100 text-orange-600',
+  if (aRelancer.length) out.push({ id: 'relances', icon: BellRing, tile: 'bg-accent text-primary',
     title: `${aRelancer.length} devis à relancer`, detail: 'Envoyés depuis plus de 7 jours, sans réponse',
     actionLabel: 'Voir les relances', href: '/relances' })
 
@@ -92,7 +92,7 @@ export default async function AutomatisationsPage() {
     <div className="space-y-6">
       <div className="animate-fade-up">
         <h1 className="text-2xl md:text-[28px] font-heading font-bold text-marine flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-[#FF6A00]" /> Automatisations
+          <Sparkles className="w-6 h-6 text-primary" /> Automatisations
         </h1>
         <p className="text-gray-500 mt-1 text-sm">BatiPilot détecte la prochaine action à faire à chaque étape. Tu valides d&apos;un clic — rien ne part sans toi.</p>
       </div>
@@ -115,7 +115,7 @@ export default async function AutomatisationsPage() {
                   <div className="text-xs text-gray-500 truncate">{s.detail}</div>
                 </div>
                 <Link href={s.href}>
-                  <span className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-[#FF6A00] text-white text-sm font-medium hover:bg-[#e85f00] transition-colors whitespace-nowrap">
+                  <span className="inline-flex items-center gap-1 px-3 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-[#e85f00] transition-colors whitespace-nowrap">
                     {s.actionLabel} <ArrowRight className="w-3.5 h-3.5" />
                   </span>
                 </Link>

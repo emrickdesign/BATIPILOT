@@ -136,7 +136,7 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
                       <div className="font-medium text-gray-900">{line.designation}</div>
                       {line.description && <div className="text-xs text-gray-400">{line.description}</div>}
                       {line.needs_verification && (
-                        <div className="text-xs text-orange-500">⚠ À vérifier (issu d&apos;analyse plan)</div>
+                        <div className="text-xs text-primary">⚠ À vérifier (issu d&apos;analyse plan)</div>
                       )}
                     </td>
                     <td className="text-right px-2 py-2 text-gray-700">{line.quantity}</td>

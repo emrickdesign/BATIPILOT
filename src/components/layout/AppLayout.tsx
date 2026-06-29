@@ -9,6 +9,7 @@ import {
   Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, Camera, Landmark, Truck, Sparkles, ShieldCheck, GitCompare, Sun
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { isPole } from '@/lib/roles'
 
 type NavLink = { href: string; label: string; icon: any }
 
@@ -81,7 +82,7 @@ function Logo() {
         <HardHat className="w-5 h-5 text-white" strokeWidth={2.2} />
       </span>
       <span className="text-lg font-bold tracking-tight text-white font-heading">
-        Bati<span className="text-[#FF6A00]">Pilot</span>
+        Bati<span className="text-primary">Pilot</span>
       </span>
     </div>
   )
@@ -98,7 +99,7 @@ function NavItem({ href, label, icon: Icon, active, onClick, mobile }: {
         'group relative flex items-center gap-3 rounded-xl font-medium transition-all duration-200',
         mobile ? 'px-3 py-3 text-[15px]' : 'px-3 py-2.5 text-sm',
         active
-          ? 'bg-[#FF6A00] text-white shadow-[var(--shadow-brand)]'
+          ? 'bg-primary text-primary-foreground shadow-[var(--shadow-brand)]'
           : 'text-slate-300 hover:bg-white/5 hover:text-white'
       )}
     >
@@ -123,6 +124,14 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const initials = name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() || 'BP'
       setProfile({ name, role: 'Artisan', initials })
     })
+  }, [])
+
+  // Pôle d'interface : reteinte toute l'app via data-pole sur <html>.
+  // Override live stocké en local ; sinon le défaut 'commercial' (SSR) reste.
+  // Prêt à dériver du rôle salarié (roleToPole) dès que les logins par salarié arrivent.
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('batipilot_pole') : null
+    if (isPole(stored)) document.documentElement.setAttribute('data-pole', stored)
   }, [])
 
   async function handleLogout() {
@@ -215,7 +224,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main content */}
-      <main className="flex-1 md:ml-60 pt-14 md:pt-0 min-h-screen bg-[#FAFAF8]">
+      <main className="flex-1 md:ml-60 pt-14 md:pt-0 min-h-screen bg-app-bg">
         <div className="p-4 md:p-8 max-w-6xl mx-auto">
           {children}
         </div>

@@ -44,7 +44,7 @@ async function getData(userId: string) {
   if (employeesDeclared > 0) lines.push({ icon: Clock, tile: 'bg-blue-100 text-blue-600', text: `${employeesDeclared} salarié${employeesDeclared > 1 ? 's ont' : ' a'} déclaré ${totalHours} h aujourd'hui`, href: '/heures' })
   if (pointagesToday > 0) lines.push({ icon: Camera, tile: 'bg-violet-100 text-violet-600', text: `${pointagesToday} pointage${pointagesToday > 1 ? 's' : ''} chantier enregistré${pointagesToday > 1 ? 's' : ''}`, href: '/pointage' })
   if (ticketsToday > 0) lines.push({ icon: ReceiptText, tile: 'bg-rose-100 text-rose-600', text: `${ticketsToday} ticket${ticketsToday > 1 ? 's' : ''} / dépense${ticketsToday > 1 ? 's' : ''} ajouté${ticketsToday > 1 ? 's' : ''}`, href: '/depenses' })
-  if (aRelancer > 0) lines.push({ icon: BellRing, tile: 'bg-orange-100 text-orange-600', text: `${aRelancer} devis attend${aRelancer > 1 ? 'ent' : ''} une relance`, href: '/relances' })
+  if (aRelancer > 0) lines.push({ icon: BellRing, tile: 'bg-accent text-primary', text: `${aRelancer} devis attend${aRelancer > 1 ? 'ent' : ''} une relance`, href: '/relances' })
   if (echues > 0) lines.push({ icon: Landmark, tile: 'bg-amber-100 text-amber-600', text: `${echues} facture${echues > 1 ? 's' : ''} échue${echues > 1 ? 's' : ''} à encaisser`, href: '/banque' })
   if (enRetard > 0) lines.push({ icon: HardHat, tile: 'bg-rose-100 text-rose-600', text: `${enRetard} chantier${enRetard > 1 ? 's ont' : ' a'} dépassé la date de fin prévue`, href: '/chantiers' })
 
@@ -64,7 +64,7 @@ export default async function ResumePage() {
     <div className="space-y-6 max-w-3xl">
       <div className="animate-fade-up">
         <h1 className="text-2xl md:text-[28px] font-heading font-bold text-marine flex items-center gap-2">
-          <Sun className="w-6 h-6 text-[#FF6A00]" /> Résumé du jour
+          <Sun className="w-6 h-6 text-primary" /> Résumé du jour
         </h1>
         <p className="text-gray-500 mt-1 text-sm capitalize">{dateLabel}</p>
       </div>
@@ -82,7 +82,7 @@ export default async function ResumePage() {
                 <Link key={i} href={l.href || '#'} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors group">
                   <span className={`grid place-items-center w-9 h-9 rounded-lg flex-shrink-0 ${l.tile}`}><l.icon className="w-4 h-4" /></span>
                   <span className="text-sm text-gray-700 flex-1">{l.text}</span>
-                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#FF6A00] transition-colors" />
+                  <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors" />
                 </Link>
               ))}
             </div>
