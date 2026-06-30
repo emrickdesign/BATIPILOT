@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,14 +11,26 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { Plus, Truck, Pencil, Trash2, User } from 'lucide-react'
+import { Plus, Truck, Pencil, Trash2, User, HardHat, Clock, Gauge, CalendarClock, AlertTriangle, GitCompare } from 'lucide-react'
+import { formatDate } from '@/lib/utils'
+import AddVehicleLog from '../controle/AddVehicleLog'
 import type { Vehicle, Employee } from '@/types'
+
+export type VehicleMeta = {
+  chantier: { id: string; title: string } | null
+  dernierTrajet: string | null
+  tempsTotal: number
+  kmTotal: number
+  alerte: string | null
+}
 
 type Draft = { id?: string; name: string; plate: string; driver_employee_id: string; active: boolean; notes: string }
 const empty: Draft = { name: '', plate: '', driver_employee_id: '', active: true, notes: '' }
 const selectClass = 'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
-export default function VehiculesManager({ vehicles, employees }: { vehicles: Vehicle[]; employees: Employee[] }) {
+export default function VehiculesManager({ vehicles, employees, meta, projects }: {
+  vehicles: Vehicle[]; employees: Employee[]; meta: Record<string, VehicleMeta>; projects: { id: string; title: string }[]
+}) {
   const router = useRouter()
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
@@ -54,9 +67,13 @@ export default function VehiculesManager({ vehicles, employees }: { vehicles: Ve
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Link href="/controle"><Button variant="outline" size="sm" className="gap-1"><GitCompare className="w-4 h-4" /> Contrôle h/véhicules</Button></Link>
         <Button onClick={() => setDraft({ ...empty })} className="gap-1"><Plus className="w-4 h-4" /> Ajouter un véhicule</Button>
       </div>
+
+      {/* Relevé manuel (§15.3) */}
+      <AddVehicleLog vehicles={vehicles} projects={projects} />
 
       {draft && (
         <Card className="border border-primary/30 bg-white">
@@ -123,7 +140,21 @@ export default function VehiculesManager({ vehicles, employees }: { vehicles: Ve
                     ? <span className="inline-flex items-center gap-1 text-gray-600"><User className="w-3 h-3" /> {driverName(v.driver_employee_id)}</span>
                     : <span className="text-gray-400">Pas de conducteur attitré</span>}
                   {!v.active && <Badge className="bg-gray-100 text-gray-500 border-0 text-[10px]">Inactif</Badge>}
+                  {meta[v.id]?.alerte && <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] gap-1"><AlertTriangle className="w-3 h-3" />{meta[v.id].alerte}</Badge>}
                 </div>
+                {meta[v.id] && (
+                  <div className="mt-3 pt-3 border-t border-gray-100 grid grid-cols-2 gap-2 text-xs">
+                    <span className="flex items-center gap-1 text-gray-500 min-w-0">
+                      <HardHat className="w-3 h-3 flex-shrink-0" />
+                      {meta[v.id].chantier
+                        ? <Link href={`/chantiers/${meta[v.id].chantier!.id}`} className="truncate hover:text-primary">{meta[v.id].chantier!.title}</Link>
+                        : <span className="text-gray-400">Aucun chantier</span>}
+                    </span>
+                    <span className="flex items-center gap-1 text-gray-500"><CalendarClock className="w-3 h-3 flex-shrink-0" />{meta[v.id].dernierTrajet ? formatDate(meta[v.id].dernierTrajet!) : '—'}</span>
+                    <span className="flex items-center gap-1 text-gray-500"><Clock className="w-3 h-3 flex-shrink-0" />{meta[v.id].tempsTotal.toFixed(1).replace('.0', '')} h chantier</span>
+                    <span className="flex items-center gap-1 text-gray-500"><Gauge className="w-3 h-3 flex-shrink-0" />{meta[v.id].kmTotal > 0 ? `${meta[v.id].kmTotal} km` : '— km'}</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}

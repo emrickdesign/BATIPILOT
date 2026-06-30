@@ -46,7 +46,7 @@ export default function AddVehicleLog({ vehicles, projects }: {
 
   return open ? (
     <Card className="border border-primary/30 bg-white">
-      <CardContent className="p-4 grid sm:grid-cols-5 gap-3 items-end">
+      <CardContent className="p-4 grid sm:grid-cols-6 gap-3 items-end">
         <div className="space-y-1">
           <Label>Véhicule</Label>
           <select className={selectClass} value={vehicleId} onChange={e => setVehicleId(e.target.value)}>
@@ -67,6 +67,10 @@ export default function AddVehicleLog({ vehicles, projects }: {
         <div className="space-y-1">
           <Label>Heures présence</Label>
           <Input value={hours} onChange={e => setHours(e.target.value)} placeholder="7" inputMode="decimal" />
+        </div>
+        <div className="space-y-1">
+          <Label>Km (optionnel)</Label>
+          <Input value={km} onChange={e => setKm(e.target.value)} placeholder="km" inputMode="decimal" />
         </div>
         <div className="flex gap-2">
           <Button onClick={save} disabled={saving} className="flex-1">{saving ? '…' : 'Ajouter'}</Button>
