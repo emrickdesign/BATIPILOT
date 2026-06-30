@@ -7,7 +7,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { Upload, Loader2, ArrowDownToLine, Check, X, Link2 } from 'lucide-react'
+import Link from 'next/link'
+import { Upload, Loader2, ArrowDownToLine, Check, X, Link2, Receipt } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { parseBankCsv } from '@/lib/banque'
 
@@ -18,12 +19,23 @@ export type TxItem = {
   amount: number
   suggestion?: { invoiceId: string; invoiceNumber: string; clientName: string; clientId: string | null; amountDue: number } | null
 }
+type OpenInvoice = { id: string; invoice_number: string; clientName: string; due: number }
 
-export default function BanqueClient({ transactions }: { transactions: TxItem[] }) {
+export default function BanqueClient({ transactions, openInvoices }: { transactions: TxItem[]; openInvoices: OpenInvoice[] }) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const [importing, setImporting] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+
+  async function markPaid(inv: OpenInvoice) {
+    if (!confirm(`Marquer la facture ${inv.invoice_number} comme payée ?`)) return
+    setBusyId(inv.id)
+    const supabase = createClient()
+    const { error } = await supabase.from('invoices').update({ status: 'payee', amount_due: 0 }).eq('id', inv.id)
+    setBusyId(null)
+    if (error) { toast.error('Erreur'); return }
+    toast.success('Facture marquée payée'); router.refresh()
+  }
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -125,6 +137,34 @@ export default function BanqueClient({ transactions }: { transactions: TxItem[] 
                         <X className="w-4 h-4" />
                       </Button>
                     </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Factures en attente de paiement (§18.1) */}
+      <div>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Factures en attente de paiement</h2>
+        <Card className="border border-gray-200/80 bg-white">
+          <CardContent className="p-2 sm:p-4">
+            {openInvoices.length === 0 ? (
+              <p className="text-sm text-gray-400 py-6 text-center">Toutes les factures sont payées. 🎉</p>
+            ) : (
+              <div className="divide-y divide-gray-50">
+                {openInvoices.map(inv => (
+                  <div key={inv.id} className="flex items-center gap-3 py-2.5 px-1">
+                    <span className="grid place-items-center w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0"><Receipt className="w-4 h-4" /></span>
+                    <Link href={`/factures/${inv.id}`} className="min-w-0 flex-1">
+                      <div className="text-sm font-medium text-marine truncate hover:text-primary">{inv.clientName}</div>
+                      <div className="text-xs text-gray-400 font-mono">{inv.invoice_number}</div>
+                    </Link>
+                    <span className="text-sm font-semibold text-marine tabular-nums flex-shrink-0">{formatCurrency(inv.due)}</span>
+                    <Button size="sm" variant="outline" className="h-8 gap-1 flex-shrink-0" onClick={() => markPaid(inv)} disabled={busyId === inv.id}>
+                      {busyId === inv.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Payée
+                    </Button>
                   </div>
                 ))}
               </div>
