@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
-import { Building2, Mail, User, FileText, ShieldCheck, Landmark, Calculator, Truck, Bell } from 'lucide-react'
+import { Building2, Mail, User, FileText, ShieldCheck, Landmark, Calculator, Truck, Bell, HardHat } from 'lucide-react'
 
 type Item = { href?: string; icon: typeof Building2; title: string; desc: string; soon?: boolean }
 type Group = { title: string; items: Item[] }
@@ -17,6 +17,7 @@ const groups: Group[] = [
     title: 'Équipe & accès',
     items: [
       { href: '/roles', icon: ShieldCheck, title: 'Utilisateurs & rôles', desc: 'Gérez les accès de votre équipe (admin, bureau, salarié…)' },
+      { href: '/terrain', icon: HardHat, title: 'Interface salarié (terrain)', desc: 'Aperçu de l\'app mobile simplifiée pour les salariés sur chantier' },
     ],
   },
   {
