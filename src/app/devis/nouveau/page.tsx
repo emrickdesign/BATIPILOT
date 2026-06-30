@@ -27,7 +27,9 @@ function DevisForm() {
   const [saving, setSaving] = useState(false)
   const [clients, setClients] = useState<Client[]>([])
   const [priceItems, setPriceItems] = useState<PriceItem[]>([])
+  const [projects, setProjects] = useState<{ id: string; title: string; client_id: string | null }[]>([])
   const [selectedClientId, setSelectedClientId] = useState(preselectedClient || '')
+  const [selectedProjectId, setSelectedProjectId] = useState(preselectedProject || '')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [siteAddress, setSiteAddress] = useState('')
@@ -44,9 +46,11 @@ function DevisForm() {
     Promise.all([
       supabase.from('clients').select('*').order('created_at', { ascending: false }),
       supabase.from('price_items').select('*, price_categories(name)').eq('is_active', true).order('name'),
-    ]).then(([{ data: c }, { data: p }]) => {
+      supabase.from('projects').select('id, title, client_id, status').neq('status', 'archive').order('created_at', { ascending: false }),
+    ]).then(([{ data: c }, { data: p }, { data: pr }]) => {
       setClients(c || [])
       setPriceItems(p || [])
+      setProjects(pr || [])
     })
   }, [])
 
@@ -167,7 +171,7 @@ function DevisForm() {
     const { data: quote, error } = await supabase.from('quotes').insert({
       user_id: user.id,
       client_id: selectedClientId,
-      project_id: preselectedProject || null,
+      project_id: selectedProjectId || null,
       quote_number: quoteNumber,
       title,
       description,
@@ -253,9 +257,23 @@ function DevisForm() {
           <CardTitle className="text-base">Projet</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 space-y-3">
-          {projectInfo && (
+          {projectInfo ? (
             <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-sm text-blue-700">
               <span>🏗️ Devis rattaché au chantier <strong>{projectInfo.title}</strong></span>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label>Chantier (optionnel)</Label>
+              <select
+                value={selectedProjectId}
+                onChange={e => setSelectedProjectId(e.target.value)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white"
+              >
+                <option value="">Aucun chantier rattaché</option>
+                {projects
+                  .filter(p => !selectedClientId || p.client_id === selectedClientId)
+                  .map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+              </select>
             </div>
           )}
           <div className="space-y-1">
