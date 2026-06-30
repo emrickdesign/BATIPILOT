@@ -26,7 +26,7 @@ async function getData(userId: string) {
       .select('id, expense_date, created_at, supplier, category, amount_ht, amount_ttc, vat_amount, vat_rate, payment_method, ticket_number, notes, status, storage_path, projects(title)')
       .eq('user_id', userId).neq('status', 'archive'),
     supabase.from('invoices')
-      .select('id, status, total_ttc, issue_date, created_at')
+      .select('id, invoice_number, status, total_ttc, issue_date, created_at')
       .eq('user_id', userId),
   ])
 
@@ -57,6 +57,7 @@ async function getData(userId: string) {
       key,
       label: monthLabel(key),
       expenses: exp,
+      invoices: inv.map(i => ({ invoice_number: (i as { invoice_number?: string }).invoice_number || '', total_ttc: num(i.total_ttc), issue_date: i.issue_date, status: i.status })),
       nbTickets: exp.length,
       totalDepenses: exp.reduce((s, e) => s + num(e.amount_ttc), 0),
       aVerifier: exp.filter(e => e.status === 'a_verifier').length,
@@ -118,7 +119,7 @@ export default async function ComptablePage() {
                       </Badge>
                     )}
                   </div>
-                  <MonthActions monthKey={m.key} label={m.label} expenses={m.expenses} />
+                  <MonthActions monthKey={m.key} label={m.label} expenses={m.expenses} invoices={m.invoices} />
                 </div>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
                   <Stat icon={ReceiptText} value={String(m.nbTickets)} label="tickets / dépenses" tone="bg-rose-100 text-rose-600" />
