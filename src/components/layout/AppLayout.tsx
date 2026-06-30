@@ -27,6 +27,7 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
       { href: '/prospects', label: 'Prospects', icon: UserPlus },
       { href: '/clients', label: 'Clients', icon: Users },
       { href: '/devis', label: 'Devis', icon: FileText },
+      { href: '/factures', label: 'Factures', icon: Receipt },
       { href: '/relances', label: 'Relances', icon: BellRing },
     ],
   },
@@ -45,7 +46,6 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
     id: 'finances',
     label: 'Admin & finances',
     items: [
-      { href: '/factures', label: 'Factures', icon: Receipt },
       { href: '/banque', label: 'Paiements', icon: CreditCard },
       { href: '/depenses', label: 'Dépenses', icon: Wallet },
       { href: '/tickets', label: 'Tickets', icon: ReceiptText },
