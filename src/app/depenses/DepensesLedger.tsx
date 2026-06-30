@@ -58,14 +58,22 @@ export default function DepensesLedger({
   }), [expenses, search, sourceFilter])
 
   const total = filtered.reduce((s, e) => s + (Number(e.amount_ttc) || 0), 0)
-  const byCategory = useMemo(() => {
+  const groupBy = (key: (e: Exp) => string) => {
     const m = new Map<string, number>()
-    for (const e of filtered) {
-      const k = e.category || 'Non classé'
-      m.set(k, (m.get(k) || 0) + (Number(e.amount_ttc) || 0))
-    }
+    for (const e of filtered) { const k = key(e); m.set(k, (m.get(k) || 0) + (Number(e.amount_ttc) || 0)) }
     return [...m.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
-  }, [filtered])
+  }
+  const byCategory = groupBy(e => e.category || 'Non classé')
+  const byProject = groupBy(e => e.projects?.title || 'Sans chantier')
+  const bySupplier = groupBy(e => e.supplier || 'Inconnu')
+
+  const now = new Date()
+  const thisMonth = filtered.filter(e => {
+    if (!e.expense_date) return false
+    const d = new Date(e.expense_date); return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+  }).reduce((s, e) => s + (Number(e.amount_ttc) || 0), 0)
+  const aValider = expenses.filter(e => e.status === 'a_verifier').length
+  const sansJustif = filtered.filter(e => !e.storage_path).length
 
   async function handleAdd() {
     if (!amount) { toast.error('Indiquez un montant'); return }
@@ -149,38 +157,19 @@ export default function DepensesLedger({
 
       {/* Synthèse */}
       {expenses.length > 0 && (
-        <div className="grid md:grid-cols-3 gap-3">
-          <Card className="border border-gray-200/80">
-            <CardContent className="p-4">
-              <span className="grid place-items-center w-9 h-9 rounded-lg bg-rose-100 text-rose-600"><TrendingDown className="w-4 h-4" /></span>
-              <div className="text-2xl font-bold text-[#0F172A] mt-2 leading-none">{formatCurrency(total)}</div>
-              <div className="text-xs text-gray-500 mt-1">Total dépenses {sourceFilter !== 'tous' ? `(${expenseSourceLabels[sourceFilter]})` : ''}</div>
-            </CardContent>
-          </Card>
-          <Card className="border border-gray-200/80 md:col-span-2">
-            <CardContent className="p-4">
-              <div className="text-xs font-medium text-gray-400 mb-2">Répartition par catégorie</div>
-              {byCategory.length === 0 ? (
-                <p className="text-sm text-gray-400">—</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {byCategory.map(([cat, amount]) => {
-                    const pct = total > 0 ? Math.round((amount / total) * 100) : 0
-                    return (
-                      <div key={cat} className="flex items-center gap-2 text-sm">
-                        <span className="w-32 truncate text-gray-600">{cat}</span>
-                        <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-                          <div className="h-full bg-primary/70" style={{ width: `${pct}%` }} />
-                        </div>
-                        <span className="w-20 text-right font-medium tabular-nums">{formatCurrency(amount)}</span>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <Stat label={`Total${sourceFilter !== 'tous' ? ` (${expenseSourceLabels[sourceFilter]})` : ''}`} value={formatCurrency(total)} tile="bg-rose-100 text-rose-600" icon={<TrendingDown className="w-4 h-4" />} />
+            <Stat label="Ce mois" value={formatCurrency(thisMonth)} tile="bg-accent text-primary" icon={<Wallet className="w-4 h-4" />} />
+            <Link href="/tickets"><Stat label="Tickets à valider" value={String(aValider)} tile="bg-amber-100 text-amber-600" icon={<ReceiptText className="w-4 h-4" />} interactive /></Link>
+            <Stat label="Sans justificatif" value={String(sansJustif)} tile="bg-gray-100 text-gray-500" icon={<Search className="w-4 h-4" />} />
+          </div>
+          <div className="grid md:grid-cols-3 gap-3">
+            <Breakdown title="Par catégorie" rows={byCategory} total={total} />
+            <Breakdown title="Par chantier" rows={byProject} total={total} />
+            <Breakdown title="Par fournisseur" rows={bySupplier} total={total} />
+          </div>
+        </>
       )}
 
       {/* Ajout manuel */}
@@ -283,5 +272,41 @@ export default function DepensesLedger({
         </div>
       )}
     </div>
+  )
+}
+
+function Stat({ label, value, tile, icon, interactive }: { label: string; value: string; tile: string; icon: React.ReactNode; interactive?: boolean }) {
+  return (
+    <Card className={`border border-gray-200/80 ${interactive ? 'card-interactive h-full' : ''}`}>
+      <CardContent className="p-3">
+        <span className={`grid place-items-center w-8 h-8 rounded-lg ${tile}`}>{icon}</span>
+        <div className="text-xl font-bold text-[#0F172A] mt-2 leading-none">{value}</div>
+        <div className="text-[11px] text-gray-500 mt-1">{label}</div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function Breakdown({ title, rows, total }: { title: string; rows: [string, number][]; total: number }) {
+  return (
+    <Card className="border border-gray-200/80">
+      <CardContent className="p-4">
+        <div className="text-xs font-medium text-gray-400 mb-2">{title}</div>
+        {rows.length === 0 ? <p className="text-sm text-gray-400">—</p> : (
+          <div className="space-y-1.5">
+            {rows.map(([k, amount]) => {
+              const pct = total > 0 ? Math.round((amount / total) * 100) : 0
+              return (
+                <div key={k} className="flex items-center gap-2 text-sm">
+                  <span className="w-24 truncate text-gray-600">{k}</span>
+                  <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden"><div className="h-full bg-primary/70" style={{ width: `${pct}%` }} /></div>
+                  <span className="w-20 text-right font-medium tabular-nums">{formatCurrency(amount)}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
