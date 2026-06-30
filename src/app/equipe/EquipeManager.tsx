@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,9 +11,15 @@ import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { Plus, Users, Phone, Mail, Pencil, Trash2, Check } from 'lucide-react'
+import { Plus, Users, Phone, Mail, Pencil, Trash2, Check, HardHat, Clock, Truck } from 'lucide-react'
 import type { Employee } from '@/types'
 import { employeeRoleOptions, skillOptions, employeeColors, employeeInitials } from '@/lib/equipe'
+
+export type EmployeeMeta = {
+  chantier: { id: string; title: string } | null
+  heuresSemaine: number
+  vehicule: { name: string; plate: string | null } | null
+}
 
 type Draft = {
   id?: string; full_name: string; role: string; skills: string[]
@@ -26,7 +33,7 @@ const empty: Draft = {
 const selectClass =
   'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
-export default function EquipeManager({ employees }: { employees: Employee[] }) {
+export default function EquipeManager({ employees, meta }: { employees: Employee[]; meta: Record<string, EmployeeMeta> }) {
   const router = useRouter()
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
@@ -170,11 +177,11 @@ export default function EquipeManager({ employees }: { employees: Employee[] }) 
           {employees.map(e => (
             <Card key={e.id} className={`card-interactive border border-gray-200/80 ${!e.active ? 'opacity-60' : ''}`}>
               <CardContent className="p-4 flex items-center gap-3">
-                <span className="grid place-items-center w-11 h-11 rounded-full text-white font-bold text-sm flex-shrink-0"
-                  style={{ backgroundColor: e.color }}>{employeeInitials(e.full_name)}</span>
+                <Link href={`/equipe/${e.id}`} className="grid place-items-center w-11 h-11 rounded-full text-white font-bold text-sm flex-shrink-0"
+                  style={{ backgroundColor: e.color }}>{employeeInitials(e.full_name)}</Link>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-gray-900 truncate">{e.full_name}</span>
+                    <Link href={`/equipe/${e.id}`} className="font-semibold text-gray-900 truncate hover:text-primary">{e.full_name}</Link>
                     {e.role && <Badge variant="outline" className="text-xs flex-shrink-0">{e.role}</Badge>}
                     {!e.active && <Badge className="bg-gray-100 text-gray-500 border-0 text-xs">Inactif</Badge>}
                   </div>
@@ -186,6 +193,15 @@ export default function EquipeManager({ employees }: { employees: Employee[] }) 
                   {e.skills?.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {e.skills.map(s => <Badge key={s} className="bg-accent text-primary border-0 text-[11px]">{s}</Badge>)}
+                    </div>
+                  )}
+                  {meta[e.id] && (
+                    <div className="flex items-center flex-wrap gap-x-3 gap-y-1 mt-1.5 text-[11px] text-gray-500">
+                      {meta[e.id].chantier
+                        ? <Link href={`/chantiers/${meta[e.id].chantier!.id}`} className="flex items-center gap-1 text-gray-600 hover:text-primary"><HardHat className="w-3 h-3" />{meta[e.id].chantier!.title}</Link>
+                        : <span className="flex items-center gap-1 text-gray-400"><HardHat className="w-3 h-3" />Pas de chantier aujourd&apos;hui</span>}
+                      <span className="flex items-center gap-1"><Clock className="w-3 h-3" />{meta[e.id].heuresSemaine.toFixed(1).replace('.0', '')} h cette semaine</span>
+                      {meta[e.id].vehicule && <span className="flex items-center gap-1"><Truck className="w-3 h-3" />{meta[e.id].vehicule!.name}</span>}
                     </div>
                   )}
                 </div>
