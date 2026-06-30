@@ -101,6 +101,11 @@ async function getData(userId: string) {
   const activeProjects = pr.filter(p => !CLOSED.includes(p.status))
   const equipeDemain = new Set((asgTomRes.data || []).map(a => a.project_id))
   const sansEquipeDemain = activeProjects.filter(p => !equipeDemain.has(p.id)).length
+  // Chantiers disposant d'une équipe affectée aujourd'hui ou demain (pour la mini-liste)
+  const teamProjects = new Set<string>([
+    ...(asgTodayRes.data || []).map(a => a.project_id),
+    ...equipeDemain,
+  ])
 
   type Todo = { icon: LucideIcon; tile: string; text: string; href: string }
   const todos: Todo[] = []
@@ -123,6 +128,13 @@ async function getData(userId: string) {
   const chantiersActifs = activeProjects
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .slice(0, 5)
+    .map(c => ({
+      id: c.id,
+      title: c.title,
+      status: c.status,
+      retardJours: c.end_date && c.end_date < today ? daysSince(c.end_date) : 0,
+      sansEquipe: !teamProjects.has(c.id),
+    }))
 
   // ── 4. Évolution des encaissements (séries) ─────────────────────────
   const paid = inv.filter(i => isPaid(i.status) && i.issue_date)
@@ -148,6 +160,22 @@ async function getData(userId: string) {
   const sAnnee = Array.from({ length: 5 }, (_, k) => {
     const y = now.getFullYear() - (4 - k)
     return { label: String(y), value: sumBetween(new Date(y, 0, 1), new Date(y + 1, 0, 1)) }
+  })
+
+  // Devis envoyés vs acceptés (6 derniers mois) — 2e graphique du dashboard (doc §3.6)
+  const devisSeries = Array.from({ length: 6 }, (_, k) => {
+    const dM = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1)
+    const inM = (d?: string | null) => {
+      if (!d) return false
+      const x = new Date(d)
+      return x.getFullYear() === dM.getFullYear() && x.getMonth() === dM.getMonth()
+    }
+    const mq = quotes.filter(q => inM(q.issue_date || q.created_at))
+    return {
+      label: MONTHS[dM.getMonth()],
+      envoyes: mq.filter(q => q.status !== 'brouillon' && q.status !== 'pret').length,
+      acceptes: mq.filter(q => q.status === 'accepte' || q.status === 'transforme').length,
+    }
   })
 
   // ── 5. Équipes & terrain (aujourd'hui) ──────────────────────────────
@@ -193,6 +221,7 @@ async function getData(userId: string) {
     todos,
     chantiers, chantiersActifs,
     series: { '7j': s7, mois: sMois, trimestre: sTri, annee: sAnnee },
+    devisSeries,
     terrain, admin, activity,
   }
 }
@@ -203,6 +232,38 @@ function MiniStat({ label, value, icon: Icon, tile, accent }: { label: string; v
       <span className={`grid place-items-center w-8 h-8 rounded-lg ${tile}`}><Icon className="w-4 h-4" /></span>
       <div className={`text-2xl font-bold mt-2 leading-none ${accent ? 'text-primary' : 'text-marine'}`}>{value}</div>
       <div className="text-[11px] text-gray-500 mt-1 leading-tight">{label}</div>
+    </div>
+  )
+}
+
+function DevisBars({ data }: { data: { label: string; envoyes: number; acceptes: number }[] }) {
+  const max = Math.max(...data.map(d => d.envoyes), 1)
+  const totalEnv = data.reduce((s, d) => s + d.envoyes, 0)
+  const totalAcc = data.reduce((s, d) => s + d.acceptes, 0)
+  const taux = totalEnv > 0 ? Math.round((totalAcc / totalEnv) * 100) : 0
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+        <div>
+          <p className="text-sm text-gray-500 font-medium">Taux d&apos;acceptation (6 mois)</p>
+          <p className="text-[26px] font-bold text-marine leading-none mt-1">{taux} %<span className="text-sm font-medium text-gray-400 ml-2">{totalAcc}/{totalEnv} devis</span></p>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-gray-300" /> Envoyés</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary" /> Acceptés</span>
+        </div>
+      </div>
+      <div className="flex items-end justify-between gap-2 h-32">
+        {data.map((d, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
+            <div className="w-full flex items-end justify-center gap-1 flex-1">
+              <div className="w-1/2 max-w-[14px] rounded-t bg-gray-200" style={{ height: `${Math.max((d.envoyes / max) * 100, d.envoyes > 0 ? 4 : 0)}%` }} title={`${d.envoyes} envoyés`} />
+              <div className="w-1/2 max-w-[14px] rounded-t bg-primary" style={{ height: `${Math.max((d.acceptes / max) * 100, d.acceptes > 0 ? 4 : 0)}%` }} title={`${d.acceptes} acceptés`} />
+            </div>
+            <span className="text-[11px] text-gray-400">{d.label}</span>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -332,6 +393,14 @@ export default async function DashboardPage() {
                       <div className="flex items-center gap-3 py-2 hover:bg-gray-50 rounded-xl px-2 -mx-2 transition-colors">
                         <span className="grid place-items-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0"><HardHat className="w-4 h-4" /></span>
                         <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{c.title}</span>
+                        {c.retardJours > 0 && (
+                          <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-rose-600 flex-shrink-0">
+                            <AlertTriangle className="w-3 h-3" /> {c.retardJours}j
+                          </span>
+                        )}
+                        <span className={`hidden md:inline-flex items-center gap-1 text-[11px] font-medium flex-shrink-0 ${c.sansEquipe ? 'text-amber-600' : 'text-emerald-600'}`}>
+                          {c.sansEquipe ? <><AlertTriangle className="w-3 h-3" /> Sans équipe</> : <><CheckCircle2 className="w-3 h-3" /> Équipe OK</>}
+                        </span>
                         <Badge className={`${projectStatusColors[c.status as ProjectStatus] || 'bg-gray-100 text-gray-700'} border-0 text-xs flex-shrink-0`}>
                           {projectStatusLabels[c.status as ProjectStatus] || c.status}
                         </Badge>
@@ -351,6 +420,16 @@ export default async function DashboardPage() {
         <Card className="border border-gray-200/80 bg-white">
           <CardContent className="p-5">
             <EncaissementsChart series={d.series} />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 4b. Devis envoyés vs acceptés */}
+      <div className="animate-fade-up" style={{ animationDelay: '195ms' }}>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Devis envoyés vs acceptés</h2>
+        <Card className="border border-gray-200/80 bg-white">
+          <CardContent className="p-5">
+            <DevisBars data={d.devisSeries} />
           </CardContent>
         </Card>
       </div>
