@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
-  ReceiptText, Camera, Upload, Trash2, Search, HardHat, FileText, Check, Send, Loader2, Download,
+  ReceiptText, Camera, Upload, Trash2, Search, HardHat, FileText, Check, Send, Loader2, Download, Pencil,
 } from 'lucide-react'
 import type { Expense, ExpenseStatus } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -23,6 +23,7 @@ type Exp = Expense & { signedUrl?: string }
 type ProjectOption = { id: string; title: string }
 
 type Draft = {
+  id?: string
   storage_path: string; signedUrl?: string
   supplier: string; date: string
   amount_ttc: string; amount_ht: string; vat_amount: string; vat_rate: string
@@ -101,6 +102,20 @@ export default function TicketsManager({
 
   function setField(k: keyof Draft, v: string) { setDraft(d => (d ? { ...d, [k]: v } : d)) }
 
+  function startEdit(exp: Exp) {
+    setDraft({
+      id: exp.id,
+      storage_path: exp.storage_path || '', signedUrl: exp.signedUrl,
+      supplier: str(exp.supplier), date: str(exp.expense_date),
+      amount_ttc: str(exp.amount_ttc), amount_ht: str(exp.amount_ht),
+      vat_amount: str(exp.vat_amount), vat_rate: str(exp.vat_rate),
+      category: str(exp.category), payment_method: str(exp.payment_method),
+      ticket_number: str(exp.ticket_number),
+      project_id: str(exp.project_id), notes: str(exp.notes),
+    })
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
   async function handleSave() {
     if (!draft) return
     if (!draft.amount_ttc) { toast.error('Indiquez au moins le montant TTC'); return }
@@ -110,8 +125,7 @@ export default function TicketsManager({
     if (!user) { setSaving(false); return }
 
     const num = (v: string) => (v === '' ? null : Number(v.replace(',', '.')))
-    const { error } = await supabase.from('expenses').insert({
-      user_id: user.id,
+    const payload = {
       project_id: draft.project_id || null,
       supplier: draft.supplier || null,
       expense_date: draft.date || null,
@@ -124,12 +138,13 @@ export default function TicketsManager({
       ticket_number: draft.ticket_number || null,
       storage_path: draft.storage_path || null,
       notes: draft.notes || null,
-      status: 'a_verifier',
-      source: 'ticket',
-    })
+    }
+    const { error } = draft.id
+      ? await supabase.from('expenses').update(payload).eq('id', draft.id)
+      : await supabase.from('expenses').insert({ ...payload, user_id: user.id, status: 'a_verifier', source: 'ticket' })
     setSaving(false)
     if (error) { toast.error('Erreur lors de l\'enregistrement'); return }
-    toast.success('Ticket enregistré !')
+    toast.success(draft.id ? 'Ticket modifié' : 'Ticket enregistré !')
     setDraft(null)
     router.refresh()
   }
@@ -210,7 +225,7 @@ export default function TicketsManager({
         <Card className="border-2 border-primary/30">
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium text-primary">
-              <Camera className="w-4 h-4" /> Vérifiez les informations lues, puis enregistrez
+              <Camera className="w-4 h-4" /> {draft.id ? 'Corriger le ticket' : 'Vérifiez les informations lues, puis enregistrez'}
             </div>
             <div className="grid md:grid-cols-[1fr_220px] gap-4">
               <div className="space-y-3">
@@ -313,6 +328,7 @@ export default function TicketsManager({
                     <div className="flex items-center flex-wrap gap-2 mt-1 text-xs text-gray-500">
                       {exp.category && <Badge variant="outline" className="text-xs">{exp.category}</Badge>}
                       {exp.expense_date && <span>{formatDate(exp.expense_date)}</span>}
+                      {Number(exp.vat_amount) > 0 && <span>TVA {formatCurrency(Number(exp.vat_amount))}</span>}
                       {pr && (
                         <Link href={`/chantiers/${exp.project_id}`} className="flex items-center gap-1 hover:text-blue-600">
                           <HardHat className="w-3 h-3" />{pr.title}
@@ -333,6 +349,8 @@ export default function TicketsManager({
                       <button onClick={() => changeStatus(exp, 'envoye_comptable')} title="Marquer envoyé à la comptable"
                         className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-violet-600 hover:bg-gray-50"><Send className="w-4 h-4" /></button>
                     )}
+                    <button onClick={() => startEdit(exp)} title="Corriger"
+                      className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-blue-600 hover:bg-gray-50"><Pencil className="w-4 h-4" /></button>
                     <button onClick={() => handleDelete(exp)} title="Supprimer"
                       className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-50"><Trash2 className="w-4 h-4" /></button>
                   </div>
