@@ -4,11 +4,26 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, MapPin, User, Calendar, FileText, Receipt, ScanLine, Edit, HardHat, FolderOpen, ReceiptText, Clock, TrendingUp } from 'lucide-react'
+import {
+  ArrowLeft, MapPin, User, Calendar, FileText, Receipt, ScanLine, Edit, HardHat,
+  FolderOpen, ReceiptText, Clock, Navigation, Camera, Users2, Truck, Store, Plus,
+} from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Project, ProjectStatus } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
 import StatusSelect from '../StatusSelect'
+
+const num = (v: unknown) => Number(v) || 0
+
+// Magasins / fournisseurs suggérés selon le métier (doc §10.3 — bloc magasins autour)
+const SUPPLIERS: { test: RegExp; label: string; query: string }[] = [
+  { test: /plomb|sanitaire|chauff|salle de bain/i, label: 'Fournisseurs plomberie', query: 'fournisseur plomberie sanitaire' },
+  { test: /électr|elec/i, label: 'Matériel électrique', query: 'fournisseur matériel électrique' },
+  { test: /peint/i, label: 'Magasins de peinture', query: 'magasin de peinture' },
+  { test: /menuis|bois|parquet/i, label: 'Bois & quincaillerie', query: 'fournisseur bois quincaillerie' },
+  { test: /carrel|sol|fa[iï]ence/i, label: 'Carrelage & revêtements', query: 'magasin carrelage revêtement' },
+  { test: /ma[çc]on|gros[\s-]?œuvre|béton|placo|plaqu/i, label: 'Matériaux de construction', query: 'matériaux de construction' },
+]
 
 export default async function ChantierPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -19,173 +34,220 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
   const { data: project } = await supabase
     .from('projects')
     .select('*, clients(id, type, first_name, last_name, company_name)')
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .single()
+    .eq('id', id).eq('user_id', user.id).single()
 
   if (!project) return notFound()
   type LinkedClient = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null }
   const p = project as Project & { clients?: LinkedClient | null }
 
-  const [{ data: quotes }, { data: invoices }, { data: plans }, { data: documents }, { data: expenses }, { data: timeEntries }, { data: employees }] = await Promise.all([
+  const [
+    { data: quotes }, { data: invoices }, { data: plans }, { data: documents },
+    { data: expenses }, { data: timeEntries }, { data: employees },
+    { data: assignments }, { data: vehicleLogs }, { data: vehicles },
+  ] = await Promise.all([
     supabase.from('quotes').select('id,quote_number,status,total_ttc,subtotal_ht,issue_date').eq('project_id', id).order('created_at', { ascending: false }),
-    supabase.from('invoices').select('id,invoice_number,status,amount_due,issue_date').eq('project_id', id).order('created_at', { ascending: false }),
+    supabase.from('invoices').select('id,invoice_number,status,total_ttc,amount_due,issue_date').eq('project_id', id).order('created_at', { ascending: false }),
     supabase.from('plan_uploads').select('id,original_filename,analysis_status,created_at').eq('project_id', id).order('created_at', { ascending: false }),
     supabase.from('documents').select('id,name,category').eq('project_id', id).order('created_at', { ascending: false }),
     supabase.from('expenses').select('id,supplier,amount_ttc,amount_ht,category,expense_date').eq('project_id', id).neq('status', 'archive').order('created_at', { ascending: false }),
     supabase.from('time_entries').select('hours,employee_id').eq('project_id', id),
-    supabase.from('employees').select('id,hourly_cost').eq('user_id', user.id),
+    supabase.from('employees').select('id,full_name,role,color,hourly_cost').eq('user_id', user.id),
+    supabase.from('assignments').select('employee_id').eq('project_id', id),
+    supabase.from('vehicle_logs').select('vehicle_id').eq('project_id', id),
+    supabase.from('vehicles').select('id,name,plate').eq('user_id', user.id),
   ])
 
-  const totalDepenses = (expenses || []).reduce((s, e) => s + (Number(e.amount_ttc) || 0), 0)
-  const totalHeures = (timeEntries || []).reduce((s, t) => s + (Number(t.hours) || 0), 0)
+  const isSigned = (s: string) => s === 'accepte' || s === 'transforme'
+  const isOpen = (s: string) => s === 'envoyee' || s === 'en_retard' || s === 'payee_partiellement'
 
-  // Marge estimée = revenu signé (devis acceptés HT) − dépenses HT − coût main-d'œuvre
-  const empCost = new Map((employees || []).map(e => [e.id, Number(e.hourly_cost) || 0]))
-  const revenuSigne = (quotes || [])
-    .filter(q => q.status === 'accepte' || q.status === 'transforme')
-    .reduce((s, q) => s + (Number(q.subtotal_ht) || 0), 0)
-  const coutDepensesHt = (expenses || []).reduce((s, e) => s + (Number(e.amount_ht) || Number(e.amount_ttc) || 0), 0)
-  const coutMainOeuvre = (timeEntries || []).reduce((s, t) => s + (Number(t.hours) || 0) * (empCost.get(t.employee_id) || 0), 0)
+  const totalDepenses = (expenses || []).reduce((s, e) => s + num(e.amount_ttc), 0)
+  const totalHeures = (timeEntries || []).reduce((s, t) => s + num(t.hours), 0)
+  const empCost = new Map((employees || []).map(e => [e.id, num(e.hourly_cost)]))
+  const empById = new Map((employees || []).map(e => [e.id, e]))
+
+  // Bloc financier (admin)
+  const revenuSigne = (quotes || []).filter(q => isSigned(q.status)).reduce((s, q) => s + num(q.subtotal_ht), 0)
+  const montantDevis = (quotes || []).filter(q => isSigned(q.status)).reduce((s, q) => s + num(q.total_ttc), 0)
+    || (quotes || []).reduce((s, q) => s + num(q.total_ttc), 0)
+  const facture = (invoices || []).filter(i => i.status !== 'brouillon' && i.status !== 'annulee').reduce((s, i) => s + num(i.total_ttc), 0)
+  const encaisse = (invoices || []).filter(i => i.status !== 'annulee').reduce((s, i) => s + (num(i.total_ttc) - num(i.amount_due)), 0)
+  const reste = (invoices || []).filter(i => isOpen(i.status)).reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
+  const coutDepensesHt = (expenses || []).reduce((s, e) => s + (num(e.amount_ht) || num(e.amount_ttc)), 0)
+  const coutMainOeuvre = (timeEntries || []).reduce((s, t) => s + num(t.hours) * (empCost.get(t.employee_id) || 0), 0)
   const marge = revenuSigne - coutDepensesHt - coutMainOeuvre
   const margePct = revenuSigne > 0 ? Math.round((marge / revenuSigne) * 100) : null
-  const hasMargeData = revenuSigne > 0 || coutDepensesHt > 0 || coutMainOeuvre > 0
+
+  // Bloc équipe
+  const assignedIds = [...new Set((assignments || []).map(a => a.employee_id))]
+  const team = assignedIds.map(eid => empById.get(eid)).filter((e): e is NonNullable<typeof e> => !!e)
+  const chef = team.find(e => e.role?.toLowerCase().includes('chef'))
+  const vehById = new Map((vehicles || []).map(v => [v.id, v]))
+  const projVehicles = [...new Set((vehicleLogs || []).map(l => l.vehicle_id))].map(vid => vehById.get(vid)).filter(Boolean)
+
+  // Localisation
+  const addr = p.address?.trim()
+  const enc = addr ? encodeURIComponent(addr) : ''
+  const mapSrc = `https://maps.google.com/maps?q=${enc}&z=15&output=embed`
+  const itineraire = `https://www.google.com/maps/dir/?api=1&destination=${enc}`
+  const applePlans = `https://maps.apple.com/?q=${enc}`
+
+  // Magasins autour (selon métier)
+  const metier = `${p.project_type || ''} ${p.title || ''}`
+  const stores = addr
+    ? [
+        ...SUPPLIERS.filter(s => s.test.test(metier)),
+        { label: 'Bricolage & matériaux', query: 'magasin de bricolage matériaux de construction' },
+      ].map(s => ({ label: s.label, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${s.query} près de ${addr}`)}` }))
+    : []
 
   const devisLink = `/devis/nouveau?project=${id}${p.client_id ? `&client=${p.client_id}` : ''}`
+  const factureLink = p.client_id ? `/factures/nouveau?client=${p.client_id}` : '/factures/nouveau'
 
   return (
-    <div className="space-y-4 max-w-2xl">
-      {/* Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-4 max-w-3xl">
+      {/* En-tête */}
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <Link href="/chantiers">
-            <Button variant="ghost" size="sm" className="gap-1">
-              <ArrowLeft className="w-4 h-4" /> Retour
-            </Button>
-          </Link>
+          <Link href="/chantiers"><Button variant="ghost" size="sm" className="gap-1"><ArrowLeft className="w-4 h-4" /> Retour</Button></Link>
           <h1 className="text-2xl font-bold text-gray-900 truncate">{p.title}</h1>
         </div>
-        <div className="flex gap-2 flex-shrink-0">
-          <Link href={`/chantiers/${id}/modifier`}>
-            <Button variant="outline" size="sm" className="gap-1">
-              <Edit className="w-4 h-4" /> Modifier
-            </Button>
-          </Link>
-          <Link href={devisLink}>
-            <Button size="sm" className="gap-1">
-              <FileText className="w-4 h-4" /> Créer un devis
-            </Button>
-          </Link>
-        </div>
+        <StatusSelect projectId={id} current={p.status as ProjectStatus} />
+      </div>
+
+      {/* Actions (§10.3) */}
+      <div className="flex flex-wrap gap-2">
+        {addr && <a href={itineraire} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1"><Navigation className="w-4 h-4" /> Itinéraire</Button></a>}
+        <Link href={devisLink}><Button size="sm" className="gap-1"><FileText className="w-4 h-4" /> Devis</Button></Link>
+        <Link href={factureLink}><Button variant="outline" size="sm" className="gap-1"><Receipt className="w-4 h-4" /> Facture</Button></Link>
+        <Link href={`/tickets?project=${id}`}><Button variant="outline" size="sm" className="gap-1"><ReceiptText className="w-4 h-4" /> Ticket</Button></Link>
+        <Link href={`/documents?project=${id}`}><Button variant="outline" size="sm" className="gap-1"><Camera className="w-4 h-4" /> Photo / doc</Button></Link>
+        <Link href="/planning"><Button variant="outline" size="sm" className="gap-1"><Users2 className="w-4 h-4" /> Affecter équipe</Button></Link>
+        <Link href={`/chantiers/${id}/modifier`}><Button variant="outline" size="sm" className="gap-1"><Edit className="w-4 h-4" /> Modifier</Button></Link>
       </div>
 
       {/* Infos */}
       <Card>
         <CardContent className="p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            {p.project_type
-              ? <Badge variant="outline" className="gap-1"><HardHat className="w-3 h-3" />{p.project_type}</Badge>
-              : <span className="text-xs text-gray-400">Type à définir</span>}
-            <StatusSelect projectId={id} current={p.status as ProjectStatus} />
-          </div>
+          {p.project_type
+            ? <Badge variant="outline" className="gap-1 w-fit"><HardHat className="w-3 h-3" />{p.project_type}</Badge>
+            : <span className="text-xs text-gray-400">Type à définir</span>}
           {p.clients && (
             <div className="flex items-center gap-2 text-sm">
               <User className="w-4 h-4 text-gray-400" />
-              <Link href={`/clients/${p.client_id}`} className="text-blue-600 hover:underline">
-                {clientDisplayName(p.clients)}
-              </Link>
+              <Link href={`/clients/${p.client_id}`} className="text-blue-600 hover:underline">{clientDisplayName(p.clients)}</Link>
             </div>
           )}
-          {p.address && (
-            <div className="flex items-start gap-2 text-sm">
-              <MapPin className="w-4 h-4 text-gray-400 mt-0.5" />
-              <span className="text-gray-700 whitespace-pre-line">{p.address}</span>
-            </div>
+          {addr && (
+            <div className="flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-gray-400 mt-0.5" /><span className="text-gray-700 whitespace-pre-line">{p.address}</span></div>
           )}
           {(p.start_date || p.end_date) && (
-            <div className="flex items-center gap-2 text-sm">
-              <Calendar className="w-4 h-4 text-gray-400" />
-              <span className="text-gray-700">
-                {p.start_date ? formatDate(p.start_date) : '?'} → {p.end_date ? formatDate(p.end_date) : '?'}
-              </span>
-            </div>
+            <div className="flex items-center gap-2 text-sm"><Calendar className="w-4 h-4 text-gray-400" /><span className="text-gray-700">{p.start_date ? formatDate(p.start_date) : '?'} → {p.end_date ? formatDate(p.end_date) : '?'}</span></div>
           )}
-          {totalHeures > 0 && (
-            <div className="flex items-center gap-2 text-sm">
-              <Clock className="w-4 h-4 text-gray-400" />
-              <span className="text-gray-700">{totalHeures.toFixed(1).replace('.0', '')} h de main-d&apos;œuvre déclarées</span>
-            </div>
-          )}
-          {p.description && (
-            <div className="pt-2 border-t border-gray-100">
-              <p className="text-sm text-gray-700 whitespace-pre-line">{p.description}</p>
-            </div>
-          )}
-          {p.notes && (
-            <div className="pt-2 border-t border-gray-100">
-              <p className="text-xs font-medium text-gray-400 mb-1">Notes internes</p>
-              <p className="text-sm text-gray-500 italic whitespace-pre-line">{p.notes}</p>
-            </div>
-          )}
+          {p.description && <div className="pt-2 border-t border-gray-100"><p className="text-sm text-gray-700 whitespace-pre-line">{p.description}</p></div>}
         </CardContent>
       </Card>
 
-      {/* Marge estimée */}
-      {hasMargeData && (
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-base flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-gray-400" /> Marge estimée
-              {margePct !== null && (
-                <span className={`text-sm font-semibold ${marge >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>· {margePct} %</span>
-              )}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-xs text-gray-400 mb-1">Signé (HT)</p>
-                <p className="text-sm font-semibold text-marine tabular-nums">{formatCurrency(revenuSigne)}</p>
-              </div>
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-xs text-gray-400 mb-1">Coûts</p>
-                <p className="text-sm font-semibold text-gray-600 tabular-nums">{formatCurrency(coutDepensesHt + coutMainOeuvre)}</p>
-              </div>
-              <div className={`rounded-lg p-3 ${marge >= 0 ? 'bg-emerald-50' : 'bg-rose-50'}`}>
-                <p className="text-xs text-gray-400 mb-1">Marge</p>
-                <p className={`text-sm font-semibold tabular-nums ${marge >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>{formatCurrency(marge)}</p>
-              </div>
+      {/* Bloc financier (admin) */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base">Financier {margePct !== null && <span className={`text-sm font-semibold ${marge >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>· marge {margePct} %</span>}</CardTitle></CardHeader>
+        <CardContent className="px-4 pb-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center">
+            <Fin label="Devis" value={montantDevis} />
+            <Fin label="Facturé" value={facture} />
+            <Fin label="Encaissé" value={encaisse} tone="emerald" />
+            <Fin label="Reste à encaisser" value={reste} tone={reste > 0 ? 'amber' : undefined} />
+            <Fin label="Dépenses" value={totalDepenses} tone="rose" />
+            <Fin label="Marge estimée" value={marge} tone={marge >= 0 ? 'emerald' : 'rose'} />
+          </div>
+          <p className="text-[11px] text-gray-400 mt-2.5 leading-snug">
+            Marge = signé HT ({formatCurrency(revenuSigne)}) − dépenses HT ({formatCurrency(coutDepensesHt)}) − main-d&apos;œuvre ({formatCurrency(coutMainOeuvre)}). {totalHeures > 0 && `${totalHeures.toFixed(1).replace('.0', '')} h déclarées.`}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Bloc équipe */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2"><Users2 className="w-4 h-4 text-gray-400" /> Équipe ({team.length})</CardTitle>
+          <Link href="/planning"><Button variant="outline" size="sm">Affecter</Button></Link>
+        </CardHeader>
+        <CardContent className="px-4 pb-4 space-y-3">
+          {team.length === 0 ? (
+            <p className="text-sm text-gray-400 py-1">Aucun salarié affecté. <Link href="/planning" className="text-primary hover:underline">Affecter une équipe</Link></p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {team.map(e => (
+                <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 border border-gray-200 pl-1.5 pr-2.5 py-1 text-sm">
+                  <span className="w-5 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: e.color || '#94A3B8' }} />
+                  {e.full_name}
+                  {e.id === chef?.id && <Badge className="bg-violet-100 text-violet-700 border-0 text-[10px]">chef</Badge>}
+                </span>
+              ))}
             </div>
-            <p className="text-[11px] text-gray-400 mt-2.5 leading-snug">
-              Détail des coûts : {formatCurrency(coutDepensesHt)} de dépenses + {formatCurrency(coutMainOeuvre)} de main-d&apos;œuvre.
-              {revenuSigne === 0 && ' Aucun devis accepté rattaché pour l’instant.'}
-            </p>
+          )}
+          <div className="flex flex-wrap gap-4 text-sm pt-1">
+            <span className="flex items-center gap-1.5 text-gray-600"><Clock className="w-4 h-4 text-gray-400" />{totalHeures.toFixed(1).replace('.0', '')} h déclarées</span>
+            {projVehicles.length > 0 && (
+              <span className="flex items-center gap-1.5 text-gray-600"><Truck className="w-4 h-4 text-gray-400" />{projVehicles.map(v => v!.name + (v!.plate ? ` (${v!.plate})` : '')).join(', ')}</span>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Bloc localisation */}
+      {addr && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" /> Localisation</CardTitle></CardHeader>
+          <CardContent className="px-4 pb-4 space-y-3">
+            <div className="rounded-xl overflow-hidden border border-gray-200">
+              <iframe title="Carte du chantier" src={mapSrc} width="100%" height="200" loading="lazy" className="block" referrerPolicy="no-referrer-when-downgrade" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <a href={itineraire} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1"><Navigation className="w-4 h-4" /> Itinéraire (Google)</Button></a>
+              <a href={applePlans} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1"><MapPin className="w-4 h-4" /> Apple Plans</Button></a>
+            </div>
           </CardContent>
+        </Card>
+      )}
+
+      {/* Bloc magasins autour */}
+      {stores.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><Store className="w-4 h-4 text-gray-400" /> Magasins utiles autour</CardTitle></CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="flex flex-wrap gap-2">
+              {stores.map(s => (
+                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer">
+                  <Button variant="outline" size="sm" className="gap-1"><Store className="w-3.5 h-3.5" /> {s.label}</Button>
+                </a>
+              ))}
+            </div>
+            <p className="text-[11px] text-gray-400 mt-2">Recherche les fournisseurs adaptés au métier, près de l&apos;adresse du chantier.</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Notes & accès chantier */}
+      {p.notes && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base">Notes &amp; accès chantier</CardTitle></CardHeader>
+          <CardContent className="px-4 pb-4"><p className="text-sm text-gray-600 whitespace-pre-line">{p.notes}</p></CardContent>
         </Card>
       )}
 
       {/* Devis liés */}
       <Card>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="w-4 h-4 text-gray-400" /> Devis ({quotes?.length || 0})
-          </CardTitle>
-          <Link href={devisLink}>
-            <Button variant="outline" size="sm">+ Devis</Button>
-          </Link>
+          <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /> Devis ({quotes?.length || 0})</CardTitle>
+          <Link href={devisLink}><Button variant="outline" size="sm">+ Devis</Button></Link>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          {!quotes?.length ? (
-            <p className="text-sm text-gray-400 py-2">Aucun devis rattaché à ce chantier</p>
-          ) : (
+          {!quotes?.length ? <p className="text-sm text-gray-400 py-2">Aucun devis rattaché</p> : (
             <div className="space-y-2">
               {quotes.map(q => (
                 <Link key={q.id} href={`/devis/${q.id}`}>
                   <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <div>
-                      <span className="font-mono text-xs text-gray-400">{q.quote_number}</span>
-                      <span className="ml-2 text-sm text-gray-700">{formatDate(q.issue_date)}</span>
-                    </div>
+                    <div><span className="font-mono text-xs text-gray-400">{q.quote_number}</span><span className="ml-2 text-sm text-gray-700">{formatDate(q.issue_date)}</span></div>
                     <span className="text-sm font-semibold">{formatCurrency(q.total_ttc)}</span>
                   </div>
                 </Link>
@@ -197,21 +259,15 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
 
       {/* Factures liées */}
       <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Receipt className="w-4 h-4 text-gray-400" /> Factures ({invoices?.length || 0})
-          </CardTitle>
-        </CardHeader>
+        <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><Receipt className="w-4 h-4 text-gray-400" /> Factures ({invoices?.length || 0})</CardTitle></CardHeader>
         <CardContent className="px-4 pb-4">
-          {!invoices?.length ? (
-            <p className="text-sm text-gray-400 py-2">Aucune facture rattachée</p>
-          ) : (
+          {!invoices?.length ? <p className="text-sm text-gray-400 py-2">Aucune facture rattachée</p> : (
             <div className="space-y-2">
               {invoices.map(inv => (
                 <Link key={inv.id} href={`/factures/${inv.id}`}>
                   <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
                     <span className="font-mono text-xs text-gray-400">{inv.invoice_number}</span>
-                    <span className="text-sm font-semibold">{formatCurrency(inv.amount_due)}</span>
+                    <span className="text-sm font-semibold">{formatCurrency(num(inv.amount_due) || num(inv.total_ttc))}</span>
                   </div>
                 </Link>
               ))}
@@ -223,18 +279,11 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       {/* Dépenses liées */}
       <Card>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <ReceiptText className="w-4 h-4 text-gray-400" /> Dépenses ({expenses?.length || 0})
-            {totalDepenses > 0 && <span className="text-sm font-normal text-gray-500">· {formatCurrency(totalDepenses)}</span>}
-          </CardTitle>
-          <Link href={`/tickets?project=${id}`}>
-            <Button variant="outline" size="sm">+ Ticket</Button>
-          </Link>
+          <CardTitle className="text-base flex items-center gap-2"><ReceiptText className="w-4 h-4 text-gray-400" /> Dépenses ({expenses?.length || 0}){totalDepenses > 0 && <span className="text-sm font-normal text-gray-500">· {formatCurrency(totalDepenses)}</span>}</CardTitle>
+          <Link href={`/tickets?project=${id}`}><Button variant="outline" size="sm">+ Ticket</Button></Link>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          {!expenses?.length ? (
-            <p className="text-sm text-gray-400 py-2">Aucune dépense rattachée</p>
-          ) : (
+          {!expenses?.length ? <p className="text-sm text-gray-400 py-2">Aucune dépense rattachée</p> : (
             <div className="space-y-2">
               {expenses.map(exp => (
                 <Link key={exp.id} href="/depenses">
@@ -244,7 +293,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
                       <span className="text-sm text-gray-700 truncate">{exp.supplier || 'Dépense'}</span>
                       {exp.category && <Badge variant="outline" className="text-xs flex-shrink-0">{exp.category}</Badge>}
                     </div>
-                    <span className="text-sm font-semibold flex-shrink-0">{formatCurrency(Number(exp.amount_ttc) || 0)}</span>
+                    <span className="text-sm font-semibold flex-shrink-0">{formatCurrency(num(exp.amount_ttc))}</span>
                   </div>
                 </Link>
               ))}
@@ -256,25 +305,16 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       {/* Documents liés */}
       <Card>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FolderOpen className="w-4 h-4 text-gray-400" /> Documents ({documents?.length || 0})
-          </CardTitle>
-          <Link href={`/documents?project=${id}`}>
-            <Button variant="outline" size="sm">+ Document</Button>
-          </Link>
+          <CardTitle className="text-base flex items-center gap-2"><FolderOpen className="w-4 h-4 text-gray-400" /> Documents ({documents?.length || 0})</CardTitle>
+          <Link href={`/documents?project=${id}`}><Button variant="outline" size="sm"><Plus className="w-3.5 h-3.5" /> Document</Button></Link>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          {!documents?.length ? (
-            <p className="text-sm text-gray-400 py-2">Aucun document rattaché</p>
-          ) : (
+          {!documents?.length ? <p className="text-sm text-gray-400 py-2">Aucun document rattaché</p> : (
             <div className="space-y-2">
               {documents.map(doc => (
                 <Link key={doc.id} href={`/documents?project=${id}`}>
                   <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <span className="text-sm text-gray-700 truncate">{doc.name}</span>
-                    </div>
+                    <div className="flex items-center gap-2 min-w-0"><FileText className="w-4 h-4 text-gray-400 flex-shrink-0" /><span className="text-sm text-gray-700 truncate">{doc.name}</span></div>
                     {doc.category && <Badge variant="outline" className="text-xs flex-shrink-0">{doc.category}</Badge>}
                   </div>
                 </Link>
@@ -287,11 +327,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       {/* Plans liés */}
       {!!plans?.length && (
         <Card>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-base flex items-center gap-2">
-              <ScanLine className="w-4 h-4 text-gray-400" /> Plans ({plans.length})
-            </CardTitle>
-          </CardHeader>
+          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><ScanLine className="w-4 h-4 text-gray-400" /> Plans ({plans.length})</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="space-y-2">
               {plans.map(pl => (
@@ -304,6 +340,17 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           </CardContent>
         </Card>
       )}
+    </div>
+  )
+}
+
+function Fin({ label, value, tone }: { label: string; value: number; tone?: 'emerald' | 'rose' | 'amber' }) {
+  const color = tone === 'emerald' ? 'text-emerald-600' : tone === 'rose' ? 'text-rose-600' : tone === 'amber' ? 'text-amber-600' : 'text-marine'
+  const bg = tone === 'emerald' ? 'bg-emerald-50' : tone === 'rose' ? 'bg-rose-50' : tone === 'amber' ? 'bg-amber-50' : 'bg-gray-50'
+  return (
+    <div className={`rounded-lg ${bg} p-3`}>
+      <p className="text-[11px] text-gray-400 mb-1">{label}</p>
+      <p className={`text-sm font-semibold tabular-nums ${color}`}>{formatCurrency(value)}</p>
     </div>
   )
 }
