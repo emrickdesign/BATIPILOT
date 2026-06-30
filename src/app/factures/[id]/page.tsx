@@ -9,9 +9,10 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import InvoiceActions from './InvoiceActions'
 
 const statusLabels: Record<string, string> = {
-  brouillon: 'Brouillon', envoyee: 'Envoyée', payee_partiellement: 'Partiellement payée',
+  brouillon: 'À préparer', envoyee: 'Envoyée', payee_partiellement: 'Partiellement payée',
   payee: 'Payée ✓', en_retard: 'En retard ⚠', annulee: 'Annulée',
 }
+const today = new Date().toISOString().split('T')[0]
 const statusColors: Record<string, string> = {
   brouillon: 'bg-gray-100 text-gray-700', envoyee: 'bg-blue-100 text-blue-700',
   payee_partiellement: 'bg-yellow-100 text-yellow-700', payee: 'bg-green-100 text-green-700',
@@ -45,6 +46,9 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
     m2: 'm²', ml: 'ml', u: 'unité', forfait: 'forfait', h: 'heure', j: 'jour', piece: 'pièce'
   }
 
+  const dispStatus = (invoice.status === 'envoyee' || invoice.status === 'payee_partiellement') && invoice.due_date && invoice.due_date < today
+    ? 'en_retard' : invoice.status
+
   return (
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-center justify-between">
@@ -57,8 +61,8 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
           <div>
             <div className="flex items-center gap-2">
               <span className="font-mono text-sm text-gray-400">{invoice.invoice_number}</span>
-              <Badge className={`${statusColors[invoice.status]} border-0 text-xs`}>
-                {statusLabels[invoice.status]}
+              <Badge className={`${statusColors[dispStatus]} border-0 text-xs`}>
+                {statusLabels[dispStatus]}
               </Badge>
             </div>
             <h1 className="text-xl font-bold text-gray-900">{clientName}</h1>
@@ -72,7 +76,12 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
         invoiceNumber={invoice.invoice_number}
         clientEmail={client?.email}
         clientPhone={client?.phone}
+        clientName={clientName}
         companyName={company?.trade_name}
+        issueDate={invoice.issue_date}
+        subtotalHt={invoice.subtotal_ht}
+        totalVat={invoice.total_vat}
+        totalTtc={invoice.total_ttc}
         amountDue={invoice.amount_due}
       />
 
