@@ -7,12 +7,13 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Mail, RefreshCw, Trash2, Reply, Send, Mic, MicOff, Sparkles, Loader2, Download } from 'lucide-react'
+import { Mail, RefreshCw, Trash2, Reply, Send, Mic, MicOff, Sparkles, Loader2, Download, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 
 const TABS = [
   { key: 'all', label: 'Tout', categories: null },
+  { key: 'urgent', label: 'Urgents', categories: null },
   { key: 'client', label: 'Clients', categories: ['demande_devis', 'client_a_repondre', 'relance_client'] },
   { key: 'devis', label: 'Devis', categories: ['demande_devis'] },
   { key: 'facture', label: 'Factures', categories: ['facture_recue'] },
@@ -224,10 +225,32 @@ export default function EmailsPage() {
     recognitionRef.current = r; r.start(); setRecording(true)
   }
 
+  const matchTab = (t: typeof TABS[number] | undefined, e: any) => {
+    if (!t || t.key === 'all') return true
+    if (t.key === 'urgent') return e.importance === 'urgent'
+    return t.categories ? t.categories.includes(e.category) : true
+  }
   const tab = TABS.find(t => t.key === activeTab)
-  const filtered = !tab?.categories ? emails : emails.filter(e => tab.categories!.includes(e.category))
+  const filtered = emails.filter(e => matchTab(tab, e))
   const counts: Record<string, number> = {}
-  TABS.forEach(t => { counts[t.key] = !t.categories ? emails.length : emails.filter(e => t.categories!.includes(e.category)).length })
+  TABS.forEach(t => { counts[t.key] = emails.filter(e => matchTab(t, e)).length })
+
+  async function createProspect(email: any) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const name = (email.from_name || '').trim()
+    const [first, ...rest] = name.split(' ')
+    const { data: client, error } = await supabase.from('clients').insert({
+      user_id: user.id, type: 'particulier',
+      first_name: first || null, last_name: rest.join(' ') || null,
+      email: email.from_email || null, status: 'nouveau',
+    }).select().single()
+    if (error || !client) { toast.error('Erreur création prospect'); return }
+    await supabase.from('emails').update({ linked_client_id: client.id }).eq('id', email.id)
+    toast.success('Prospect créé depuis l\'email')
+    window.location.href = `/clients/${client.id}`
+  }
 
   const progressPct = importState.toProcess > 0 ? Math.round((importState.processed / importState.toProcess) * 100) : 0
 
@@ -307,6 +330,15 @@ export default function EmailsPage() {
                       <Button size="sm" variant="outline" className="h-8 px-2 gap-1 text-xs border-blue-200 text-blue-600 hover:bg-blue-50" onClick={() => openReply(email)}>
                         <Reply className="w-3 h-3" /> Répondre
                       </Button>
+                      {email.linked_client_id ? (
+                        <Link href={`/clients/${email.linked_client_id}`}>
+                          <Button size="sm" variant="outline" className="h-8 px-2 gap-1 text-xs">Client</Button>
+                        </Link>
+                      ) : (
+                        <Button size="sm" variant="outline" className="h-8 px-2 gap-1 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => createProspect(email)} title="Créer un prospect depuis cet email">
+                          <UserPlus className="w-3 h-3" /> Prospect
+                        </Button>
+                      )}
                       <Button size="sm" variant="outline" className="h-8 px-2 text-red-500 border-red-100 hover:bg-red-50" onClick={() => handleTrash(email)}>
                         <Trash2 className="w-3 h-3" />
                       </Button>
