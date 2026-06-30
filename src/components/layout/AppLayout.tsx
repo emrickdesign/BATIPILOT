@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Mail, FileText, Receipt,
-  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, Camera, Landmark, Truck, Sparkles, ShieldCheck, GitCompare, Sun
+  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, CreditCard, Truck, Sparkles
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { isPole } from '@/lib/roles'
@@ -16,8 +16,6 @@ type NavLink = { href: string; label: string; icon: any }
 // Accès direct (hors groupes), épinglé en haut
 const topNav: NavLink[] = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
-  { href: '/resume', label: 'Résumé du jour', icon: Sun },
-  { href: '/reporting', label: 'Reporting', icon: BarChart3 },
 ]
 
 // Familles repliables
@@ -29,30 +27,28 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
       { href: '/prospects', label: 'Prospects', icon: UserPlus },
       { href: '/clients', label: 'Clients', icon: Users },
       { href: '/devis', label: 'Devis', icon: FileText },
-      { href: '/factures', label: 'Factures', icon: Receipt },
       { href: '/relances', label: 'Relances', icon: BellRing },
     ],
   },
   {
     id: 'chantiers',
-    label: 'Chantiers & terrain',
+    label: 'Chantiers & équipes',
     items: [
       { href: '/chantiers', label: 'Chantiers', icon: HardHat },
       { href: '/planning', label: 'Planning', icon: CalendarDays },
       { href: '/heures', label: 'Heures', icon: Clock },
-      { href: '/pointage', label: 'Pointage', icon: Camera },
       { href: '/equipe', label: 'Équipe', icon: Users2 },
       { href: '/vehicules', label: 'Véhicules', icon: Truck },
-      { href: '/controle', label: 'Contrôle h/véhic.', icon: GitCompare },
     ],
   },
   {
     id: 'finances',
-    label: 'Finances & docs',
+    label: 'Admin & finances',
     items: [
-      { href: '/tickets', label: 'Scan tickets', icon: ReceiptText },
+      { href: '/factures', label: 'Factures', icon: Receipt },
+      { href: '/banque', label: 'Paiements', icon: CreditCard },
       { href: '/depenses', label: 'Dépenses', icon: Wallet },
-      { href: '/banque', label: 'Banque', icon: Landmark },
+      { href: '/tickets', label: 'Tickets', icon: ReceiptText },
       { href: '/comptable', label: 'Comptable', icon: Calculator },
       { href: '/documents', label: 'Documents', icon: FolderOpen },
     ],
@@ -61,17 +57,17 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
     id: 'outils',
     label: 'Outils',
     items: [
-      { href: '/emails', label: 'Mes mails', icon: Mail },
+      { href: '/emails', label: 'Mails', icon: Mail },
+      { href: '/prix', label: 'Prix', icon: Tag },
+      { href: '/plans', label: 'Analyse de plan', icon: ScanLine },
       { href: '/automatisations', label: 'Automatisations', icon: Sparkles },
-      { href: '/prix', label: 'Mes prix', icon: Tag },
-      { href: '/plans', label: 'Analyser un plan', icon: ScanLine },
-      { href: '/roles', label: 'Utilisateurs & rôles', icon: ShieldCheck },
     ],
   },
 ]
 
-// Accès direct, épinglé en bas
+// Accès direct, épinglé en bas (Reporting + Paramètres)
 const bottomNav: NavLink[] = [
+  { href: '/reporting', label: 'Reporting', icon: BarChart3 },
   { href: '/parametres', label: 'Paramètres', icon: Settings },
 ]
 

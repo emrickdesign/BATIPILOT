@@ -3,7 +3,7 @@ import Link from 'next/link'
 import {
   Wallet, Send, Coins, FileText, Clock, ReceiptText, Camera, Landmark, HardHat,
   Users2, Truck, AlertTriangle, PlayCircle, CalendarClock, CheckCircle2, TrendingUp,
-  Bell, CalendarDays, ArrowRight, Receipt, Users, GitCompare, FileCheck2, BadgeEuro,
+  Bell, CalendarDays, ArrowRight, Receipt, Users, GitCompare, FileCheck2, BadgeEuro, TrendingDown,
   type LucideIcon,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -46,6 +46,12 @@ async function getData(userId: string) {
     const x = new Date(d)
     return x.getFullYear() === now.getFullYear() && x.getMonth() === now.getMonth()
   }
+  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const inLastMonth = (d?: string | null) => {
+    if (!d) return false
+    const x = new Date(d)
+    return x.getFullYear() === lastMonth.getFullYear() && x.getMonth() === lastMonth.getMonth()
+  }
 
   const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes] = await Promise.all([
     supabase.from('quotes').select('id, quote_number, status, total_ttc, issue_date, reminded_at, created_at').eq('user_id', userId),
@@ -75,6 +81,7 @@ async function getData(userId: string) {
 
   // ── 1. Chiffres vitaux ──────────────────────────────────────────────
   const encaisseMois = inv.filter(i => isPaid(i.status) && inThisMonth(i.issue_date)).reduce((s, i) => s + num(i.total_ttc), 0)
+  const encaisseMoisPrec = inv.filter(i => isPaid(i.status) && inLastMonth(i.issue_date)).reduce((s, i) => s + num(i.total_ttc), 0)
   const factureMois = inv.filter(i => i.status !== 'brouillon' && inThisMonth(i.issue_date)).reduce((s, i) => s + num(i.total_ttc), 0)
   const resteAEncaisser = inv.filter(i => isOpenInv(i.status)).reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
   const devisEnAttente = quotes.filter(q => q.status === 'envoye').reduce((s, q) => s + num(q.total_ttc), 0)
@@ -182,7 +189,7 @@ async function getData(userId: string) {
   ].filter(a => a.date).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6)
 
   return {
-    fin: { encaisseMois, factureMois, resteAEncaisser, devisEnAttente },
+    fin: { encaisseMois, encaisseMoisPrec, factureMois, resteAEncaisser, devisEnAttente },
     todos,
     chantiers, chantiersActifs,
     series: { '7j': s7, mois: sMois, trimestre: sTri, annee: sAnnee },
@@ -213,8 +220,19 @@ export default async function DashboardPage() {
   const initials = (profile?.full_name || user.email || 'BP').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
   const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
-  const finCards = [
-    { label: 'Encaissé ce mois', value: formatCurrency(d.fin.encaisseMois), icon: Wallet, tile: 'bg-white/20 text-white', href: '/banque', hero: true },
+  // Variation de l'encaissé vs mois dernier (carte la plus importante — doc §3.1)
+  const encVarPct = d.fin.encaisseMoisPrec > 0
+    ? Math.round(((d.fin.encaisseMois - d.fin.encaisseMoisPrec) / d.fin.encaisseMoisPrec) * 100)
+    : null
+  const encSub: { text: string; positive: boolean } | null =
+    encVarPct !== null
+      ? { text: `${encVarPct >= 0 ? '+' : ''}${encVarPct} % vs mois dernier`, positive: encVarPct >= 0 }
+      : d.fin.encaisseMois > 0
+        ? { text: 'vs 0 € le mois dernier', positive: true }
+        : null
+
+  const finCards: { label: string; value: string; icon: LucideIcon; tile: string; href: string; hero: boolean; sub?: { text: string; positive: boolean } | null }[] = [
+    { label: 'Encaissé ce mois', value: formatCurrency(d.fin.encaisseMois), icon: Wallet, tile: 'bg-white/20 text-white', href: '/banque', hero: true, sub: encSub },
     { label: 'Facturé ce mois', value: formatCurrency(d.fin.factureMois), icon: Send, tile: 'bg-blue-100 text-blue-600', href: '/factures', hero: false },
     { label: 'Reste à encaisser', value: formatCurrency(d.fin.resteAEncaisser), icon: Coins, tile: 'bg-amber-100 text-amber-600', href: '/relances', hero: false },
     { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, tile: 'bg-violet-100 text-violet-600', href: '/devis?statut=envoye', hero: false },
@@ -251,6 +269,12 @@ export default async function DashboardPage() {
                     <span className={`grid place-items-center w-8 h-8 rounded-lg ${k.tile}`}><Icon className="w-4 h-4" /></span>
                   </div>
                   <div className={`text-[24px] md:text-[26px] font-bold mt-2 leading-none ${k.hero ? 'text-white' : 'text-marine'}`}>{k.value}</div>
+                  {k.sub && (
+                    <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${k.hero ? 'text-white/85' : k.sub.positive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {k.sub.positive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                      {k.sub.text}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </Link>
