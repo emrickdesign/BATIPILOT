@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { clientDisplayName } from '@/lib/clients'
+import AutomationRules from './AutomationRules'
 
 const DAY = 86_400_000
 const daysSince = (d?: string | null) => (d ? Math.floor((Date.now() - new Date(d).getTime()) / DAY) : 0)
@@ -97,6 +98,9 @@ export default async function AutomatisationsPage() {
         <p className="text-gray-500 mt-1 text-sm">BatiPilot détecte la prochaine action à faire à chaque étape. Tu valides d&apos;un clic — rien ne part sans toi.</p>
       </div>
 
+      <AutomationRules />
+
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Actions détectées à traiter</h2>
       {suggestions.length === 0 ? (
         <Card className="border border-gray-200/80 bg-white">
           <CardContent className="p-10 text-center">
