@@ -41,12 +41,16 @@ export default function DocumentsManager({
 
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState('')
+  const [clientFilter, setClientFilter] = useState(preselectClient || '')
+  const [projectFilter, setProjectFilter] = useState(preselectProject || '')
 
   const filtered = useMemo(() => documents.filter(d => {
     if (catFilter && d.category !== catFilter) return false
+    if (clientFilter && d.client_id !== clientFilter) return false
+    if (projectFilter && d.project_id !== projectFilter) return false
     if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false
     return true
-  }), [documents, search, catFilter])
+  }), [documents, search, catFilter, clientFilter, projectFilter])
 
   const presentCategories = useMemo(
     () => documentCategoryOptions.filter(c => documents.some(d => d.category === c)),
@@ -171,9 +175,19 @@ export default function DocumentsManager({
       {/* Filtres */}
       {documents.length > 0 && (
         <div className="space-y-2">
-          <div className="relative">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un document..." className="pl-9" />
+          <div className="flex flex-col sm:flex-row gap-2">
+            <div className="relative flex-1">
+              <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un document..." className="pl-9" />
+            </div>
+            <select value={clientFilter} onChange={e => setClientFilter(e.target.value)} className={`${selectClass} sm:w-48`}>
+              <option value="">Tous les clients</option>
+              {clients.map(c => <option key={c.id} value={c.id}>{clientDisplayName(c)}</option>)}
+            </select>
+            <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className={`${selectClass} sm:w-48`}>
+              <option value="">Tous les chantiers</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
           </div>
           {presentCategories.length > 0 && (
             <div className="flex flex-wrap gap-2">
