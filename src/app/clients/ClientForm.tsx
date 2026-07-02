@@ -7,11 +7,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { FormSection } from '@/components/ui/form-section'
 import { toast } from 'sonner'
 import EntrepriseSearch from '@/components/EntrepriseSearch'
 import type { CompanyResult } from '@/lib/siret'
 import type { Client } from '@/types'
+import { entityColors } from '@/lib/entityColors'
+import { User, Building2, IdCard, MapPin, StickyNote } from 'lucide-react'
+
+const COLOR = entityColors.client
 
 export default function ClientForm({ client }: { client?: Client }) {
   const router = useRouter()
@@ -70,30 +74,31 @@ export default function ClientForm({ client }: { client?: Client }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       {/* Type */}
-      <Card>
-        <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-base">Type de client</CardTitle></CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="grid grid-cols-2 gap-3">
-            {(['particulier', 'professionnel'] as const).map(t => (
+      <FormSection icon={type === 'professionnel' ? Building2 : User} color={COLOR} title="Type de client">
+        <div className="grid grid-cols-2 gap-3">
+          {(['particulier', 'professionnel'] as const).map(t => {
+            const TypeIcon = t === 'particulier' ? User : Building2
+            const active = type === t
+            return (
               <button
                 key={t}
                 type="button"
                 onClick={() => setType(t)}
-                className={`py-3 rounded-lg border-2 text-sm font-medium transition-colors ${
-                  type === t ? 'border-primary bg-accent text-primary' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                className={`flex items-center justify-center gap-2 py-3 rounded-lg border-2 text-sm font-medium transition-colors ${
+                  active ? 'border-primary bg-accent text-primary' : 'border-gray-200 text-gray-600 hover:border-gray-300'
                 }`}
               >
-                {t === 'particulier' ? '👤 Particulier' : '🏢 Professionnel'}
+                <TypeIcon className="w-4 h-4" />
+                {t === 'particulier' ? 'Particulier' : 'Professionnel'}
               </button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            )
+          })}
+        </div>
+      </FormSection>
 
       {/* Infos */}
-      <Card>
-        <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-base">Informations</CardTitle></CardHeader>
-        <CardContent className="px-4 pb-4 space-y-3">
+      <FormSection icon={IdCard} color={COLOR} title="Informations" description="Coordonnées et identité du client">
+        <div className="space-y-3">
           {type === 'professionnel' && (
             <>
               <div className="space-y-1">
@@ -131,13 +136,12 @@ export default function ClientForm({ client }: { client?: Client }) {
               <Input id="siret" name="siret" value={siret} onChange={(e) => setSiret(e.target.value)} placeholder="123 456 789 00012" />
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {/* Adresses */}
-      <Card>
-        <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-base">Adresses</CardTitle></CardHeader>
-        <CardContent className="px-4 pb-4 space-y-3">
+      <FormSection icon={MapPin} color={COLOR} title="Adresses">
+        <div className="space-y-3">
           <div className="space-y-1">
             <Label htmlFor="billing_address">Adresse de facturation</Label>
             <Textarea id="billing_address" name="billing_address" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} rows={2} placeholder="12 rue de la Paix, 75001 Paris" />
@@ -146,16 +150,13 @@ export default function ClientForm({ client }: { client?: Client }) {
             <Label htmlFor="site_address">Adresse du chantier (si différente)</Label>
             <Textarea id="site_address" name="site_address" defaultValue={client?.site_address || ''} rows={2} placeholder="Même adresse ou adresse du chantier" />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {/* Notes */}
-      <Card>
-        <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-base">Notes internes</CardTitle></CardHeader>
-        <CardContent className="px-4 pb-4">
-          <Textarea name="notes" defaultValue={client?.notes || ''} rows={3} placeholder="Notes sur ce client (pas visibles par le client)..." />
-        </CardContent>
-      </Card>
+      <FormSection icon={StickyNote} color={COLOR} title="Notes internes">
+        <Textarea name="notes" defaultValue={client?.notes || ''} rows={3} placeholder="Notes sur ce client (pas visibles par le client)..." />
+      </FormSection>
 
       <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
         {loading ? 'Enregistrement...' : isEdit ? 'Enregistrer les modifications' : 'Créer le client'}

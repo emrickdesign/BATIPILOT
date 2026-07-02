@@ -7,9 +7,11 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { FormSection, FormPageTitle } from '@/components/ui/form-section'
+import { entityColors } from '@/lib/entityColors'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp, User, HardHat, Receipt, ListChecks, Settings2 } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import type { Client, PriceItem, QuoteLine } from '@/types'
@@ -222,15 +224,12 @@ function DevisForm() {
             <ArrowLeft className="w-4 h-4" /> Retour
           </Button>
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Nouveau devis</h1>
       </div>
+      <FormPageTitle icon={Receipt} color={entityColors.devis} title="Nouveau devis" />
 
       {/* Client */}
-      <Card>
-        <CardHeader className="pb-3 pt-4 px-4">
-          <CardTitle className="text-base">Client *</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-3">
+      <FormSection icon={User} color={entityColors.devis} title="Client *">
+        <div className="space-y-3">
           <select
             value={selectedClientId}
             onChange={e => setSelectedClientId(e.target.value)}
@@ -248,18 +247,16 @@ function DevisForm() {
           <Link href="/clients/nouveau" className="text-sm text-blue-600 hover:underline">
             + Créer un nouveau client
           </Link>
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {/* Projet */}
-      <Card>
-        <CardHeader className="pb-3 pt-4 px-4">
-          <CardTitle className="text-base">Projet</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-3">
+      <FormSection icon={HardHat} color={entityColors.devis} title="Projet">
+        <div className="space-y-3">
           {projectInfo ? (
             <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-sm text-blue-700">
-              <span>🏗️ Devis rattaché au chantier <strong>{projectInfo.title}</strong></span>
+              <HardHat className="w-4 h-4 flex-shrink-0" />
+              <span>Devis rattaché au chantier <strong>{projectInfo.title}</strong></span>
             </div>
           ) : (
             <div className="space-y-1">
@@ -288,16 +285,17 @@ function DevisForm() {
             <Label>Description générale (optionnel)</Label>
             <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Décrivez brièvement les travaux..." />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {/* Lignes de devis */}
-      <Card>
-        <CardHeader className="pb-3 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Prestations</CardTitle>
-          <span className="text-sm text-gray-400">{lines.length} ligne{lines.length > 1 ? 's' : ''}</span>
-        </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-2">
+      <FormSection
+        icon={ListChecks}
+        color={entityColors.devis}
+        title="Prestations"
+        description={`${lines.length} ligne${lines.length > 1 ? 's' : ''}`}
+      >
+        <div className="space-y-2">
           {lines.map((line) => (
             <div key={line.tempId} className="border border-gray-200 rounded-lg p-3 space-y-2">
               <div className="flex items-start gap-2">
@@ -437,8 +435,8 @@ function DevisForm() {
               </Button>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </FormSection>
 
       {/* Totaux */}
       {lines.length > 0 && (
@@ -469,45 +467,48 @@ function DevisForm() {
       )}
 
       {/* Options */}
-      <Card>
-        <CardHeader
-          className="pb-3 pt-4 px-4 cursor-pointer flex flex-row items-center justify-between"
-          onClick={() => setShowDepot(!showDepot)}
-        >
-          <CardTitle className="text-base">Options (acompte, validité, notes)</CardTitle>
-          {showDepot ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </CardHeader>
-        {showDepot && (
-          <CardContent className="px-4 pb-4 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Acompte (%)</Label>
-                <Input
-                  type="number"
-                  value={depositPercent}
-                  onChange={e => setDepositPercent(e.target.value)}
-                  placeholder="ex: 30"
-                  min="0"
-                  max="100"
-                />
+      <FormSection icon={Settings2} color={entityColors.devis} title="Options (acompte, validité, notes)">
+        <div className="space-y-3">
+          <button
+            type="button"
+            onClick={() => setShowDepot(!showDepot)}
+            className="flex items-center justify-between w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            <span>{showDepot ? 'Masquer les options' : 'Afficher les options'}</span>
+            {showDepot ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+          {showDepot && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label>Acompte (%)</Label>
+                  <Input
+                    type="number"
+                    value={depositPercent}
+                    onChange={e => setDepositPercent(e.target.value)}
+                    placeholder="ex: 30"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label>Validité (jours)</Label>
+                  <Input
+                    type="number"
+                    value={validDays}
+                    onChange={e => setValidDays(e.target.value)}
+                    min="1"
+                  />
+                </div>
               </div>
               <div className="space-y-1">
-                <Label>Validité (jours)</Label>
-                <Input
-                  type="number"
-                  value={validDays}
-                  onChange={e => setValidDays(e.target.value)}
-                  min="1"
-                />
+                <Label>Modalités de paiement <span className="text-gray-400 font-normal">(visible sur le devis)</span></Label>
+                <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Ex: 30% d'acompte à la commande, solde à réception des travaux" />
               </div>
             </div>
-            <div className="space-y-1">
-              <Label>Modalités de paiement <span className="text-gray-400 font-normal">(visible sur le devis)</span></Label>
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Ex: 30% d'acompte à la commande, solde à réception des travaux" />
-            </div>
-          </CardContent>
-        )}
-      </Card>
+          )}
+        </div>
+      </FormSection>
 
       {/* Actions */}
       <div className="flex gap-3 pb-6">

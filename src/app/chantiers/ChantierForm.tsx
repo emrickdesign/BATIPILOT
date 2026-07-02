@@ -7,10 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { FormSection } from '@/components/ui/form-section'
 import { toast } from 'sonner'
 import type { Project, ProjectStatus } from '@/types'
 import { projectStatusLabels, projectStatusOrder, projectTypeOptions, clientDisplayName } from '@/lib/chantiers'
+import { entityColors } from '@/lib/entityColors'
+import { HardHat, MapPin, StickyNote } from 'lucide-react'
+
+const COLOR = entityColors.chantier
 
 type ClientOption = {
   id: string; type: string
@@ -82,11 +86,8 @@ export default function ChantierForm({ project }: { project?: Project }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 animate-fade-up">
       {/* Identité du chantier */}
-      <Card className="border border-gray-200/80">
-        <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-[15px] font-heading text-marine">Identité du chantier</CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-5 space-y-4">
+      <FormSection icon={HardHat} color={COLOR} title="Identité du chantier">
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="title">Nom du chantier *</Label>
             <Input id="title" name="title" required defaultValue={project?.title || ''}
@@ -120,44 +121,43 @@ export default function ChantierForm({ project }: { project?: Project }) {
               </select>
             </div>
           </div>
-          <div className="grid sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
-            <div className="space-y-1.5">
-              <Label htmlFor="address">Adresse du chantier</Label>
-              <Input id="address" name="address" defaultValue={project?.address || ''}
-                placeholder="12 rue de la Paix, 75001 Paris" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="start_date">Début prévu</Label>
-              <Input id="start_date" name="start_date" type="date" defaultValue={project?.start_date || ''} className="w-full sm:w-[150px]" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="end_date">Fin prévue</Label>
-              <Input id="end_date" name="end_date" type="date" defaultValue={project?.end_date || ''} className="w-full sm:w-[150px]" />
-            </div>
+        </div>
+      </FormSection>
+
+      {/* Adresse & planning */}
+      <FormSection icon={MapPin} color={COLOR} title="Adresse & planning">
+        <div className="grid sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
+          <div className="space-y-1.5">
+            <Label htmlFor="address">Adresse du chantier</Label>
+            <Input id="address" name="address" defaultValue={project?.address || ''}
+              placeholder="12 rue de la Paix, 75001 Paris" />
           </div>
-        </CardContent>
-      </Card>
+          <div className="space-y-1.5">
+            <Label htmlFor="start_date">Début prévu</Label>
+            <Input id="start_date" name="start_date" type="date" defaultValue={project?.start_date || ''} className="w-full sm:w-[150px]" />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="end_date">Fin prévue</Label>
+            <Input id="end_date" name="end_date" type="date" defaultValue={project?.end_date || ''} className="w-full sm:w-[150px]" />
+          </div>
+        </div>
+      </FormSection>
 
       {/* Description & notes côte à côte */}
-      <Card className="border border-gray-200/80">
-        <CardHeader className="pb-2 pt-4 px-5">
-          <CardTitle className="text-[15px] font-heading text-marine">Détails</CardTitle>
-        </CardHeader>
-        <CardContent className="px-5 pb-5">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="description">Description des travaux</Label>
-              <Textarea id="description" name="description" rows={4} defaultValue={project?.description || ''}
-                placeholder="Nature et détail des travaux à réaliser..." />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="notes">Notes internes <span className="text-gray-400 font-normal">(privées)</span></Label>
-              <Textarea id="notes" name="notes" rows={4} defaultValue={project?.notes || ''}
-                placeholder="Notes internes, non visibles par le client..." />
-            </div>
+      <FormSection icon={StickyNote} color={COLOR} title="Détails">
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <Label htmlFor="description">Description des travaux</Label>
+            <Textarea id="description" name="description" rows={4} defaultValue={project?.description || ''}
+              placeholder="Nature et détail des travaux à réaliser..." />
           </div>
-        </CardContent>
-      </Card>
+          <div className="space-y-1.5">
+            <Label htmlFor="notes">Notes internes <span className="text-gray-400 font-normal">(privées)</span></Label>
+            <Textarea id="notes" name="notes" rows={4} defaultValue={project?.notes || ''}
+              placeholder="Notes internes, non visibles par le client..." />
+          </div>
+        </div>
+      </FormSection>
 
       {/* Barre d'action collante */}
       <div className="sticky bottom-0 -mx-1 bg-gradient-to-t from-[#FAFAF8] via-[#FAFAF8] to-transparent pt-4 pb-2">

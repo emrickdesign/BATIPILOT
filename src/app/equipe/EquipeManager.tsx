@@ -9,11 +9,15 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
+import { FormSection } from '@/components/ui/form-section'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { Plus, Users, Phone, Mail, Pencil, Trash2, Check, HardHat, Clock, Truck } from 'lucide-react'
+import { Plus, Users, Phone, Mail, Pencil, Trash2, Check, HardHat, Clock, Truck, User, Wrench, Palette, StickyNote } from 'lucide-react'
 import type { Employee } from '@/types'
 import { employeeRoleOptions, skillOptions, employeeColors, employeeInitials } from '@/lib/equipe'
+import { entityColors } from '@/lib/entityColors'
+
+const COLOR = entityColors.salarie
 
 export type EmployeeMeta = {
   chantier: { id: string; title: string } | null
@@ -112,8 +116,8 @@ export default function EquipeManager({ employees, meta }: { employees: Employee
 
       {/* Formulaire ajout/édition */}
       {draft && (
-        <Card className="border-2 border-primary/30">
-          <CardContent className="p-4 space-y-4">
+        <div className="space-y-4">
+          <FormSection icon={User} color={COLOR} title="Identité">
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1"><Label className="text-xs text-gray-500">Nom complet *</Label>
                 <Input value={draft.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Jean Dupont" /></div>
@@ -123,17 +127,20 @@ export default function EquipeManager({ employees, meta }: { employees: Employee
                   {employeeRoleOptions.map(r => <option key={r} value={r}>{r}</option>)}
                 </select></div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-gray-500">Compétences</Label>
-              <div className="flex flex-wrap gap-2">
-                {skillOptions.map(s => (
-                  <button key={s} type="button" onClick={() => toggleSkill(s)}
-                    className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                      draft.skills.includes(s) ? 'border-primary bg-accent text-primary' : 'border-gray-200 text-gray-600 hover:border-gray-300'
-                    }`}>{s}</button>
-                ))}
-              </div>
+          </FormSection>
+
+          <FormSection icon={Wrench} color={COLOR} title="Compétences">
+            <div className="flex flex-wrap gap-2">
+              {skillOptions.map(s => (
+                <button key={s} type="button" onClick={() => toggleSkill(s)}
+                  className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
+                    draft.skills.includes(s) ? 'border-primary bg-accent text-primary' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                  }`}>{s}</button>
+              ))}
             </div>
+          </FormSection>
+
+          <FormSection icon={Phone} color={COLOR} title="Contact & coût">
             <div className="grid sm:grid-cols-3 gap-3">
               <div className="space-y-1"><Label className="text-xs text-gray-500">Téléphone</Label>
                 <Input value={draft.phone} onChange={e => set('phone', e.target.value)} placeholder="06 12 34 56 78" /></div>
@@ -142,24 +149,27 @@ export default function EquipeManager({ employees, meta }: { employees: Employee
               <div className="space-y-1"><Label className="text-xs text-gray-500">Coût horaire (€/h)</Label>
                 <Input type="number" step="0.5" value={draft.hourly_cost} onChange={e => set('hourly_cost', e.target.value)} placeholder="Optionnel" /></div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs text-gray-500">Couleur (planning)</Label>
-              <div className="flex flex-wrap gap-2">
-                {employeeColors.map(c => (
-                  <button key={c} type="button" onClick={() => set('color', c)}
-                    className={`w-7 h-7 rounded-full transition-transform ${draft.color === c ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''}`}
-                    style={{ backgroundColor: c }} aria-label={c} />
-                ))}
-              </div>
+          </FormSection>
+
+          <FormSection icon={Palette} color={COLOR} title="Couleur (planning)">
+            <div className="flex flex-wrap gap-2">
+              {employeeColors.map(c => (
+                <button key={c} type="button" onClick={() => set('color', c)}
+                  className={`w-7 h-7 rounded-full transition-transform ${draft.color === c ? 'ring-2 ring-offset-2 ring-gray-400 scale-110' : ''}`}
+                  style={{ backgroundColor: c }} aria-label={c} />
+              ))}
             </div>
-            <div className="space-y-1"><Label className="text-xs text-gray-500">Notes</Label>
-              <Textarea rows={2} value={draft.notes} onChange={e => set('notes', e.target.value)} placeholder="Permis, habilitations, disponibilités..." /></div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDraft(null)} disabled={saving}>Annuler</Button>
-              <Button onClick={handleSave} disabled={saving}>{saving ? 'Enregistrement...' : draft.id ? 'Enregistrer' : 'Ajouter le salarié'}</Button>
-            </div>
-          </CardContent>
-        </Card>
+          </FormSection>
+
+          <FormSection icon={StickyNote} color={COLOR} title="Notes">
+            <Textarea rows={2} value={draft.notes} onChange={e => set('notes', e.target.value)} placeholder="Permis, habilitations, disponibilités..." />
+          </FormSection>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setDraft(null)} disabled={saving}>Annuler</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? 'Enregistrement...' : draft.id ? 'Enregistrer' : 'Ajouter le salarié'}</Button>
+          </div>
+        </div>
       )}
 
       {/* Liste */}
