@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, Receipt, Send, Coins, AlertTriangle, Banknote, HardHat } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
+import ColoredStatCard from '@/components/ui/colored-stat-card'
+import { statColors } from '@/lib/statColors'
 
 const num = (v: unknown) => Number(v) || 0
 const today = new Date().toISOString().split('T')[0]
@@ -66,11 +68,13 @@ export default async function FacturesPage({ searchParams }: { searchParams: Pro
   const enRetard = all.filter(i => displayStatus(i) === 'en_retard')
   const retardMontant = enRetard.reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
 
+  // Logique couleur (cf src/lib/statColors.ts) : bleu = information neutre, vert = déjà encaissé,
+  // orange = reste à obtenir, rouge = urgent/en retard.
   const cards = [
-    { label: 'Factures envoyées', value: formatCurrency(factEnvoyees), icon: Send, tile: 'bg-blue-100 text-blue-600' },
-    { label: 'Encaissé', value: formatCurrency(encaisse), icon: Banknote, tile: 'bg-emerald-100 text-emerald-600' },
-    { label: 'Reste à encaisser', value: formatCurrency(reste), icon: Coins, tile: 'bg-amber-100 text-amber-600' },
-    { label: 'En retard', value: formatCurrency(retardMontant), icon: AlertTriangle, tile: 'bg-rose-100 text-rose-600', sub: `${enRetard.length} facture${enRetard.length > 1 ? 's' : ''}` },
+    { label: 'Factures envoyées', value: formatCurrency(factEnvoyees), icon: Send, color: statColors.info },
+    { label: 'Encaissé', value: formatCurrency(encaisse), icon: Banknote, color: statColors.success },
+    { label: 'Reste à encaisser', value: formatCurrency(reste), icon: Coins, color: statColors.warning },
+    { label: 'En retard', value: formatCurrency(retardMontant), icon: AlertTriangle, color: statColors.danger, sub: `${enRetard.length} facture${enRetard.length > 1 ? 's' : ''}` },
   ]
 
   const countFor = (key: string) => all.filter(i => matchesFilter(displayStatus(i), key)).length
@@ -88,16 +92,7 @@ export default async function FacturesPage({ searchParams }: { searchParams: Pro
       {/* Cartes (§8.2) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {cards.map(c => (
-          <Card key={c.label} className="border border-gray-200/80 bg-white">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-500 font-medium">{c.label}</span>
-                <span className={`grid place-items-center w-8 h-8 rounded-lg ${c.tile}`}><c.icon className="w-4 h-4" /></span>
-              </div>
-              <div className="text-[22px] font-bold text-marine mt-2 leading-none">{c.value}</div>
-              {c.sub && <div className="text-xs text-gray-400 mt-1">{c.sub}</div>}
-            </CardContent>
-          </Card>
+          <ColoredStatCard key={c.label} label={c.label} value={c.value} color={c.color} icon={c.icon} subText={c.sub} />
         ))}
       </div>
 

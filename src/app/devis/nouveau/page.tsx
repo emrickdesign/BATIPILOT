@@ -409,7 +409,7 @@ function DevisForm() {
                 )}
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { setShowSearch(false); setSearchQuery('') }}>
+                <Button variant="destructive-outline" size="sm" onClick={() => { setShowSearch(false); setSearchQuery('') }}>
                   Annuler
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => addLine()}>

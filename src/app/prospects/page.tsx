@@ -37,50 +37,55 @@ function ActionBtn({ href, label, children, external }: { href: string; label: s
       title={label}
       aria-label={label}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-      className="grid place-items-center w-7 h-7 rounded-lg bg-gray-50 text-gray-500 hover:bg-accent hover:text-primary transition-colors"
+      className="grid place-items-center w-8 h-8 rounded-lg bg-gray-50 text-gray-500 hover:bg-accent hover:text-primary transition-colors"
     >
       {children}
     </a>
   )
 }
 
-function ProspectCard({ p, pot }: { p: Client; pot: number }) {
+function ProspectCard({ p, pot, dot }: { p: Client; pot: number; dot: string }) {
   const wa = waLink(p.phone)
   return (
-    <Card className="border border-gray-200/80 bg-white">
-      <CardContent className="p-3">
-        <div className="flex items-start gap-2.5">
-          <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center flex-shrink-0">
-            {p.type === 'professionnel' ? <Building2 className="w-4 h-4 text-primary" /> : <User className="w-4 h-4 text-primary" />}
+    <Card className="card-interactive border-0 bg-white shadow-[var(--shadow-sm)]">
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className="relative flex-shrink-0">
+            <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
+              {p.type === 'professionnel' ? <Building2 className="w-[18px] h-[18px] text-primary" /> : <User className="w-[18px] h-[18px] text-primary" />}
+            </div>
+            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white" style={{ backgroundColor: dot }} />
           </div>
           <div className="min-w-0 flex-1">
-            <Link href={`/clients/${p.id}`} className="font-semibold text-sm text-gray-900 hover:text-primary truncate block leading-tight">
+            <Link href={`/clients/${p.id}`} className="font-semibold text-[15px] text-gray-900 hover:text-primary truncate block leading-tight">
               {clientDisplayName(p)}
             </Link>
-            <div className="mt-1 space-y-0.5 text-xs text-gray-500">
-              {p.phone && <div className="flex items-center gap-1 truncate"><Phone className="w-3 h-3 flex-shrink-0" />{p.phone}</div>}
-              {p.email && <div className="flex items-center gap-1 truncate"><Mail className="w-3 h-3 flex-shrink-0" />{p.email}</div>}
+            <div className="mt-1.5 space-y-1 text-xs text-gray-500">
+              {p.phone && <div className="flex items-center gap-1.5 truncate"><Phone className="w-3 h-3 flex-shrink-0 text-gray-400" />{p.phone}</div>}
+              {p.email && <div className="flex items-center gap-1.5 truncate"><Mail className="w-3 h-3 flex-shrink-0 text-gray-400" />{p.email}</div>}
             </div>
           </div>
         </div>
 
-        {pot > 0 && (
-          <div className="mt-2 text-xs font-semibold text-marine">{formatCurrency(pot)} <span className="font-normal text-gray-400">potentiel</span></div>
-        )}
-
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <span className="flex items-center gap-1 text-[11px] text-gray-400">
+        <div className="mt-3 flex items-center justify-between gap-2 min-h-[22px]">
+          {pot > 0 ? (
+            <span className="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-md px-2 py-1">
+              {formatCurrency(pot)}<span className="font-normal text-emerald-600/70 ml-1">potentiel</span>
+            </span>
+          ) : <span />}
+          <span className="flex items-center gap-1 text-[11px] text-gray-400 flex-shrink-0">
             <Calendar className="w-3 h-3" />{new Date(p.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
           </span>
-          <div className="flex items-center gap-1">
-            {p.phone && <ActionBtn href={`tel:${p.phone}`} label="Appeler"><Phone className="w-3.5 h-3.5" /></ActionBtn>}
-            {wa && <ActionBtn href={wa} label="WhatsApp" external><MessageCircle className="w-3.5 h-3.5" /></ActionBtn>}
-            {p.email && <ActionBtn href={`mailto:${p.email}`} label="Envoyer un email"><Mail className="w-3.5 h-3.5" /></ActionBtn>}
-            <ActionBtn href={`/devis/nouveau?client=${p.id}`} label="Créer un devis"><FileText className="w-3.5 h-3.5" /></ActionBtn>
-          </div>
         </div>
 
-        <div className="mt-2">
+        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-1.5">
+          {p.phone && <ActionBtn href={`tel:${p.phone}`} label="Appeler"><Phone className="w-3.5 h-3.5" /></ActionBtn>}
+          {wa && <ActionBtn href={wa} label="WhatsApp" external><MessageCircle className="w-3.5 h-3.5" /></ActionBtn>}
+          {p.email && <ActionBtn href={`mailto:${p.email}`} label="Envoyer un email"><Mail className="w-3.5 h-3.5" /></ActionBtn>}
+          <ActionBtn href={`/devis/nouveau?client=${p.id}`} label="Créer un devis"><FileText className="w-3.5 h-3.5" /></ActionBtn>
+        </div>
+
+        <div className="mt-3">
           <ClientStatusSelect clientId={p.id} current={p.status} />
         </div>
       </CardContent>
@@ -136,12 +141,12 @@ export default async function ProspectsPage() {
           {/* §5.1 Cartes en haut */}
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 animate-fade-up">
             {COLUMNS.map(c => (
-              <Card key={c.key} className="border border-gray-200/80">
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: c.dot }} />
-                    <div className="text-2xl font-bold text-[#0F172A] leading-none">{countCol(c)}</div>
+              <Card key={c.key} className="card-interactive border-0 shadow-[var(--shadow-sm)]" style={{ backgroundColor: `${c.dot}14` }}>
+                <CardContent className="p-3.5">
+                  <div className="w-7 h-7 rounded-lg grid place-items-center mb-2" style={{ backgroundColor: `${c.dot}22` }}>
+                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.dot }} />
                   </div>
+                  <div className="text-2xl font-bold leading-none" style={{ color: c.dot }}>{countCol(c)}</div>
                   <div className="text-[11px] text-gray-500 mt-1 leading-tight">{c.label}</div>
                 </CardContent>
               </Card>
@@ -165,7 +170,7 @@ export default async function ProspectsPage() {
                     {items.length === 0 ? (
                       <p className="text-xs text-gray-400 text-center py-6">—</p>
                     ) : (
-                      items.map(p => <ProspectCard key={p.id} p={p} pot={potById.get(p.id) || 0} />)
+                      items.map(p => <ProspectCard key={p.id} p={p} pot={potById.get(p.id) || 0} dot={c.dot} />)
                     )}
                   </div>
                 </div>

@@ -96,12 +96,12 @@ export default function QuoteActions({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap gap-2">
-        <Button variant="outline" className="gap-2" onClick={handleDownloadPDF} disabled={!!loading}>
+        <Button variant="info" className="gap-2" onClick={handleDownloadPDF} disabled={!!loading}>
           <Download className="w-4 h-4" /> PDF
         </Button>
 
         <Button
-          variant="outline" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+          variant="info" className="gap-2"
           onClick={handleSendEmail} disabled={!!loading || !clientEmail}
           title={!clientEmail ? 'Aucun email pour ce client' : `Envoyer à ${clientEmail}`}
         >
@@ -117,17 +117,17 @@ export default function QuoteActions({
         </Button>
 
         {status !== 'envoye' && status !== 'accepte' && status !== 'refuse' && status !== 'transforme' && (
-          <Button variant="outline" className="gap-2" onClick={() => updateStatus('envoye')} disabled={!!loading}>
+          <Button variant="success" className="gap-2" onClick={() => updateStatus('envoye')} disabled={!!loading}>
             <Send className="w-4 h-4" /> Marquer envoyé
           </Button>
         )}
 
         {(status === 'envoye' || status === 'pret' || status === 'expire') && (
           <>
-            <Button className="gap-2 bg-green-600 hover:bg-green-700" onClick={() => updateStatus('accepte')} disabled={!!loading}>
+            <Button variant="success" className="gap-2" onClick={() => updateStatus('accepte')} disabled={!!loading}>
               {loading === 'accepte' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />} Accepté
             </Button>
-            <Button variant="outline" className="gap-2 border-red-200 text-red-600 hover:bg-red-50" onClick={() => updateStatus('refuse')} disabled={!!loading}>
+            <Button variant="destructive" className="gap-2" onClick={() => updateStatus('refuse')} disabled={!!loading}>
               <XCircle className="w-4 h-4" /> Refusé
             </Button>
           </>

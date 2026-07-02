@@ -74,7 +74,7 @@ export default function AddVehicleLog({ vehicles, projects }: {
         </div>
         <div className="flex gap-2">
           <Button onClick={save} disabled={saving} className="flex-1">{saving ? '…' : 'Ajouter'}</Button>
-          <Button variant="outline" onClick={() => setOpen(false)}>✕</Button>
+          <Button variant="destructive-outline" onClick={() => setOpen(false)}>✕</Button>
         </div>
       </CardContent>
     </Card>

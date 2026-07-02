@@ -71,7 +71,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       <div className="flex flex-wrap gap-2">
         <Link href={`/devis/nouveau?client=${id}`}><Button size="sm" className="gap-1"><FileText className="w-4 h-4" /> Créer un devis</Button></Link>
         <Link href={`/chantiers/nouveau?client=${id}`}><Button variant="outline" size="sm" className="gap-1"><HardHat className="w-4 h-4" /> Créer un chantier</Button></Link>
-        {client.email && <a href={`mailto:${client.email}`}><Button variant="outline" size="sm" className="gap-1"><Mail className="w-4 h-4" /> Email</Button></a>}
+        {client.email && <a href={`mailto:${client.email}`}><Button variant="info" size="sm" className="gap-1"><Mail className="w-4 h-4" /> Email</Button></a>}
         <Link href="/relances"><Button variant="outline" size="sm" className="gap-1"><BellRing className="w-4 h-4" /> Relancer</Button></Link>
         <Link href={`/documents?client=${id}`}><Button variant="outline" size="sm" className="gap-1"><FolderOpen className="w-4 h-4" /> Document</Button></Link>
         <Link href={`/clients/${id}/modifier`}><Button variant="outline" size="sm" className="gap-1"><Edit className="w-4 h-4" /> Modifier</Button></Link>

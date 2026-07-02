@@ -24,7 +24,7 @@ export default function ArchiveClientButton({ clientId, archived }: { clientId: 
   }
 
   return (
-    <Button variant="outline" size="sm" className="gap-1 text-gray-600" onClick={archive} disabled={saving}>
+    <Button variant={archived ? 'success' : 'destructive'} size="sm" className="gap-1" onClick={archive} disabled={saving}>
       <Archive className="w-4 h-4" /> {archived ? 'Réactiver' : 'Archiver'}
     </Button>
   )

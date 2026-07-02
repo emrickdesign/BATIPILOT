@@ -43,6 +43,12 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-strong: var(--success-strong);
+  --color-surface-dark: var(--surface-dark);
+  --color-surface-dark-foreground: var(--surface-dark-foreground);
+  --color-surface-dark-muted: var(--surface-dark-muted);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -79,6 +85,16 @@
   --chart-4: #7C3AED;               /* Accent */
   --chart-5: #0F172A;               /* Marine */
   --radius: 0.875rem;
+
+  /* Succès (bouton Valider, confirmations) */
+  --success: #16A34A;
+  --success-strong: #15803D;
+  --success-foreground: #ffffff;
+
+  /* Surface sombre (cartes mesures/glow, style "donut 3D") */
+  --surface-dark: #0B1220;
+  --surface-dark-foreground: #ffffff;
+  --surface-dark-muted: #8B99B3;
 
   /* Marque BatiPilot */
   --brand: #FF6A00;                 /* Chantier */

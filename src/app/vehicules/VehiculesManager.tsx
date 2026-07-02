@@ -106,7 +106,7 @@ export default function VehiculesManager({ vehicles, employees, meta, projects }
               <Textarea rows={2} value={draft.notes} onChange={e => set('notes', e.target.value)} placeholder="Entretien, assurance…" />
             </div>
             <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setDraft(null)}>Annuler</Button>
+              <Button variant="destructive-outline" onClick={() => setDraft(null)}>Annuler</Button>
               <Button onClick={handleSave} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Button>
             </div>
           </CardContent>

@@ -88,9 +88,9 @@ export default function PlanningView({
     if (!e) return null
     const conflict = (conflictByDay.get(`${a.employee_id}|${date}`) || 0) > 1
     return (
-      <span className={`group inline-flex items-center gap-1 pl-1 pr-1 h-6 rounded-full text-white text-[11px] font-medium ${conflict ? 'ring-2 ring-rose-400' : ''}`}
+      <span className={`group inline-flex items-center gap-1.5 pl-1 pr-1.5 h-7 rounded-full text-white text-[11px] font-semibold shadow-sm ring-2 ring-white transition-transform hover:-translate-y-px ${conflict ? 'ring-rose-400' : ''}`}
         style={{ backgroundColor: e.color }} title={`${e.full_name}${conflict ? ' — affecté à plusieurs chantiers ce jour' : ''}`}>
-        <span className="grid place-items-center w-4 h-4 rounded-full bg-white/25 text-[9px]">{employeeInitials(e.full_name)}</span>
+        <span className="grid place-items-center w-5 h-5 rounded-full bg-white/25 text-[9px]">{employeeInitials(e.full_name)}</span>
         <span className="max-w-[60px] truncate">{e.full_name.split(' ')[0]}</span>
         <button onClick={() => removeAssignment(a)} disabled={busy} className="opacity-60 hover:opacity-100"><X className="w-3 h-3" /></button>
       </span>
@@ -101,12 +101,17 @@ export default function PlanningView({
     const available = employees.filter(e => !assignedIds.has(e.id))
     if (!available.length) return null
     return (
-      <select value="" disabled={busy}
-        onChange={e => { addAssignment(projectId, date, e.target.value); e.target.value = '' }}
-        className="mt-1 w-full h-6 text-[11px] rounded border border-dashed border-gray-200 bg-transparent text-gray-400 hover:border-primary hover:text-primary cursor-pointer focus:outline-none">
-        <option value="">+ Affecter</option>
-        {available.map(e => <option key={e.id} value={e.id} className="text-gray-900">{e.full_name}</option>)}
-      </select>
+      <div className="group relative mt-1.5 inline-flex">
+        <span className="pointer-events-none inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-dashed border-gray-300 text-[11px] font-medium text-gray-400 group-hover:border-primary group-hover:text-primary transition-colors">
+          <span className="text-sm leading-none">+</span> Affecter
+        </span>
+        <select value="" disabled={busy} aria-label="Affecter un salarié"
+          onChange={e => { addAssignment(projectId, date, e.target.value); e.target.value = '' }}
+          className="absolute inset-0 w-full opacity-0 cursor-pointer">
+          <option value="">+ Affecter</option>
+          {available.map(e => <option key={e.id} value={e.id} className="text-gray-900">{e.full_name}</option>)}
+        </select>
+      </div>
     )
   }
 
@@ -137,7 +142,7 @@ export default function PlanningView({
         <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100">
           {(['jour', 'semaine', 'mois'] as const).map(v => (
             <Link key={v} href={switchHref(v)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${view === v ? 'bg-white text-marine shadow-[var(--shadow-xs)]' : 'text-gray-500 hover:text-gray-800'}`}>
+              className={`px-3.5 py-1.5 rounded-lg text-sm font-medium capitalize transition-colors ${view === v ? 'bg-primary text-primary-foreground shadow-[var(--shadow-brand)]' : 'text-gray-500 hover:text-gray-800'}`}>
               {v}
             </Link>
           ))}
@@ -169,27 +174,29 @@ export default function PlanningView({
           cta={<Link href="/chantiers/nouveau"><Button>Nouveau chantier</Button></Link>} />
       ) : view === 'semaine' ? (
         /* ───────── Vue semaine ───────── */
-        <Card className="border border-gray-200/80 overflow-hidden">
+        <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden">
           <div className="overflow-x-auto">
-            <div className="min-w-[760px]">
-              <div className="grid" style={{ gridTemplateColumns: '180px repeat(7, 1fr)' }}>
+            <div className="min-w-[820px]">
+              <div className="grid" style={{ gridTemplateColumns: '200px repeat(7, 1fr)' }}>
                 <div className="p-3 text-xs font-semibold uppercase tracking-wider text-gray-400 border-b border-gray-100">Chantier</div>
                 {days.map((d, i) => (
-                  <div key={d} className={`p-3 text-center border-b border-l border-gray-100 ${d === todayIso ? 'bg-accent' : ''}`}>
-                    <div className="text-xs font-semibold text-marine">{DAY_LABELS[i]}</div>
-                    <div className="text-[11px] text-gray-400">{fmtShort(d)}</div>
+                  <div key={d} className={`p-3 text-center border-b border-l border-gray-100 ${d === todayIso ? 'bg-primary/[0.05]' : ''}`}>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">{DAY_LABELS[i]}</div>
+                    <div className={`mt-1 inline-grid place-items-center w-6 h-6 rounded-full text-[13px] font-bold ${d === todayIso ? 'bg-primary text-white' : 'text-marine'}`}>
+                      {Number(d.split('-')[2])}
+                    </div>
                   </div>
                 ))}
               </div>
               {projects.map(p => (
-                <div key={p.id} className="grid border-b border-gray-100 last:border-0" style={{ gridTemplateColumns: '180px repeat(7, 1fr)' }}>
-                  <div className="p-3 flex items-center gap-2 min-w-0">
-                    <HardHat className="w-4 h-4 text-gray-300 flex-shrink-0" />
-                    <Link href={`/chantiers/${p.id}`} className="text-sm font-medium text-gray-800 truncate hover:text-primary">{p.title}</Link>
+                <div key={p.id} className="grid border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors" style={{ gridTemplateColumns: '200px repeat(7, 1fr)' }}>
+                  <div className="p-3 flex items-center gap-2.5 min-w-0">
+                    <span className="grid place-items-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0"><HardHat className="w-4 h-4" /></span>
+                    <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 truncate hover:text-primary">{p.title}</Link>
                   </div>
                   {days.map(d => (
-                    <div key={d} className={`p-2 border-l border-gray-100 min-h-[64px] ${d === todayIso ? 'bg-[#FFF7F0]' : ''}`}>
-                      <div className="flex flex-wrap gap-1">
+                    <div key={d} className={`p-2 border-l border-gray-100 min-h-[76px] ${d === todayIso ? 'bg-primary/[0.03]' : ''}`}>
+                      <div className="flex flex-wrap gap-1.5">
                         {(cellMap.get(`${p.id}|${d}`) || []).map(a => <Chip key={a.id} a={a} date={d} />)}
                       </div>
                       <AffectSelect projectId={p.id} date={d} />
@@ -205,10 +212,10 @@ export default function PlanningView({
         <div className="space-y-4">
           <div className="grid gap-3">
             {projects.map(p => (
-              <Card key={p.id} className="border border-gray-200/80">
+              <Card key={p.id} className="card-interactive border-0 shadow-[var(--shadow-sm)]">
                 <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <HardHat className="w-4 h-4 text-gray-300 flex-shrink-0" />
+                  <div className="flex items-center gap-2.5 mb-3">
+                    <span className="grid place-items-center w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0"><HardHat className="w-4 h-4" /></span>
                     <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate">{p.title}</Link>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -220,13 +227,13 @@ export default function PlanningView({
             ))}
           </div>
           {/* Disponibilités (§11.1) */}
-          <Card className="border border-gray-200/80">
+          <Card className="border-0 bg-emerald-50/60 shadow-[var(--shadow-sm)]">
             <CardContent className="p-4">
-              <h3 className="text-sm font-semibold text-gray-500 mb-2 flex items-center gap-2"><UserCheck className="w-4 h-4 text-emerald-500" /> Disponibles ce jour ({dispoJour.length})</h3>
-              {dispoJour.length === 0 ? <p className="text-sm text-gray-400">Tout le monde est affecté.</p> : (
+              <h3 className="text-sm font-semibold text-emerald-800 mb-2.5 flex items-center gap-2"><UserCheck className="w-4 h-4 text-emerald-600" /> Disponibles ce jour ({dispoJour.length})</h3>
+              {dispoJour.length === 0 ? <p className="text-sm text-emerald-700/70">Tout le monde est affecté.</p> : (
                 <div className="flex flex-wrap gap-1.5">
                   {dispoJour.map(e => (
-                    <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 border border-gray-200 pl-1 pr-2.5 py-0.5 text-xs">
+                    <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-emerald-100 pl-1 pr-2.5 py-0.5 text-xs shadow-sm">
                       <span className="grid place-items-center w-5 h-5 rounded-full text-white text-[9px]" style={{ backgroundColor: e.color }}>{employeeInitials(e.full_name)}</span>
                       {e.full_name}
                     </span>
@@ -238,18 +245,25 @@ export default function PlanningView({
         </div>
       ) : (
         /* ───────── Vue mois ───────── */
-        <Card className="border border-gray-200/80 overflow-hidden">
-          <div className="grid grid-cols-7 text-center border-b border-gray-100">
-            {DAY_LABELS.map(l => <div key={l} className="p-2 text-xs font-semibold text-gray-400">{l}</div>)}
+        <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden">
+          <div className="grid grid-cols-7 text-center border-b border-gray-100 bg-gray-50/60">
+            {DAY_LABELS.map(l => <div key={l} className="p-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{l}</div>)}
           </div>
           <div className="grid grid-cols-7">
-            {Array.from({ length: (new Date(days[0] + 'T00:00:00').getDay() + 6) % 7 }).map((_, i) => <div key={`b${i}`} className="min-h-[72px] border-b border-l border-gray-50" />)}
+            {Array.from({ length: (new Date(days[0] + 'T00:00:00').getDay() + 6) % 7 }).map((_, i) => <div key={`b${i}`} className="min-h-[84px] border-b border-l border-gray-50 bg-gray-50/30" />)}
             {days.map(d => {
               const n = countByDate.get(d) || 0
+              const isToday = d === todayIso
               return (
-                <Link key={d} href={`/planning?view=jour&date=${d}`} className={`min-h-[72px] border-b border-l border-gray-50 p-1.5 hover:bg-gray-50 transition-colors ${d === todayIso ? 'bg-accent' : ''}`}>
-                  <div className="text-xs font-medium text-gray-600">{Number(d.split('-')[2])}</div>
-                  {n > 0 && <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-semibold"><Users2 className="w-3 h-3" />{n}</div>}
+                <Link key={d} href={`/planning?view=jour&date=${d}`} className="min-h-[84px] border-b border-l border-gray-50 p-2 hover:bg-gray-50 transition-colors">
+                  <span className={`inline-grid place-items-center w-6 h-6 rounded-full text-[13px] font-bold ${isToday ? 'bg-primary text-white' : 'text-gray-600'}`}>
+                    {Number(d.split('-')[2])}
+                  </span>
+                  {n > 0 && (
+                    <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-semibold">
+                      <Users2 className="w-3 h-3" />{n}
+                    </div>
+                  )}
                 </Link>
               )
             })}

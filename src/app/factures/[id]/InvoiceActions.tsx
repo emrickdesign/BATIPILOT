@@ -87,16 +87,16 @@ export default function InvoiceActions({
 
   return (
     <div className="flex flex-wrap gap-2">
-      <Button variant="outline" className="gap-2" onClick={handleDownload} disabled={!!loading}>
+      <Button variant="info" className="gap-2" onClick={handleDownload} disabled={!!loading}>
         <Download className="w-4 h-4" /> PDF
       </Button>
 
-      <Button variant="outline" className="gap-2" onClick={handleExportData} disabled={!!loading}>
+      <Button variant="info" className="gap-2" onClick={handleExportData} disabled={!!loading}>
         <FileSpreadsheet className="w-4 h-4" /> Exporter (CSV)
       </Button>
 
       <Button
-        variant="outline" className="gap-2 border-blue-200 text-blue-700 hover:bg-blue-50"
+        variant="info" className="gap-2"
         onClick={handleSendEmail} disabled={!!loading || !clientEmail}
         title={!clientEmail ? 'Aucun email pour ce client' : `Envoyer à ${clientEmail}`}
       >
@@ -112,27 +112,27 @@ export default function InvoiceActions({
       </Button>
 
       {status === 'brouillon' && (
-        <Button variant="outline" className="gap-2" onClick={() => updateStatus('envoyee')} disabled={!!loading}>
+        <Button variant="success" className="gap-2" onClick={() => updateStatus('envoyee')} disabled={!!loading}>
           <Send className="w-4 h-4" /> Marquer envoyée
         </Button>
       )}
 
       <Link href="/banque">
-        <Button variant="outline" className="gap-2"><Landmark className="w-4 h-4" /> Rapprocher un paiement</Button>
+        <Button variant="info" className="gap-2"><Landmark className="w-4 h-4" /> Rapprocher un paiement</Button>
       </Link>
 
       <Link href="/comptable">
-        <Button variant="outline" className="gap-2"><Calculator className="w-4 h-4" /> Transmettre à la comptable</Button>
+        <Button variant="info" className="gap-2"><Calculator className="w-4 h-4" /> Transmettre à la comptable</Button>
       </Link>
 
       {(status === 'envoyee' || status === 'en_retard' || status === 'payee_partiellement') && (
-        <Button className="gap-2 bg-green-600 hover:bg-green-700" onClick={() => updateStatus('payee')} disabled={!!loading}>
+        <Button variant="success" className="gap-2" onClick={() => updateStatus('payee')} disabled={!!loading}>
           <CheckCircle className="w-4 h-4" /> Marquer payée
         </Button>
       )}
 
       {status !== 'annulee' && status !== 'payee' && (
-        <Button variant="outline" className="gap-2 border-gray-200 text-gray-500 hover:bg-gray-50" onClick={() => { if (confirm('Annuler cette facture ?')) updateStatus('annulee') }} disabled={!!loading}>
+        <Button variant="destructive" className="gap-2" onClick={() => { if (confirm('Annuler cette facture ?')) updateStatus('annulee') }} disabled={!!loading}>
           <Ban className="w-4 h-4" /> Annuler
         </Button>
       )}

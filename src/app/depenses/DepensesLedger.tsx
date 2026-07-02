@@ -132,7 +132,7 @@ export default function DepensesLedger({
           <p className="text-gray-500 mt-1 text-sm">Toutes vos sorties d&apos;argent au même endroit : tickets, banque et saisies.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" className="h-10 gap-2" onClick={handleExport}>
+          <Button variant="info" className="h-10 gap-2" onClick={handleExport}>
             <Download className="w-4 h-4" /> Exporter
           </Button>
           <Button className="h-10 gap-2 shadow-sm" onClick={() => setShowAdd(v => !v)}>
@@ -200,7 +200,7 @@ export default function DepensesLedger({
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setShowAdd(false)} disabled={saving}>Annuler</Button>
+              <Button variant="destructive-outline" onClick={() => setShowAdd(false)} disabled={saving}>Annuler</Button>
               <Button onClick={handleAdd} disabled={saving}>{saving ? 'Ajout...' : 'Ajouter'}</Button>
             </div>
           </CardContent>

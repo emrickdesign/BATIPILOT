@@ -2,8 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
   Wallet, Send, Coins, FileText, Clock, ReceiptText, Camera, Landmark, HardHat,
-  Users2, Truck, AlertTriangle, PlayCircle, CalendarClock, CheckCircle2, TrendingUp,
-  Bell, CalendarDays, ArrowRight, Receipt, Users, GitCompare, FileCheck2, BadgeEuro, TrendingDown,
+  Users2, Truck, AlertTriangle, PlayCircle, CalendarClock, CheckCircle2,
+  Bell, CalendarDays, ArrowRight, Receipt, Users, GitCompare, FileCheck2, BadgeEuro,
   type LucideIcon,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -12,6 +12,11 @@ import { formatCurrency } from '@/lib/utils'
 import { projectStatusLabels, projectStatusColors } from '@/lib/chantiers'
 import type { ProjectStatus } from '@/types'
 import EncaissementsChart from './EncaissementsChart'
+import DonutMetricCard from '@/components/charts/DonutMetricCard'
+import ColoredStatCard from '@/components/ui/colored-stat-card'
+import { statColors } from '@/lib/statColors'
+
+const DONUT_COLORS = ['#5B9BFF', '#F5A623', '#8B5CF6', '#22C55E', '#64748B']
 
 const MONTHS = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc']
 const CLOSED = ['termine', 'facture', 'paye', 'archive']
@@ -57,7 +62,7 @@ async function getData(userId: string) {
     supabase.from('quotes').select('id, quote_number, status, total_ttc, issue_date, reminded_at, created_at').eq('user_id', userId),
     supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due, issue_date, due_date, created_at').eq('user_id', userId),
     supabase.from('projects').select('id, title, status, end_date, created_at').eq('user_id', userId).neq('status', 'archive'),
-    supabase.from('expenses').select('amount_ttc, status, source, expense_date, created_at').eq('user_id', userId),
+    supabase.from('expenses').select('amount_ttc, status, source, category, expense_date, created_at').eq('user_id', userId),
     supabase.from('employees').select('id, full_name, color, active').eq('user_id', userId).eq('active', true),
     supabase.from('time_entries').select('employee_id, project_id, hours, date').eq('user_id', userId),
     supabase.from('presence_events').select('employee_id').eq('user_id', userId).gte('occurred_at', isoDay),
@@ -198,13 +203,27 @@ async function getData(userId: string) {
   }
 
   // ── 6. Administratif & comptable (ce mois) ──────────────────────────
+  const depensesCeMois = exp.filter(e => inThisMonth(e.expense_date || e.created_at))
+  const catTotals = new Map<string, number>()
+  for (const e of depensesCeMois) {
+    const cat = e.category || 'Non classé'
+    catTotals.set(cat, (catTotals.get(cat) || 0) + num(e.amount_ttc))
+  }
+  const catSorted = [...catTotals.entries()].sort((a, b) => b[1] - a[1])
+  const catAutres = catSorted.slice(4).reduce((s, [, v]) => s + v, 0)
+  const parCategorie = [
+    ...catSorted.slice(0, 4).map(([label, value]) => ({ label, value })),
+    ...(catAutres > 0 ? [{ label: 'Autres', value: catAutres }] : []),
+  ]
+
   const admin = {
     ticketsScannesMois: exp.filter(e => e.source === 'ticket' && inThisMonth(e.created_at)).length,
     ticketsAVerifier: ticketsAValider,
-    depensesMois: exp.filter(e => inThisMonth(e.expense_date || e.created_at)).reduce((s, e) => s + num(e.amount_ttc), 0),
+    depensesMois: depensesCeMois.reduce((s, e) => s + num(e.amount_ttc), 0),
     transmisComptable: exp.filter(e => e.status === 'envoye_comptable' && inThisMonth(e.created_at)).length,
     paiementsARapprocher: aRapprocher,
     aTransmettre,
+    parCategorie,
   }
 
   // ── 7. Activité récente ─────────────────────────────────────────────
@@ -292,11 +311,15 @@ export default async function DashboardPage() {
         ? { text: 'vs 0 € le mois dernier', positive: true }
         : null
 
-  const finCards: { label: string; value: string; icon: LucideIcon; tile: string; href: string; hero: boolean; sub?: { text: string; positive: boolean } | null }[] = [
-    { label: 'Encaissé ce mois', value: formatCurrency(d.fin.encaisseMois), icon: Wallet, tile: 'bg-white/20 text-white', href: '/banque', hero: true, sub: encSub },
-    { label: 'Facturé ce mois', value: formatCurrency(d.fin.factureMois), icon: Send, tile: 'bg-blue-100 text-blue-600', href: '/factures', hero: false },
-    { label: 'Reste à encaisser', value: formatCurrency(d.fin.resteAEncaisser), icon: Coins, tile: 'bg-amber-100 text-amber-600', href: '/relances', hero: false },
-    { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, tile: 'bg-violet-100 text-violet-600', href: '/devis?statut=envoye', hero: false },
+  const encaissePct = d.fin.factureMois > 0 ? Math.round((d.fin.encaisseMois / d.fin.factureMois) * 100) : 0
+
+  // Logique couleur (cf src/lib/statColors.ts) : vert = déjà encaissé, orange = reste à obtenir,
+  // bleu = information neutre (facturé), violet = pipeline commercial (devis).
+  const finCards: { label: string; value: string; icon: LucideIcon; color: string; href: string; sub?: { text: string; positive: boolean } | null; gauge?: number }[] = [
+    { label: 'Encaissé ce mois', value: formatCurrency(d.fin.encaisseMois), icon: Wallet, color: statColors.success, href: '/banque', sub: encSub },
+    { label: 'Facturé ce mois', value: formatCurrency(d.fin.factureMois), icon: Send, color: statColors.info, href: '/factures' },
+    { label: 'Reste à encaisser', value: formatCurrency(d.fin.resteAEncaisser), icon: Coins, color: statColors.warning, href: '/relances', gauge: encaissePct },
+    { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, color: statColors.accent, href: '/devis?statut=envoye' },
   ]
 
   return (
@@ -319,28 +342,22 @@ export default async function DashboardPage() {
 
       {/* 1. Chiffres vitaux */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {finCards.map((k, i) => {
-          const Icon = k.icon
-          return (
-            <Link key={k.label} href={k.href} className="animate-fade-up" style={{ animationDelay: `${i * 60}ms` }}>
-              <Card className={`card-interactive h-full ${k.hero ? 'border-0 bg-primary text-primary-foreground shadow-[var(--shadow-brand)]' : 'border border-gray-200/80 bg-white'}`}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <span className={`text-sm font-medium ${k.hero ? 'text-white/85' : 'text-gray-500'}`}>{k.label}</span>
-                    <span className={`grid place-items-center w-8 h-8 rounded-lg ${k.tile}`}><Icon className="w-4 h-4" /></span>
-                  </div>
-                  <div className={`text-[24px] md:text-[26px] font-bold mt-2 leading-none ${k.hero ? 'text-white' : 'text-marine'}`}>{k.value}</div>
-                  {k.sub && (
-                    <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${k.hero ? 'text-white/85' : k.sub.positive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                      {k.sub.positive ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                      {k.sub.text}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
-          )
-        })}
+        {finCards.map((k, i) => (
+          <Link key={k.label} href={k.href} className="animate-fade-up block" style={{ animationDelay: `${i * 60}ms` }}>
+            <ColoredStatCard
+              label={k.label}
+              value={k.value}
+              color={k.color}
+              icon={k.icon}
+              gauge={k.gauge}
+              subText={
+                k.sub ? `${k.sub.positive ? '↗' : '↘'} ${k.sub.text}`
+                  : k.gauge !== undefined ? `${k.gauge}% déjà encaissé sur le facturé`
+                    : undefined
+              }
+            />
+          </Link>
+        ))}
       </div>
 
       {/* 2. À traiter aujourd'hui */}
@@ -456,13 +473,24 @@ export default async function DashboardPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Administratif &amp; comptable — ce mois</h2>
           <Link href="/comptable" className="text-xs font-medium text-primary hover:underline">Voir la compta</Link>
         </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <MiniStat label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tile="bg-accent text-primary" accent />
-          <MiniStat label="Tickets scannés" value={d.admin.ticketsScannesMois} icon={ReceiptText} tile="bg-blue-100 text-blue-600" />
-          <MiniStat label="Tickets à valider" value={d.admin.ticketsAVerifier} icon={CheckCircle2} tile="bg-amber-100 text-amber-600" />
-          <MiniStat label="Justif. à transmettre" value={d.admin.aTransmettre} icon={FileCheck2} tile="bg-violet-100 text-violet-600" />
-          <MiniStat label="Transmis comptable" value={d.admin.transmisComptable} icon={Send} tile="bg-emerald-100 text-emerald-600" />
-          <MiniStat label="Paiements à rapprocher" value={d.admin.paiementsARapprocher} icon={BadgeEuro} tile="bg-blue-100 text-blue-600" />
+        <div className="grid lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 grid grid-cols-2 gap-3 content-start">
+            <MiniStat label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tile="bg-accent text-primary" accent />
+            <MiniStat label="Tickets scannés" value={d.admin.ticketsScannesMois} icon={ReceiptText} tile="bg-blue-100 text-blue-600" />
+            <MiniStat label="Tickets à valider" value={d.admin.ticketsAVerifier} icon={CheckCircle2} tile="bg-amber-100 text-amber-600" />
+            <MiniStat label="Justif. à transmettre" value={d.admin.aTransmettre} icon={FileCheck2} tile="bg-violet-100 text-violet-600" />
+            <MiniStat label="Transmis comptable" value={d.admin.transmisComptable} icon={Send} tile="bg-emerald-100 text-emerald-600" />
+            <MiniStat label="Paiements à rapprocher" value={d.admin.paiementsARapprocher} icon={BadgeEuro} tile="bg-blue-100 text-blue-600" />
+          </div>
+          <div className="lg:col-span-1">
+            <DonutMetricCard
+              title="Répartition des dépenses"
+              subtitle="Ce mois-ci, par catégorie"
+              total={formatCurrency(d.admin.depensesMois)}
+              segments={d.admin.parCategorie.map((c, i) => ({ label: c.label, value: c.value, color: DONUT_COLORS[i % DONUT_COLORS.length] }))}
+              emptyMessage="Aucune dépense enregistrée ce mois-ci."
+            />
+          </div>
         </div>
       </div>
 

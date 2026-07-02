@@ -74,13 +74,16 @@ export default function EncaissementsChart({ series }: Props) {
         <svg viewBox={`0 0 ${W} ${H + 18}`} className="w-full">
           <defs>
             <linearGradient id="encFill" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.20" />
+              <stop offset="0%" stopColor="var(--primary)" stopOpacity="0.32" />
               <stop offset="100%" stopColor="var(--primary)" stopOpacity="0" />
             </linearGradient>
           </defs>
+          {/* Grille horizontale en pointillés */}
+          {[0.25, 0.5, 0.75].map(f => (
+            <line key={f} x1={P} x2={W - P} y1={P + f * (H - 2 * P)} y2={P + f * (H - 2 * P)} stroke="#E2E8F0" strokeWidth="1" strokeDasharray="3 4" />
+          ))}
           <path d={area} fill="url(#encFill)" />
-          <path d={line} fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          {pts.map((p, i) => <circle key={i} cx={p[0]} cy={p[1]} r="3.5" fill="#fff" stroke="var(--primary)" strokeWidth="2" />)}
+          <path d={line} fill="none" stroke="var(--primary)" strokeWidth="2.75" strokeLinecap="round" strokeLinejoin="round" />
           {data.map((d, i) => (
             <text key={i} x={pts[i][0]} y={H + 14} textAnchor="middle" fontSize="11" fill="#94A3B8">{d.label}</text>
           ))}

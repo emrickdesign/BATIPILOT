@@ -270,7 +270,7 @@ export default function TicketsManager({
               )}
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setDraft(null)} disabled={saving}>Annuler</Button>
+              <Button variant="destructive-outline" onClick={() => setDraft(null)} disabled={saving}>Annuler</Button>
               <Button onClick={handleSave} disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer le ticket'}</Button>
             </div>
           </CardContent>

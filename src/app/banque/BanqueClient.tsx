@@ -129,7 +129,7 @@ export default function BanqueClient({ transactions, openInvoices }: { transacti
                     </span>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
                       {tx.suggestion && (
-                        <Button size="sm" className="gap-1 h-8" onClick={() => reconcile(tx)} disabled={busyId === tx.id}>
+                        <Button size="sm" variant="info" className="gap-1 h-8" onClick={() => reconcile(tx)} disabled={busyId === tx.id}>
                           {busyId === tx.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Rapprocher
                         </Button>
                       )}
@@ -162,7 +162,7 @@ export default function BanqueClient({ transactions, openInvoices }: { transacti
                       <div className="text-xs text-gray-400 font-mono">{inv.invoice_number}</div>
                     </Link>
                     <span className="text-sm font-semibold text-marine tabular-nums flex-shrink-0">{formatCurrency(inv.due)}</span>
-                    <Button size="sm" variant="outline" className="h-8 gap-1 flex-shrink-0" onClick={() => markPaid(inv)} disabled={busyId === inv.id}>
+                    <Button size="sm" variant="success" className="h-8 gap-1 flex-shrink-0" onClick={() => markPaid(inv)} disabled={busyId === inv.id}>
                       {busyId === inv.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Payée
                     </Button>
                   </div>

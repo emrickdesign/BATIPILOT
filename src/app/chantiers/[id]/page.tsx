@@ -117,7 +117,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       {/* Actions (§10.3) */}
       <div className="flex flex-wrap gap-2">
         {addr && <a href={itineraire} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1"><Navigation className="w-4 h-4" /> Itinéraire</Button></a>}
-        <Link href={devisLink}><Button size="sm" className="gap-1"><FileText className="w-4 h-4" /> Devis</Button></Link>
+        <Link href={devisLink}><Button variant="outline" size="sm" className="gap-1"><FileText className="w-4 h-4" /> Devis</Button></Link>
         <Link href={factureLink}><Button variant="outline" size="sm" className="gap-1"><Receipt className="w-4 h-4" /> Facture</Button></Link>
         <Link href={`/tickets?project=${id}`}><Button variant="outline" size="sm" className="gap-1"><ReceiptText className="w-4 h-4" /> Ticket</Button></Link>
         <Link href={`/documents?project=${id}`}><Button variant="outline" size="sm" className="gap-1"><Camera className="w-4 h-4" /> Photo / doc</Button></Link>

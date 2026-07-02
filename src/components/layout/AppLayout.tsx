@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Mail, FileText, Receipt,
-  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, CreditCard, Truck, Sparkles
+  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, CreditCard, Truck, Sparkles, ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { isPole } from '@/lib/roles'
@@ -71,36 +71,39 @@ const bottomNav: NavLink[] = [
   { href: '/parametres', label: 'Paramètres', icon: Settings },
 ]
 
-function Logo() {
+function Logo({ collapsed }: { collapsed?: boolean }) {
   return (
-    <div className="flex items-center gap-2.5">
-      <span className="grid place-items-center w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] shadow-[var(--shadow-brand)]">
+    <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'justify-center w-full')}>
+      <span className="grid place-items-center w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] shadow-[var(--shadow-brand)] flex-shrink-0">
         <HardHat className="w-5 h-5 text-white" strokeWidth={2.2} />
       </span>
-      <span className="text-lg font-bold tracking-tight text-white font-heading">
-        Bati<span className="text-primary">Pilot</span>
-      </span>
+      {!collapsed && (
+        <span className="text-lg font-bold tracking-tight text-white font-heading truncate">
+          Bati<span className="text-primary">Pilot</span>
+        </span>
+      )}
     </div>
   )
 }
 
-function NavItem({ href, label, icon: Icon, active, onClick, mobile }: {
-  href: string; label: string; icon: any; active: boolean; onClick?: () => void; mobile?: boolean
+function NavItem({ href, label, icon: Icon, active, onClick, mobile, collapsed }: {
+  href: string; label: string; icon: any; active: boolean; onClick?: () => void; mobile?: boolean; collapsed?: boolean
 }) {
   return (
     <Link
       href={href}
       onClick={onClick}
+      title={collapsed ? label : undefined}
       className={cn(
         'group relative flex items-center gap-3 rounded-xl font-medium transition-all duration-200',
-        mobile ? 'px-3 py-3 text-[15px]' : 'px-3 py-2.5 text-sm',
+        collapsed ? 'justify-center px-0 py-2.5' : mobile ? 'px-3 py-3 text-[15px]' : 'px-3 py-2.5 text-sm',
         active
           ? 'bg-primary text-primary-foreground shadow-[var(--shadow-brand)]'
           : 'text-slate-300 hover:bg-white/5 hover:text-white'
       )}
     >
       <Icon className={cn('w-[18px] h-[18px] flex-shrink-0 transition-transform', !active && 'text-slate-400 group-hover:text-slate-200 group-hover:scale-110')} strokeWidth={2.1} />
-      {label}
+      {!collapsed && label}
     </Link>
   )
 }
@@ -110,6 +113,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
   const [profile, setProfile] = useState<{ name: string; role: string; initials: string }>({ name: '', role: 'Artisan', initials: '' })
+  const [collapsed, setCollapsed] = useState(false)
+
+  // Sidebar repliable (desktop) : préférence persistée par appareil.
+  useEffect(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('batipilot_sidebar_collapsed') : null
+    if (stored === '1') setCollapsed(true)
+  }, [])
+  const toggleCollapsed = () => {
+    setCollapsed(prev => {
+      const next = !prev
+      if (typeof window !== 'undefined') localStorage.setItem('batipilot_sidebar_collapsed', next ? '1' : '0')
+      return next
+    })
+  }
 
   useEffect(() => {
     const supabase = createClient()
@@ -144,27 +161,31 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const isGroupOpen = (id: string) => openOverride[id] ?? groupHasActive(id)
   const toggleGroup = (id: string) => setOpenOverride(prev => ({ ...prev, [id]: !isGroupOpen(id) }))
 
-  const SidebarBody = ({ mobile }: { mobile?: boolean }) => (
+  const SidebarBody = ({ mobile, rail }: { mobile?: boolean; rail?: boolean }) => (
     <>
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
         {topNav.map(item => (
-          <NavItem key={item.href} {...item} active={isActive(item.href)} mobile={mobile} onClick={mobile ? () => setMenuOpen(false) : undefined} />
+          <NavItem key={item.href} {...item} active={isActive(item.href)} mobile={mobile} collapsed={rail} onClick={mobile ? () => setMenuOpen(false) : undefined} />
         ))}
         {navGroups.map(group => {
           const open = isGroupOpen(group.id)
           return (
-            <div key={group.id} className="pt-3">
-              <button
-                onClick={() => toggleGroup(group.id)}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
-              >
-                {group.label}
-                <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', open ? 'rotate-0' : '-rotate-90')} />
-              </button>
-              {open && (
+            <div key={group.id} className={rail ? 'pt-2' : 'pt-3'}>
+              {rail ? (
+                <div className="border-t border-white/5 mx-1 mb-2" />
+              ) : (
+                <button
+                  onClick={() => toggleGroup(group.id)}
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500 hover:text-slate-300 transition-colors"
+                >
+                  {group.label}
+                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', open ? 'rotate-0' : '-rotate-90')} />
+                </button>
+              )}
+              {(rail || open) && (
                 <div className="mt-1 space-y-1">
                   {group.items.map(item => (
-                    <NavItem key={item.href} {...item} active={isActive(item.href)} mobile={mobile} onClick={mobile ? () => setMenuOpen(false) : undefined} />
+                    <NavItem key={item.href} {...item} active={isActive(item.href)} mobile={mobile} collapsed={rail} onClick={mobile ? () => setMenuOpen(false) : undefined} />
                   ))}
                 </div>
               )}
@@ -173,23 +194,32 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         })}
         <div className="pt-3 border-t border-white/5 mt-3">
           {bottomNav.map(item => (
-            <NavItem key={item.href} {...item} active={isActive(item.href)} mobile={mobile} onClick={mobile ? () => setMenuOpen(false) : undefined} />
+            <NavItem key={item.href} {...item} active={isActive(item.href)} mobile={mobile} collapsed={rail} onClick={mobile ? () => setMenuOpen(false) : undefined} />
           ))}
         </div>
       </nav>
       <div className="p-3 border-t border-white/10">
-        <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-2 hover:bg-white/5 transition-colors">
-          <span className="grid place-items-center w-9 h-9 rounded-full bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] text-white text-xs font-bold flex-shrink-0">
+        <div className={cn('flex items-center gap-2.5 rounded-xl px-2.5 py-2 hover:bg-white/5 transition-colors', rail && 'justify-center px-0')}>
+          <span className="grid place-items-center w-9 h-9 rounded-full bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] text-white text-xs font-bold flex-shrink-0" title={rail ? profile.name : undefined}>
             {profile.initials}
           </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold text-white truncate leading-tight">{profile.name}</p>
-            <p className="text-xs text-slate-400">{profile.role}</p>
-          </div>
-          <button onClick={handleLogout} title="Se déconnecter" className="grid place-items-center w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
+          {!rail && (
+            <>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-white truncate leading-tight">{profile.name}</p>
+                <p className="text-xs text-slate-400">{profile.role}</p>
+              </div>
+              <button onClick={handleLogout} title="Se déconnecter" className="grid place-items-center w-8 h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </>
+          )}
+        </div>
+        {rail && (
+          <button onClick={handleLogout} title="Se déconnecter" className="mt-1 w-full grid place-items-center h-8 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors">
             <LogOut className="w-4 h-4" />
           </button>
-        </div>
+        )}
       </div>
     </>
   )
@@ -197,11 +227,24 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen flex">
       {/* Sidebar desktop */}
-      <aside className="hidden md:flex flex-col w-60 bg-[#0F172A] fixed inset-y-0 z-30">
-        <div className="px-4 h-16 flex items-center border-b border-white/10">
-          <Logo />
+      <aside
+        className={cn(
+          'hidden md:flex flex-col bg-[#0F172A] fixed inset-y-0 z-30 transition-[width] duration-200 ease-out',
+          collapsed ? 'w-[72px]' : 'w-60'
+        )}
+      >
+        <div className={cn('h-16 flex items-center border-b border-white/10', collapsed ? 'px-2' : 'px-4')}>
+          <Logo collapsed={collapsed} />
         </div>
-        <SidebarBody />
+        <SidebarBody rail={collapsed} />
+        <button
+          onClick={toggleCollapsed}
+          title={collapsed ? 'Déplier le menu' : 'Replier le menu'}
+          aria-label={collapsed ? 'Déplier le menu' : 'Replier le menu'}
+          className="absolute -right-3 top-[52px] z-40 grid place-items-center w-6 h-6 rounded-full bg-[#0F172A] border border-white/10 text-slate-300 hover:text-white hover:bg-[#1a2540] shadow-[var(--shadow-sm)] transition-colors"
+        >
+          {collapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronLeft className="w-3.5 h-3.5" />}
+        </button>
       </aside>
 
       {/* Mobile header */}
@@ -220,7 +263,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       )}
 
       {/* Main content */}
-      <main className="flex-1 md:ml-60 pt-14 md:pt-0 min-h-screen bg-app-bg">
+      <main className={cn(
+        'flex-1 pt-14 md:pt-0 min-h-screen bg-app-bg transition-[margin] duration-200 ease-out',
+        collapsed ? 'md:ml-[72px]' : 'md:ml-60'
+      )}>
         <div className="p-4 md:p-8 max-w-6xl mx-auto">
           {children}
         </div>

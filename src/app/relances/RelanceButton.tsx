@@ -29,7 +29,7 @@ export default function RelanceButton({ quoteId }: { quoteId: string }) {
   }
 
   return (
-    <Button size="sm" variant="outline" className="gap-1 flex-shrink-0" onClick={markReminded} disabled={loading}>
+    <Button size="sm" variant="success" className="gap-1 flex-shrink-0" onClick={markReminded} disabled={loading}>
       {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
       Relancé
     </Button>

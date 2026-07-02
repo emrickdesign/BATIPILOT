@@ -69,13 +69,13 @@ export default function MonthActions({ monthKey, label, expenses, invoices }: { 
 
   return (
     <div className="flex items-center gap-2 flex-shrink-0">
-      <Button size="sm" variant="outline" className="gap-1" onClick={exportCsv}>
+      <Button size="sm" variant="info" className="gap-1" onClick={exportCsv}>
         <Download className="w-3.5 h-3.5" /> Dépenses
       </Button>
-      <Button size="sm" variant="outline" className="gap-1" onClick={exportFactures}>
+      <Button size="sm" variant="info" className="gap-1" onClick={exportFactures}>
         <Receipt className="w-3.5 h-3.5" /> Factures
       </Button>
-      <Button size="sm" variant="outline" className="gap-1" onClick={markSent} disabled={sending}>
+      <Button size="sm" variant="info" className="gap-1" onClick={markSent} disabled={sending}>
         {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Envoyé compta
       </Button>
     </div>
