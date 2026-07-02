@@ -2,11 +2,14 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { FluidTexture } from '@/components/ui/fluid-texture'
 import { Plus, UserPlus, Phone, Mail, Building2, User, MessageCircle, FileText, Calendar } from 'lucide-react'
 import type { Client, ClientStatus } from '@/types'
 import { clientDisplayName } from '@/lib/clients'
 import ClientStatusSelect from './ClientStatusSelect'
 import { formatCurrency } from '@/lib/utils'
+
+const PIPELINE_BLUE = '#1D4ED8'
 
 const num = (v: unknown) => Number(v) || 0
 
@@ -47,14 +50,14 @@ function ActionBtn({ href, label, children, external }: { href: string; label: s
 function ProspectCard({ p, pot, dot }: { p: Client; pot: number; dot: string }) {
   const wa = waLink(p.phone)
   return (
-    <Card className="card-interactive border-0 bg-white shadow-[var(--shadow-sm)]">
-      <CardContent className="p-4">
+    <Card className="card-interactive border-0 shadow-[var(--shadow-sm)] overflow-hidden" style={{ backgroundColor: `${dot}0A` }}>
+      <div className="h-[3px]" style={{ backgroundColor: dot }} />
+      <CardContent className="p-4 pt-3.5">
         <div className="flex items-start gap-3">
           <div className="relative flex-shrink-0">
-            <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center">
-              {p.type === 'professionnel' ? <Building2 className="w-[18px] h-[18px] text-primary" /> : <User className="w-[18px] h-[18px] text-primary" />}
+            <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center" style={{ boxShadow: `0 0 0 2px ${dot}55` }}>
+              {p.type === 'professionnel' ? <Building2 className="w-[18px] h-[18px]" style={{ color: dot }} /> : <User className="w-[18px] h-[18px]" style={{ color: dot }} />}
             </div>
-            <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full ring-2 ring-white" style={{ backgroundColor: dot }} />
           </div>
           <div className="min-w-0 flex-1">
             <Link href={`/clients/${p.id}`} className="font-semibold text-[15px] text-gray-900 hover:text-primary truncate block leading-tight">
@@ -138,20 +141,23 @@ export default async function ProspectsPage() {
         </Card>
       ) : (
         <>
-          {/* §5.1 Cartes en haut */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 animate-fade-up">
-            {COLUMNS.map(c => (
-              <Card key={c.key} className="card-interactive border-0 shadow-[var(--shadow-sm)]" style={{ backgroundColor: `${c.dot}14` }}>
-                <CardContent className="p-3.5">
-                  <div className="w-7 h-7 rounded-lg grid place-items-center mb-2" style={{ backgroundColor: `${c.dot}22` }}>
-                    <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.dot }} />
+          {/* §5.1 Résumé pipeline */}
+          <Card className="relative border-0 overflow-hidden text-white shadow-[var(--shadow-lg)] animate-fade-up" style={{ backgroundColor: PIPELINE_BLUE }}>
+            <FluidTexture color={PIPELINE_BLUE} />
+            <CardContent className="p-5 relative z-10">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-5">
+                {COLUMNS.map(c => (
+                  <div key={c.key}>
+                    <div className="flex items-center gap-1.5 text-white/70 text-xs font-medium">
+                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot, boxShadow: '0 0 0 2px rgba(255,255,255,0.25)' }} />
+                      {c.label}
+                    </div>
+                    <div className="text-[28px] font-bold leading-none mt-1.5">{countCol(c)}</div>
                   </div>
-                  <div className="text-2xl font-bold leading-none" style={{ color: c.dot }}>{countCol(c)}</div>
-                  <div className="text-[11px] text-gray-500 mt-1 leading-tight">{c.label}</div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* §5.2 Vue Kanban */}
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 animate-fade-up">
