@@ -327,3 +327,34 @@ export interface Email {
   linked_quote_id?: string
   created_at: string
 }
+
+export type ConversationType = 'direct' | 'group'
+
+export interface Conversation {
+  id: string
+  user_id: string
+  type: ConversationType
+  name?: string
+  created_at: string
+}
+
+export interface ConversationParticipant {
+  id: string
+  conversation_id: string
+  user_id: string
+  employee_id: string
+  created_at: string
+  employees?: Employee
+}
+
+export type MessageSenderType = 'admin' | 'employee'
+
+export interface Message {
+  id: string
+  conversation_id: string
+  user_id: string
+  sender_type: MessageSenderType
+  sender_employee_id?: string
+  body: string
+  created_at: string
+}

@@ -16,6 +16,7 @@ import { Plus, Users, Phone, Mail, Pencil, Trash2, Check, HardHat, Clock, Truck,
 import type { Employee } from '@/types'
 import { employeeRoleOptions, skillOptions, employeeColors, employeeInitials } from '@/lib/equipe'
 import { entityColors } from '@/lib/entityColors'
+import SetPinButton from './SetPinButton'
 
 const COLOR = entityColors.salarie
 
@@ -220,6 +221,7 @@ export default function EquipeManager({ employees, meta }: { employees: Employee
                     className={`grid place-items-center w-8 h-8 rounded-md hover:bg-gray-50 ${e.active ? 'text-gray-400 hover:text-amber-600' : 'text-green-500'}`}><Check className="w-4 h-4" /></button>
                   <button onClick={() => startEdit(e)} title="Modifier"
                     className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-blue-600 hover:bg-gray-50"><Pencil className="w-4 h-4" /></button>
+                  <SetPinButton employeeId={e.id} employeeName={e.full_name} />
                   <button onClick={() => handleDelete(e)} title="Supprimer"
                     className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-50"><Trash2 className="w-4 h-4" /></button>
                 </div>

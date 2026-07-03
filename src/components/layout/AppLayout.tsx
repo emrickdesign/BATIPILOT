@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Mail, FileText, Receipt,
-  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, CreditCard, Truck, Sparkles, ChevronLeft, ChevronRight
+  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, CreditCard, Truck, Sparkles, ChevronLeft, ChevronRight, MessageSquare
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { isPole } from '@/lib/roles'
@@ -16,6 +16,7 @@ type NavLink = { href: string; label: string; icon: any }
 // Accès direct (hors groupes), épinglé en haut
 const topNav: NavLink[] = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
+  { href: '/messages', label: 'Messages', icon: MessageSquare },
 ]
 
 // Familles repliables

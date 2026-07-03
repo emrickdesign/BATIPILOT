@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  Sun, HardHat, MapPin, Navigation, Camera, ReceiptText, Clock, User, Users2, LogIn, ArrowRight, ChevronLeft,
+  Sun, HardHat, MapPin, Navigation, Camera, ReceiptText, Clock, User, Users2, LogIn, ArrowRight, ChevronLeft, MessageSquare,
 } from 'lucide-react'
 import { employeeInitials } from '@/lib/equipe'
 
@@ -125,10 +125,11 @@ export default async function TerrainPage({ searchParams }: { searchParams: Prom
         </section>
 
         {/* Actions rapides */}
-        <section className="grid grid-cols-3 gap-3">
+        <section className="grid grid-cols-4 gap-3">
           <QuickAction href="/pointage" icon={<Clock className="w-5 h-5" />} label="Pointer" />
           <QuickAction href="/tickets" icon={<ReceiptText className="w-5 h-5" />} label="Ticket" />
           <QuickAction href="/documents" icon={<Camera className="w-5 h-5" />} label="Photo" />
+          <QuickAction href={`/terrain/messages?emp=${me.id}`} icon={<MessageSquare className="w-5 h-5" />} label="Messages" />
         </section>
 
         {/* Mes chantiers */}
