@@ -80,6 +80,9 @@ export default function MessagesView({ conversations, participants, employees, i
   const [search, setSearch] = useState('')
   const [recording, setRecording] = useState(false)
   const [recSeconds, setRecSeconds] = useState(0)
+  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
+  const [recordedSeconds, setRecordedSeconds] = useState(0)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
@@ -90,6 +93,10 @@ export default function MessagesView({ conversations, participants, employees, i
   if (selectedId !== prevSelectedId) {
     setPrevSelectedId(selectedId)
     setSendError(null)
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setRecordedBlob(null)
+    setRecordedSeconds(0)
+    setPreviewUrl(null)
   }
 
   useEffect(() => {
@@ -220,7 +227,11 @@ export default function MessagesView({ conversations, participants, employees, i
         setRecSeconds(0)
         if (cancelledRef.current) { cancelledRef.current = false; return }
         const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' })
-        if (blob.size > 0) sendVoiceRecording(blob, seconds)
+        if (blob.size > 0) {
+          setRecordedBlob(blob)
+          setRecordedSeconds(seconds)
+          setPreviewUrl(URL.createObjectURL(blob))
+        }
       }
       mediaRecorderRef.current = recorder
       recSecondsRef.current = 0
@@ -243,6 +254,21 @@ export default function MessagesView({ conversations, participants, employees, i
   function cancelRecording() {
     cancelledRef.current = true
     mediaRecorderRef.current?.stop()
+  }
+
+  function discardRecordedVoice() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setRecordedBlob(null)
+    setRecordedSeconds(0)
+    setPreviewUrl(null)
+  }
+
+  function confirmSendRecordedVoice() {
+    if (!recordedBlob) return
+    const blob = recordedBlob
+    const seconds = recordedSeconds
+    discardRecordedVoice()
+    sendVoiceRecording(blob, seconds)
   }
 
   const selected = sortedConversations.find(c => c.id === selectedId) || null
@@ -363,7 +389,13 @@ export default function MessagesView({ conversations, participants, employees, i
                     Enregistrement... {Math.floor(recSeconds / 60)}:{String(recSeconds % 60).padStart(2, '0')}
                   </div>
                   <Button size="icon" variant="outline" onClick={cancelRecording} title="Annuler"><Trash2 className="w-4 h-4" /></Button>
-                  <Button size="icon" onClick={stopRecording} title="Envoyer le message vocal"><Square className="w-4 h-4" /></Button>
+                  <Button size="icon" onClick={stopRecording} title="Arrêter l'enregistrement"><Square className="w-4 h-4" /></Button>
+                </>
+              ) : previewUrl ? (
+                <>
+                  <audio controls src={previewUrl} className="flex-1 h-10 min-w-0" />
+                  <Button size="icon" variant="outline" onClick={discardRecordedVoice} disabled={sending} title="Supprimer"><Trash2 className="w-4 h-4" /></Button>
+                  <Button size="icon" onClick={confirmSendRecordedVoice} disabled={sending} title="Envoyer le message vocal"><Send className="w-4 h-4" /></Button>
                 </>
               ) : (
                 <>
