@@ -26,7 +26,15 @@ export async function proxy(request: NextRequest) {
   const isAuthPage = request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/register')
 
-  if (!user && !isAuthPage) {
+  // Un salarié authentifié par code PIN (src/lib/employeeSession.ts, cookie bp_employee_session)
+  // peut ne pas avoir de session Supabase admin sur son appareil (tel perso, tablette dédiée).
+  // Sa session propre est vérifiée par chaque server action (currentSender) ; le proxy ne doit
+  // pas bloquer /terrain sur la seule absence de session admin, sinon toute la messagerie
+  // salarié (et /terrain en général) redirige vers /login avant même d'atteindre l'action.
+  const hasEmployeeCookie = request.nextUrl.pathname.startsWith('/terrain') &&
+    !!request.cookies.get('bp_employee_session')?.value
+
+  if (!user && !isAuthPage && !hasEmployeeCookie) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
