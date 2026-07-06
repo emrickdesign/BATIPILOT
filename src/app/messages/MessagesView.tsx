@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MessageSquarePlus, Send, Users2, Search } from 'lucide-react'
+import { MessageSquarePlus, Send, Users2, Search, Mic, Square, Trash2 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { createConversation, sendMessage, getNewMessages } from './actions'
+import { createConversation, sendMessage, sendVoiceMessage, getNewMessages } from './actions'
 import { employeeInitials } from '@/lib/equipe'
 import { entityColors } from '@/lib/entityColors'
 import type { Conversation, ConversationParticipant, Employee, Message } from '@/types'
@@ -78,11 +78,26 @@ export default function MessagesView({ conversations, participants, employees, i
   const [sendError, setSendError] = useState<string | null>(null)
   const [newConvOpen, setNewConvOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [recording, setRecording] = useState(false)
+  const [recSeconds, setRecSeconds] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+  const recSecondsRef = useRef(0)
+  const recTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const cancelledRef = useRef(false)
+  const [prevSelectedId, setPrevSelectedId] = useState(selectedId)
+  if (selectedId !== prevSelectedId) {
+    setPrevSelectedId(selectedId)
+    setSendError(null)
+  }
 
   useEffect(() => {
-    setSendError(null)
-  }, [selectedId])
+    return () => {
+      if (recTimerRef.current) clearInterval(recTimerRef.current)
+      mediaRecorderRef.current?.stream?.getTracks().forEach(t => t.stop())
+    }
+  }, [])
 
   const convName = (c: Conversation) => {
     const emps = participantsByConv.get(c.id) || []
@@ -119,7 +134,6 @@ export default function MessagesView({ conversations, participants, employees, i
           return next
         })
       }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
     }, 3000)
     return () => clearInterval(interval)
   }, [selectedId, messagesByConv])
@@ -156,6 +170,79 @@ export default function MessagesView({ conversations, participants, employees, i
     } finally {
       setSending(false)
     }
+  }
+
+  async function sendVoiceRecording(blob: Blob, seconds: number) {
+    if (!selectedId) return
+    const convId = selectedId
+    setSending(true)
+    setSendError(null)
+    try {
+      const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm'
+      const formData = new FormData()
+      formData.set('conversationId', convId)
+      formData.set('duration', String(seconds))
+      formData.set('audio', blob, `voice.${ext}`)
+      const res = await sendVoiceMessage(formData, viewer)
+      if (!res.success) {
+        setSendError(res.error || 'Erreur lors de l\'envoi du message vocal.')
+      }
+      // Pas de mise à jour optimiste ici : l'upload prend un temps non négligeable,
+      // le poll (3s) risquerait de récupérer le vrai message avant qu'on ajoute la copie
+      // locale (id différent => doublon). Le poll suffit à l'afficher sous 3s.
+    } catch {
+      setSendError('Erreur lors de l\'envoi du message vocal.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  function pickAudioMimeType() {
+    const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4']
+    return candidates.find(t => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) || ''
+  }
+
+  async function startRecording() {
+    if (recording || sending) return
+    setSendError(null)
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const mimeType = pickAudioMimeType()
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      chunksRef.current = []
+      cancelledRef.current = false
+      recorder.ondataavailable = e => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+      recorder.onstop = () => {
+        stream.getTracks().forEach(t => t.stop())
+        if (recTimerRef.current) clearInterval(recTimerRef.current)
+        const seconds = recSecondsRef.current
+        setRecording(false)
+        setRecSeconds(0)
+        if (cancelledRef.current) { cancelledRef.current = false; return }
+        const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' })
+        if (blob.size > 0) sendVoiceRecording(blob, seconds)
+      }
+      mediaRecorderRef.current = recorder
+      recSecondsRef.current = 0
+      recorder.start()
+      setRecording(true)
+      setRecSeconds(0)
+      recTimerRef.current = setInterval(() => {
+        recSecondsRef.current += 1
+        setRecSeconds(recSecondsRef.current)
+      }, 1000)
+    } catch {
+      setSendError('Micro indisponible ou permission refusée.')
+    }
+  }
+
+  function stopRecording() {
+    mediaRecorderRef.current?.stop()
+  }
+
+  function cancelRecording() {
+    cancelledRef.current = true
+    mediaRecorderRef.current?.stop()
   }
 
   const selected = sortedConversations.find(c => c.id === selectedId) || null
@@ -248,7 +335,18 @@ export default function MessagesView({ conversations, participants, employees, i
                         {selected.type === 'group' && !mine && (
                           <p className="text-[11px] font-semibold mb-0.5" style={{ color: COLOR }}>{senderLabel(m)}</p>
                         )}
-                        <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                        {m.audio_url ? (
+                          <div className="flex flex-col gap-1">
+                            <audio controls src={m.audio_url} className="h-9 max-w-[220px]" />
+                            {typeof m.duration_sec === 'number' && (
+                              <span className={cn('text-[10px]', mine ? 'text-white/70' : 'text-gray-400')}>
+                                {Math.floor(m.duration_sec / 60)}:{String(m.duration_sec % 60).padStart(2, '0')}
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                        )}
                         <p className={cn('text-[10px] mt-1', mine ? 'text-white/70' : 'text-gray-400')}>{relativeTime(m.created_at)}</p>
                       </div>
                     </div>
@@ -258,14 +356,31 @@ export default function MessagesView({ conversations, participants, employees, i
             </div>
             {sendError && <p className="px-3.5 pt-2 text-xs text-red-600">{sendError}</p>}
             <div className="p-3 border-t border-gray-100 flex items-center gap-2">
-              <Input
-                value={draft}
-                onChange={e => setDraft(e.target.value)}
-                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                placeholder="Écrire un message..."
-                className="flex-1 h-10"
-              />
-              <Button size="icon" onClick={handleSend} disabled={!draft.trim() || sending}><Send className="w-4 h-4" /></Button>
+              {recording ? (
+                <>
+                  <div className="flex-1 h-10 rounded-md border border-red-200 bg-red-50 flex items-center gap-2 px-3 text-sm text-red-600">
+                    <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                    Enregistrement... {Math.floor(recSeconds / 60)}:{String(recSeconds % 60).padStart(2, '0')}
+                  </div>
+                  <Button size="icon" variant="outline" onClick={cancelRecording} title="Annuler"><Trash2 className="w-4 h-4" /></Button>
+                  <Button size="icon" onClick={stopRecording} title="Envoyer le message vocal"><Square className="w-4 h-4" /></Button>
+                </>
+              ) : (
+                <>
+                  <Input
+                    value={draft}
+                    onChange={e => setDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+                    placeholder="Écrire un message..."
+                    className="flex-1 h-10"
+                  />
+                  {draft.trim() ? (
+                    <Button size="icon" onClick={handleSend} disabled={sending}><Send className="w-4 h-4" /></Button>
+                  ) : (
+                    <Button size="icon" variant="outline" onClick={startRecording} disabled={sending} title="Message vocal"><Mic className="w-4 h-4" /></Button>
+                  )}
+                </>
+              )}
             </div>
           </>
         )}
@@ -283,10 +398,11 @@ function NewConversationDialog({ open, onOpenChange, roster, onCreated, viewer }
   const [groupName, setGroupName] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  useEffect(() => {
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
     if (open) setError(null)
-  }, [open])
+  }
 
   function toggle(id: string) {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])

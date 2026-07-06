@@ -4,8 +4,23 @@ import { createClient } from '@/lib/supabase/server'
 import { getEmployeeSession } from '@/lib/employeeSession'
 import { createServiceClient } from '@/lib/supabase/service'
 import { revalidatePath } from 'next/cache'
+import type { Message } from '@/types'
 
 export type ViewerClaim = { kind: 'admin' } | { kind: 'employee'; employeeId: string }
+
+const VOICE_BUCKET = 'documents'
+
+/** Attache une URL signée (1h) aux messages vocaux ; ne stocke jamais l'URL en base. */
+async function withAudioUrls<T extends Pick<Message, 'audio_path'>>(
+  service: ReturnType<typeof createServiceClient>,
+  msgs: T[]
+): Promise<(T & { audio_url?: string | null })[]> {
+  const paths = msgs.filter(m => m.audio_path).map(m => m.audio_path as string)
+  if (paths.length === 0) return msgs
+  const signed = await Promise.all(paths.map(p => service.storage.from(VOICE_BUCKET).createSignedUrl(p, 3600)))
+  const urlByPath = new Map(paths.map((p, i) => [p, signed[i].data?.signedUrl || null]))
+  return msgs.map(m => m.audio_path ? { ...m, audio_url: urlByPath.get(m.audio_path) || null } : m)
+}
 
 /**
  * Résout l'expéditeur à partir de ce que revendique le CLIENT (viewer côté page), et vérifie
@@ -75,7 +90,59 @@ export async function getNewMessages(conversationId: string, afterIso: string, v
     .eq('conversation_id', conversationId)
     .gt('created_at', afterIso)
     .order('created_at', { ascending: true })
-  return { messages: data || [] }
+  return { messages: await withAudioUrls(service, data || []) }
+}
+
+/** Upload + insertion d'un message vocal. `formData` doit contenir conversationId, audio (Blob) et duration (secondes). */
+export async function sendVoiceMessage(formData: FormData, viewer: ViewerClaim) {
+  const conversationId = formData.get('conversationId')
+  const audio = formData.get('audio')
+  const durationRaw = formData.get('duration')
+  if (typeof conversationId !== 'string' || !(audio instanceof Blob) || audio.size === 0) {
+    return { error: 'Message vocal invalide.' }
+  }
+  const duration = typeof durationRaw === 'string' && durationRaw ? Math.round(Number(durationRaw)) : null
+
+  const sender = await currentSender(viewer)
+  if (!sender) return { error: 'Non connecté.' }
+
+  const service = createServiceClient()
+
+  const { data: conv } = await service.from('conversations').select('id, user_id').eq('id', conversationId).single()
+  if (!conv || conv.user_id !== sender.userId) return { error: 'Conversation introuvable.' }
+  if (sender.kind === 'employee') {
+    const { data: participant } = await service
+      .from('conversation_participants')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('employee_id', sender.employeeId)
+      .single()
+    if (!participant) return { error: 'Tu ne fais pas partie de cette conversation.' }
+  }
+
+  const mime = audio.type || 'audio/webm'
+  const ext = mime.includes('mp4') ? 'm4a' : mime.includes('ogg') ? 'ogg' : 'webm'
+  const path = `voice-messages/${conversationId}/${crypto.randomUUID()}.${ext}`
+  const buffer = Buffer.from(await audio.arrayBuffer())
+
+  const { error: upErr } = await service.storage.from(VOICE_BUCKET).upload(path, buffer, { contentType: mime, upsert: false })
+  if (upErr) return { error: "Erreur lors de l'envoi du message vocal." }
+
+  const { error } = await service.from('messages').insert({
+    conversation_id: conversationId,
+    user_id: sender.userId,
+    sender_type: sender.kind,
+    sender_employee_id: sender.kind === 'employee' ? sender.employeeId : null,
+    body: '🎤 Message vocal',
+    audio_path: path,
+    audio_mime: mime,
+    duration_sec: duration,
+  })
+  if (error) return { error: "Erreur lors de l'envoi du message vocal." }
+
+  revalidatePath('/messages')
+  revalidatePath('/terrain')
+  return { success: true }
 }
 
 export async function sendMessage(conversationId: string, body: string, viewer: ViewerClaim) {

@@ -357,4 +357,9 @@ export interface Message {
   sender_employee_id?: string
   body: string
   created_at: string
+  audio_path?: string | null
+  audio_mime?: string | null
+  duration_sec?: number | null
+  /** URL signée générée côté serveur à la lecture, jamais stockée en base. */
+  audio_url?: string | null
 }

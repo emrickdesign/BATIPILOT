@@ -17,6 +17,14 @@ export default async function TerrainMessagesPage({ searchParams }: { searchPara
       service.from('messages').select('*').eq('user_id', session.userId).order('created_at', { ascending: true }).limit(2000),
     ])
 
+    const initialMessages = await Promise.all(
+      (messages || []).map(async m => {
+        if (!m.audio_path) return m
+        const { data } = await service.storage.from('documents').createSignedUrl(m.audio_path, 3600)
+        return { ...m, audio_url: data?.signedUrl || null }
+      })
+    )
+
     return (
       <div className="min-h-screen bg-app-bg p-4">
         <div className="max-w-2xl mx-auto">
@@ -26,7 +34,7 @@ export default async function TerrainMessagesPage({ searchParams }: { searchPara
             conversations={conversations || []}
             participants={participants || []}
             employees={(employees as Employee[]) || []}
-            initialMessages={messages || []}
+            initialMessages={initialMessages}
             viewer={{ kind: 'employee', employeeId: session.employeeId }}
           />
         </div>
