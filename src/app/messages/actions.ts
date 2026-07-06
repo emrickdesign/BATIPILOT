@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { getEmployeeSession } from '@/lib/employeeSession'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getValidGmailToken } from '@/lib/gmail-token'
 import { revalidatePath } from 'next/cache'
 import type { Message } from '@/types'
 
@@ -178,4 +179,91 @@ export async function sendMessage(conversationId: string, body: string, viewer: 
   revalidatePath('/messages')
   revalidatePath('/terrain')
   return { success: true }
+}
+
+/** Planifie un appel interne : événement Google Calendar + lien Meet + invitations email natives (accepter/refuser côté Google). */
+export async function createCalendarMeeting(
+  conversationId: string,
+  startIso: string,
+  durationMinutes: number,
+  title: string | undefined,
+  viewer: ViewerClaim
+) {
+  const sender = await currentSender(viewer)
+  if (!sender) return { error: 'Non connecté.' }
+
+  const start = new Date(startIso)
+  if (Number.isNaN(start.getTime())) return { error: 'Date invalide.' }
+
+  const service = createServiceClient()
+
+  const { data: conv } = await service.from('conversations').select('id, user_id').eq('id', conversationId).single()
+  if (!conv || conv.user_id !== sender.userId) return { error: 'Conversation introuvable.' }
+  if (sender.kind === 'employee') {
+    const { data: participant } = await service
+      .from('conversation_participants')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('employee_id', sender.employeeId)
+      .single()
+    if (!participant) return { error: 'Tu ne fais pas partie de cette conversation.' }
+  }
+
+  const token = await getValidGmailToken(service, sender.userId)
+  if (!token) return { error: 'Connecte Google Calendar (Paramètres > Connexions) pour planifier des appels.' }
+
+  const { data: participants } = await service
+    .from('conversation_participants')
+    .select('employee_id, employees(email)')
+    .eq('conversation_id', conversationId)
+
+  const attendeeEmails = new Set<string>()
+  for (const p of participants || []) {
+    const emp = p.employees as unknown as { email?: string } | null
+    if (emp?.email && !(sender.kind === 'employee' && p.employee_id === sender.employeeId)) attendeeEmails.add(emp.email)
+  }
+  // Une conversation directe salarié↔Direction ne contient que le salarié comme participant :
+  // l'admin (organisateur du calendrier connecté) n'y figure pas, il faut l'ajouter explicitement.
+  if (sender.kind === 'employee' && token.gmailEmail) attendeeEmails.add(token.gmailEmail)
+
+  if (attendeeEmails.size === 0) return { error: 'Aucun destinataire avec une adresse email pour cette conversation.' }
+
+  const end = new Date(start.getTime() + durationMinutes * 60_000)
+
+  const res = await fetch(
+    'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all',
+    {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token.accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        summary: title?.trim() || 'Appel BatiPilot',
+        start: { dateTime: start.toISOString() },
+        end: { dateTime: end.toISOString() },
+        attendees: Array.from(attendeeEmails).map(email => ({ email })),
+        conferenceData: {
+          createRequest: { requestId: crypto.randomUUID(), conferenceSolutionKey: { type: 'hangoutsMeet' } },
+        },
+      }),
+    }
+  )
+
+  if (!res.ok) return { error: "Erreur lors de la création de l'événement Google Calendar." }
+  const event = await res.json()
+  const meetLink = event.hangoutLink as string | undefined
+  const eventLink = event.htmlLink as string | undefined
+
+  const dateLabel = start.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
+  const body = `📅 Appel planifié le ${dateLabel}${meetLink ? `\n${meetLink}` : eventLink ? `\n${eventLink}` : ''}`
+
+  await service.from('messages').insert({
+    conversation_id: conversationId,
+    user_id: sender.userId,
+    sender_type: sender.kind,
+    sender_employee_id: sender.kind === 'employee' ? sender.employeeId : null,
+    body,
+  })
+
+  revalidatePath('/messages')
+  revalidatePath('/terrain')
+  return { success: true, meetLink, eventLink }
 }

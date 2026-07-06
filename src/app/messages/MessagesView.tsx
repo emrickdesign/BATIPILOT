@@ -1,12 +1,12 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MessageSquarePlus, Send, Users2, Search, Mic, Square, Trash2 } from 'lucide-react'
+import { MessageSquarePlus, Send, Users2, Search, Mic, Square, Trash2, Video } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
-import { createConversation, sendMessage, sendVoiceMessage, getNewMessages } from './actions'
+import { createConversation, sendMessage, sendVoiceMessage, createCalendarMeeting, getNewMessages } from './actions'
 import { employeeInitials } from '@/lib/equipe'
 import { entityColors } from '@/lib/entityColors'
 import type { Conversation, ConversationParticipant, Employee, Message } from '@/types'
@@ -77,6 +77,7 @@ export default function MessagesView({ conversations, participants, employees, i
   const [sending, setSending] = useState(false)
   const [sendError, setSendError] = useState<string | null>(null)
   const [newConvOpen, setNewConvOpen] = useState(false)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [recording, setRecording] = useState(false)
   const [recSeconds, setRecSeconds] = useState(0)
@@ -342,12 +343,15 @@ export default function MessagesView({ conversations, participants, employees, i
               <span className="grid place-items-center w-8 h-8 rounded-lg flex-shrink-0" style={{ backgroundColor: `${COLOR}18`, color: COLOR }}>
                 {selected.type === 'group' ? <Users2 className="w-4 h-4" /> : <span className="text-xs font-bold">{employeeInitials(convName(selected))}</span>}
               </span>
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-marine truncate">{convName(selected)}</p>
                 {selected.type === 'group' && (
                   <p className="text-xs text-gray-400 truncate">{(participantsByConv.get(selected.id) || []).map(e => e.full_name).join(', ')}</p>
                 )}
               </div>
+              <Button size="icon-sm" variant="outline" className="flex-shrink-0" onClick={() => setScheduleOpen(true)} title="Planifier un appel">
+                <Video className="w-4 h-4" />
+              </Button>
             </div>
             <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/40">
               {selectedMessages.length === 0 ? (
@@ -419,7 +423,89 @@ export default function MessagesView({ conversations, participants, employees, i
       </Card>
 
       <NewConversationDialog open={newConvOpen} onOpenChange={setNewConvOpen} roster={roster} onCreated={setSelectedId} viewer={viewer} />
+      {selected && (
+        <ScheduleCallDialog open={scheduleOpen} onOpenChange={setScheduleOpen} conversationId={selected.id} viewer={viewer} />
+      )}
     </div>
+  )
+}
+
+function defaultMeetingStart() {
+  const d = new Date(Date.now() + 60 * 60 * 1000)
+  d.setMinutes(d.getMinutes() < 30 ? 30 : 60, 0, 0)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function ScheduleCallDialog({ open, onOpenChange, conversationId, viewer }: {
+  open: boolean; onOpenChange: (v: boolean) => void; conversationId: string; viewer: Viewer
+}) {
+  const [start, setStart] = useState(defaultMeetingStart)
+  const [duration, setDuration] = useState(30)
+  const [title, setTitle] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [prevOpen, setPrevOpen] = useState(open)
+  if (open !== prevOpen) {
+    setPrevOpen(open)
+    if (open) { setError(null); setStart(defaultMeetingStart()) }
+  }
+
+  async function handleCreate() {
+    setBusy(true)
+    setError(null)
+    try {
+      const startIso = new Date(start).toISOString()
+      const res = await createCalendarMeeting(conversationId, startIso, duration, title || undefined, viewer)
+      if (res.success) {
+        onOpenChange(false)
+        setTitle('')
+      } else {
+        setError(res.error || 'Erreur lors de la création.')
+      }
+    } catch {
+      setError('Erreur lors de la création.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Planifier un appel</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 py-2">
+          <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Titre (optionnel)" />
+          <div className="flex gap-2">
+            <Input
+              type="datetime-local"
+              value={start}
+              onChange={e => setStart(e.target.value)}
+              className="flex-1"
+            />
+            <select
+              value={duration}
+              onChange={e => setDuration(Number(e.target.value))}
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm"
+            >
+              <option value={15}>15 min</option>
+              <option value={30}>30 min</option>
+              <option value={60}>1 h</option>
+            </select>
+          </div>
+          <p className="text-xs text-gray-400">
+            Crée un événement Google Calendar avec lien Meet et envoie une invitation email aux participants (accepter/refuser géré par Google).
+          </p>
+          {error && <p className="text-sm text-red-600">{error}</p>}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
+          <Button disabled={busy} onClick={handleCreate}>{busy ? 'Création...' : 'Planifier'}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
