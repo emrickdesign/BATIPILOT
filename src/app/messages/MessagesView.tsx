@@ -124,7 +124,7 @@ export default function MessagesView({ conversations, participants, employees, i
   const isMine = (m: Message) =>
     viewer.kind === 'admin' ? m.sender_type === 'admin' : m.sender_type === 'employee' && m.sender_employee_id === viewer.employeeId
 
-  // Poll léger pour la conversation ouverte (pas de vrai push temps réel)
+  // Poll pour la conversation ouverte (pas de vrai push temps réel, cf. mémoire projet)
   useEffect(() => {
     if (!selectedId) return
     const interval = setInterval(async () => {
@@ -142,7 +142,7 @@ export default function MessagesView({ conversations, participants, employees, i
           return next
         })
       }
-    }, 3000)
+    }, 1000)
     return () => clearInterval(interval)
   }, [selectedId, messagesByConv])
 
