@@ -75,9 +75,14 @@ export default function MessagesView({ conversations, participants, employees, i
   const [selectedId, setSelectedId] = useState<string | null>(sortedConversations[0]?.id || null)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
   const [newConvOpen, setNewConvOpen] = useState(false)
   const [search, setSearch] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setSendError(null)
+  }, [selectedId])
 
   const convName = (c: Conversation) => {
     const emps = participantsByConv.get(c.id) || []
@@ -126,6 +131,7 @@ export default function MessagesView({ conversations, participants, employees, i
   async function handleSend() {
     if (!selectedId || !draft.trim() || sending) return
     setSending(true)
+    setSendError(null)
     const body = draft.trim()
     setDraft('')
     try {
@@ -142,9 +148,11 @@ export default function MessagesView({ conversations, participants, employees, i
         })
       } else {
         setDraft(body)
+        setSendError(res.error || 'Erreur lors de l\'envoi.')
       }
     } catch {
       setDraft(body)
+      setSendError('Erreur lors de l\'envoi.')
     } finally {
       setSending(false)
     }
@@ -248,6 +256,7 @@ export default function MessagesView({ conversations, participants, employees, i
                 })
               )}
             </div>
+            {sendError && <p className="px-3.5 pt-2 text-xs text-red-600">{sendError}</p>}
             <div className="p-3 border-t border-gray-100 flex items-center gap-2">
               <Input
                 value={draft}
