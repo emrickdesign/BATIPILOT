@@ -128,19 +128,26 @@ export default function MessagesView({ conversations, participants, employees, i
     setSending(true)
     const body = draft.trim()
     setDraft('')
-    const res = await sendMessage(selectedId, body, viewer)
-    if (res.success) {
-      setMessagesByConv(prev => {
-        const next = new Map(prev)
-        const existing = next.get(selectedId) || []
-        next.set(selectedId, [...existing, {
-          id: `tmp-${Date.now()}`, conversation_id: selectedId, user_id: '', created_at: new Date().toISOString(),
-          sender_type: viewer.kind, sender_employee_id: viewer.kind === 'employee' ? viewer.employeeId : undefined, body,
-        }])
-        return next
-      })
+    try {
+      const res = await sendMessage(selectedId, body, viewer)
+      if (res.success) {
+        setMessagesByConv(prev => {
+          const next = new Map(prev)
+          const existing = next.get(selectedId) || []
+          next.set(selectedId, [...existing, {
+            id: `tmp-${Date.now()}`, conversation_id: selectedId, user_id: '', created_at: new Date().toISOString(),
+            sender_type: viewer.kind, sender_employee_id: viewer.kind === 'employee' ? viewer.employeeId : undefined, body,
+          }])
+          return next
+        })
+      } else {
+        setDraft(body)
+      }
+    } catch {
+      setDraft(body)
+    } finally {
+      setSending(false)
     }
-    setSending(false)
   }
 
   const selected = sortedConversations.find(c => c.id === selectedId) || null
@@ -266,6 +273,11 @@ function NewConversationDialog({ open, onOpenChange, roster, onCreated, viewer }
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [groupName, setGroupName] = useState('')
   const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (open) setError(null)
+  }, [open])
 
   function toggle(id: string) {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
@@ -273,13 +285,21 @@ function NewConversationDialog({ open, onOpenChange, roster, onCreated, viewer }
 
   async function handleCreate() {
     setBusy(true)
-    const res = await createConversation(selectedIds, groupName || undefined, viewer)
-    setBusy(false)
-    if (res.success && res.conversationId) {
-      onCreated(res.conversationId)
-      onOpenChange(false)
-      setSelectedIds([])
-      setGroupName('')
+    setError(null)
+    try {
+      const res = await createConversation(selectedIds, groupName || undefined, viewer)
+      if (res.success && res.conversationId) {
+        onCreated(res.conversationId)
+        onOpenChange(false)
+        setSelectedIds([])
+        setGroupName('')
+      } else {
+        setError(res.error || 'Erreur lors de la création.')
+      }
+    } catch {
+      setError('Erreur lors de la création.')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -306,6 +326,7 @@ function NewConversationDialog({ open, onOpenChange, roster, onCreated, viewer }
           {selectedIds.length > 1 && (
             <Input value={groupName} onChange={e => setGroupName(e.target.value)} placeholder="Nom du groupe (optionnel)" />
           )}
+          {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Annuler</Button>
