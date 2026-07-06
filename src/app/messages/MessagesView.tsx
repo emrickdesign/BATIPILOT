@@ -103,7 +103,7 @@ export default function MessagesView({ conversations, participants, employees, i
       const list = messagesByConv.get(selectedId) || []
       const last = list[list.length - 1]
       const after = last ? last.created_at : new Date(0).toISOString()
-      const res = await getNewMessages(selectedId, after)
+      const res = await getNewMessages(selectedId, after, viewer)
       if (res.messages && res.messages.length) {
         setMessagesByConv(prev => {
           const next = new Map(prev)
@@ -128,7 +128,7 @@ export default function MessagesView({ conversations, participants, employees, i
     setSending(true)
     const body = draft.trim()
     setDraft('')
-    const res = await sendMessage(selectedId, body)
+    const res = await sendMessage(selectedId, body, viewer)
     if (res.success) {
       setMessagesByConv(prev => {
         const next = new Map(prev)
@@ -255,13 +255,13 @@ export default function MessagesView({ conversations, participants, employees, i
         )}
       </Card>
 
-      <NewConversationDialog open={newConvOpen} onOpenChange={setNewConvOpen} roster={roster} onCreated={setSelectedId} />
+      <NewConversationDialog open={newConvOpen} onOpenChange={setNewConvOpen} roster={roster} onCreated={setSelectedId} viewer={viewer} />
     </div>
   )
 }
 
-function NewConversationDialog({ open, onOpenChange, roster, onCreated }: {
-  open: boolean; onOpenChange: (v: boolean) => void; roster: Employee[]; onCreated: (id: string) => void
+function NewConversationDialog({ open, onOpenChange, roster, onCreated, viewer }: {
+  open: boolean; onOpenChange: (v: boolean) => void; roster: Employee[]; onCreated: (id: string) => void; viewer: Viewer
 }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [groupName, setGroupName] = useState('')
@@ -273,7 +273,7 @@ function NewConversationDialog({ open, onOpenChange, roster, onCreated }: {
 
   async function handleCreate() {
     setBusy(true)
-    const res = await createConversation(selectedIds, groupName || undefined)
+    const res = await createConversation(selectedIds, groupName || undefined, viewer)
     setBusy(false)
     if (res.success && res.conversationId) {
       onCreated(res.conversationId)
