@@ -24,6 +24,24 @@ async function withAudioUrls<T extends Pick<Message, 'audio_path'>>(
 }
 
 /**
+ * Diffuse le nouveau message en temps réel (Supabase Realtime broadcast) sur un canal par
+ * conversation. Volontairement PAS du Postgres Changes + RLS classique : un salarié n'a pas
+ * de session auth.uid() (cf. currentSender), donc ne passerait jamais les policies RLS sur
+ * `messages`. Le canal broadcast ne dépend d'aucune session : n'importe quel client muni de
+ * l'anon key peut s'abonner à un topic s'il en connaît l'identifiant — la sécurité vient de
+ * l'ID de conversation (UUID, jamais exposé publiquement, uniquement transmis aux clients déjà
+ * authentifiés/autorisés par les vérifications existantes). Best-effort : une panne de diffusion
+ * n'empêche pas l'envoi (le poll de secours côté client rattrape).
+ */
+async function broadcastNewMessage(service: ReturnType<typeof createServiceClient>, conversationId: string, message: unknown) {
+  try {
+    await service.channel(`conversation:${conversationId}`).send({ type: 'broadcast', event: 'new_message', payload: message })
+  } catch {
+    // best-effort
+  }
+}
+
+/**
  * Résout l'expéditeur à partir de ce que revendique le CLIENT (viewer côté page), et vérifie
  * cette revendication précisément — jamais une priorité ambiguë entre les deux sessions.
  * Sur un appareil partagé (tablette chantier), l'admin ET un salarié peuvent être connectés
@@ -129,7 +147,7 @@ export async function sendVoiceMessage(formData: FormData, viewer: ViewerClaim) 
   const { error: upErr } = await service.storage.from(VOICE_BUCKET).upload(path, buffer, { contentType: mime, upsert: false })
   if (upErr) return { error: "Erreur lors de l'envoi du message vocal." }
 
-  const { error } = await service.from('messages').insert({
+  const { data: inserted, error } = await service.from('messages').insert({
     conversation_id: conversationId,
     user_id: sender.userId,
     sender_type: sender.kind,
@@ -138,8 +156,11 @@ export async function sendVoiceMessage(formData: FormData, viewer: ViewerClaim) 
     audio_path: path,
     audio_mime: mime,
     duration_sec: duration,
-  })
-  if (error) return { error: "Erreur lors de l'envoi du message vocal." }
+  }).select('*').single()
+  if (error || !inserted) return { error: "Erreur lors de l'envoi du message vocal." }
+
+  const [withUrl] = await withAudioUrls(service, [inserted])
+  await broadcastNewMessage(service, conversationId, withUrl)
 
   revalidatePath('/messages')
   revalidatePath('/terrain')
@@ -167,14 +188,16 @@ export async function sendMessage(conversationId: string, body: string, viewer: 
     if (!participant) return { error: 'Tu ne fais pas partie de cette conversation.' }
   }
 
-  const { error } = await service.from('messages').insert({
+  const { data: inserted, error } = await service.from('messages').insert({
     conversation_id: conversationId,
     user_id: sender.userId,
     sender_type: sender.kind,
     sender_employee_id: sender.kind === 'employee' ? sender.employeeId : null,
     body: trimmed,
-  })
-  if (error) return { error: 'Erreur lors de l\'envoi.' }
+  }).select('*').single()
+  if (error || !inserted) return { error: 'Erreur lors de l\'envoi.' }
+
+  await broadcastNewMessage(service, conversationId, inserted)
 
   revalidatePath('/messages')
   revalidatePath('/terrain')
@@ -255,13 +278,14 @@ export async function createCalendarMeeting(
   const dateLabel = start.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short' })
   const body = `📅 Appel planifié le ${dateLabel}${meetLink ? `\n${meetLink}` : eventLink ? `\n${eventLink}` : ''}`
 
-  await service.from('messages').insert({
+  const { data: inserted } = await service.from('messages').insert({
     conversation_id: conversationId,
     user_id: sender.userId,
     sender_type: sender.kind,
     sender_employee_id: sender.kind === 'employee' ? sender.employeeId : null,
     body,
-  })
+  }).select('*').single()
+  if (inserted) await broadcastNewMessage(service, conversationId, inserted)
 
   revalidatePath('/messages')
   revalidatePath('/terrain')

@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { createConversation, sendMessage, sendVoiceMessage, createCalendarMeeting, getNewMessages } from './actions'
+import { createClient } from '@/lib/supabase/client'
 import { employeeInitials } from '@/lib/equipe'
 import { entityColors } from '@/lib/entityColors'
 import type { Conversation, ConversationParticipant, Employee, Message } from '@/types'
@@ -124,7 +125,34 @@ export default function MessagesView({ conversations, participants, employees, i
   const isMine = (m: Message) =>
     viewer.kind === 'admin' ? m.sender_type === 'admin' : m.sender_type === 'employee' && m.sender_employee_id === viewer.employeeId
 
-  // Poll pour la conversation ouverte (pas de vrai push temps réel, cf. mémoire projet)
+  const supabase = useMemo(() => createClient(), [])
+
+  function addFreshMessages(convId: string, incoming: Message[]) {
+    if (!incoming.length) return
+    setMessagesByConv(prev => {
+      const next = new Map(prev)
+      const existing = next.get(convId) || []
+      const ids = new Set(existing.map(m => m.id))
+      const fresh = incoming.filter(m => !ids.has(m.id))
+      if (fresh.length) next.set(convId, [...existing, ...fresh])
+      return next
+    })
+  }
+
+  // Temps réel : diffusion Supabase (broadcast, pas Postgres Changes — un salarié n'a pas de
+  // session auth.uid() donc ne passerait jamais les policies RLS). Voir broadcastNewMessage
+  // dans actions.ts pour le détail du choix et de son compromis de sécurité.
+  useEffect(() => {
+    if (!selectedId) return
+    const channel = supabase.channel(`conversation:${selectedId}`)
+    channel.on('broadcast', { event: 'new_message' }, ({ payload }) => {
+      addFreshMessages(selectedId, [payload as Message])
+    }).subscribe()
+    return () => { supabase.removeChannel(channel) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId])
+
+  // Poll de secours (rattrape un événement broadcast manqué — coupure réseau, onglet en veille...)
   useEffect(() => {
     if (!selectedId) return
     const interval = setInterval(async () => {
@@ -132,17 +160,8 @@ export default function MessagesView({ conversations, participants, employees, i
       const last = list[list.length - 1]
       const after = last ? last.created_at : new Date(0).toISOString()
       const res = await getNewMessages(selectedId, after, viewer)
-      if (res.messages && res.messages.length) {
-        setMessagesByConv(prev => {
-          const next = new Map(prev)
-          const existing = next.get(selectedId) || []
-          const ids = new Set(existing.map(m => m.id))
-          const fresh = res.messages!.filter(m => !ids.has(m.id))
-          if (fresh.length) next.set(selectedId, [...existing, ...fresh])
-          return next
-        })
-      }
-    }, 1000)
+      if (res.messages) addFreshMessages(selectedId, res.messages)
+    }, 15000)
     return () => clearInterval(interval)
   }, [selectedId, messagesByConv])
 
