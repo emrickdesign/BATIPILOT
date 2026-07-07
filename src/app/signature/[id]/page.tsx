@@ -26,6 +26,7 @@ export default async function SignaturePage({ params }: { params: Promise<{ id: 
   let lines: any[] = []
   let docType: 'devis' | 'facture' = 'devis'
   let company: any = null
+  let client: any = null
 
   if (sig.quote_id) {
     docType = 'devis'
@@ -36,6 +37,7 @@ export default async function SignaturePage({ params }: { params: Promise<{ id: 
     document = quote
     lines = ((quote?.quote_lines as any[]) || []).sort((a, b) => a.sort_order - b.sort_order)
     company = comp
+    client = quote?.clients
   } else if (sig.invoice_id) {
     docType = 'facture'
     const [{ data: invoice }, { data: comp }] = await Promise.all([
@@ -45,10 +47,27 @@ export default async function SignaturePage({ params }: { params: Promise<{ id: 
     document = invoice
     lines = ((invoice?.invoice_lines as any[]) || []).sort((a, b) => a.sort_order - b.sort_order)
     company = comp
+    client = invoice?.clients
   }
   if (!document) return notFound()
 
   const docNumber = docType === 'devis' ? document.quote_number : document.invoice_number
+  const clientName = client?.type === 'professionnel'
+    ? (client.company_name || 'Client')
+    : `${client?.first_name || ''} ${client?.last_name || ''}`.trim() || 'Client'
+
+  const prestataireLines = [
+    company?.address,
+    company?.siret ? `SIRET : ${company.siret}` : null,
+    [company?.phone, company?.email].filter(Boolean).join(' · ') || null,
+  ].filter(Boolean) as string[]
+
+  const clientInfoLines = [
+    client?.type === 'professionnel' && client?.siret ? `SIRET : ${client.siret}` : null,
+    client?.phone || null,
+    client?.email || null,
+    client?.billing_address || null,
+  ].filter(Boolean) as string[]
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -58,10 +77,7 @@ export default async function SignaturePage({ params }: { params: Promise<{ id: 
             // eslint-disable-next-line @next/next/no-img-element
             <img src={company.logo_url} alt={company.trade_name || ''} className="w-10 h-10 rounded-lg object-cover" />
           )}
-          <div>
-            <p className="font-bold text-gray-900">{company?.trade_name || 'Votre entreprise'}</p>
-            {company?.address && <p className="text-xs text-gray-500">{company.address}</p>}
-          </div>
+          <p className="font-bold text-gray-900 text-lg">{company?.trade_name || 'Votre entreprise'}</p>
         </div>
 
         <Card>
@@ -79,12 +95,36 @@ export default async function SignaturePage({ params }: { params: Promise<{ id: 
               </div>
             </div>
 
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm border-t border-b py-3">
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400 mb-1">PRESTATAIRE</p>
+                <p className="font-medium text-gray-900">{company?.trade_name || ''}</p>
+                {prestataireLines.map((l, i) => <p key={i} className="text-gray-500 text-xs">{l}</p>)}
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-gray-400 mb-1">CLIENT</p>
+                <p className="font-medium text-gray-900">{clientName}</p>
+                {clientInfoLines.map((l, i) => <p key={i} className="text-gray-500 text-xs">{l}</p>)}
+              </div>
+            </div>
+
+            <div className="text-sm text-gray-600 grid grid-cols-2 gap-2">
+              <div>Date : <span className="font-medium text-gray-900">{formatDate(document.issue_date)}</span></div>
+              {docType === 'devis' && document.valid_until && (
+                <div>Validité : <span className="font-medium text-gray-900">{formatDate(document.valid_until)}</span></div>
+              )}
+              {docType === 'facture' && document.due_date && (
+                <div>Échéance : <span className="font-medium text-gray-900">{formatDate(document.due_date)}</span></div>
+              )}
+            </div>
+
             <div className="border rounded-lg overflow-hidden">
               <table className="w-full text-sm">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="text-left px-3 py-2 font-medium text-gray-600">Désignation</th>
-                    <th className="text-right px-2 py-2 font-medium text-gray-600 w-16">Qté</th>
+                    <th className="text-right px-2 py-2 font-medium text-gray-600 w-14">Qté</th>
+                    <th className="text-right px-2 py-2 font-medium text-gray-600 w-12">TVA</th>
                     <th className="text-right px-3 py-2 font-medium text-gray-600 w-24">Total HT</th>
                   </tr>
                 </thead>
@@ -96,6 +136,7 @@ export default async function SignaturePage({ params }: { params: Promise<{ id: 
                         {l.description && <div className="text-xs text-gray-400">{l.description}</div>}
                       </td>
                       <td className="text-right px-2 py-2 text-gray-600">{l.quantity} {unitLabels[l.unit] || l.unit}</td>
+                      <td className="text-right px-2 py-2 text-gray-500">{l.vat_rate}%</td>
                       <td className="text-right px-3 py-2 font-semibold text-gray-900">{formatCurrency(l.total_ht)}</td>
                     </tr>
                   ))}
@@ -103,11 +144,49 @@ export default async function SignaturePage({ params }: { params: Promise<{ id: 
               </table>
             </div>
 
+            <div className="flex justify-end">
+              <div className="w-64 space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Total HT</span>
+                  <span className="font-medium">{formatCurrency(document.subtotal_ht)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500">TVA</span>
+                  <span>{formatCurrency(document.total_vat)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-base border-t pt-1">
+                  <span>Total TTC</span>
+                  <span>{formatCurrency(document.total_ttc)}</span>
+                </div>
+                {docType === 'devis' && document.deposit_amount > 0 && (
+                  <div className="flex justify-between text-blue-600 border-t pt-1">
+                    <span>Acompte demandé ({document.deposit_percent}%)</span>
+                    <span className="font-semibold">{formatCurrency(document.deposit_amount)}</span>
+                  </div>
+                )}
+                {docType === 'facture' && document.deposit_already_paid > 0 && (
+                  <div className="flex justify-between text-gray-500">
+                    <span>Acompte versé</span>
+                    <span>- {formatCurrency(document.deposit_already_paid)}</span>
+                  </div>
+                )}
+                {docType === 'facture' && (
+                  <div className="flex justify-between font-bold text-blue-700 border-t pt-1">
+                    <span>Reste à payer</span>
+                    <span>{formatCurrency(document.amount_due)}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
             {document.notes && (
               <div className="text-sm text-gray-500 border-t pt-3">
-                <p className="font-medium text-gray-700 mb-1">Modalités :</p>
-                <p>{document.notes}</p>
+                <p className="font-medium text-gray-700 mb-1">{docType === 'devis' ? 'Modalités :' : 'Notes :'}</p>
+                <p className="whitespace-pre-line">{document.notes}</p>
               </div>
+            )}
+            {document.legal_mentions && (
+              <div className="text-xs text-gray-400 border-t pt-3">{document.legal_mentions}</div>
             )}
           </CardContent>
         </Card>

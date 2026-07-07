@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { getValidGmailToken } from '@/lib/gmail-token'
-import { sendGmailWithPdf } from '@/lib/gmail-send'
+import { sendGmailHtml } from '@/lib/gmail-send'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -60,9 +59,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     const signUrl = `${req.nextUrl.origin}/signature/${signatureId}`
 
-    // Générer le PDF (version non signée, jointe pour référence)
-    const pdfBuffer = await generateInvoicePDF(invoice, company)
-
+    // Corps HTML de l'email — la facture complète est consultable et signable sur la page,
+    // pas besoin de PDF joint à ce stade (le PDF final part par email une fois signée).
     const htmlBody = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>body{font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:600px;margin:0 auto;padding:20px}
 .header{background:${primaryColor};color:white;padding:20px 24px;border-radius:8px 8px 0 0}
@@ -75,7 +73,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 <div class="header"><h2 style="margin:0">Facture ${invoice.invoice_number}</h2><p style="margin:4px 0 0;opacity:.8">${company?.trade_name || ''}</p></div>
 <div class="body">
 <p>Bonjour ${clientName},</p>
-<p>Veuillez trouver votre facture <strong>${invoice.invoice_number}</strong> (copie PDF jointe pour référence).</p>
+<p>Votre facture <strong>${invoice.invoice_number}</strong> est prête à consulter et signer en ligne.</p>
 <div class="amount">Reste à payer : ${fmt(invoice.amount_due)}</div>
 ${invoice.due_date ? `<div class="warn">⏰ Règlement à effectuer avant le <strong>${new Date(invoice.due_date).toLocaleDateString('fr-FR')}</strong></div>` : ''}
 <div style="text-align:center"><a href="${signUrl}" class="cta">✍️ Consulter et signer en ligne</a></div>
@@ -85,14 +83,12 @@ ${company?.iban ? `<div class="iban"><strong>Coordonnées bancaires :</strong><b
 <p>Cordialement,<br><strong>${company?.trade_name || ''}</strong><br>${company?.phone || ''}</p>
 </div></body></html>`
 
-    const sent = await sendGmailWithPdf({
+    const sent = await sendGmailHtml({
       accessToken: gmailToken.accessToken,
       fromEmail: gmailToken.gmailEmail,
       to: client.email,
       subject: `Facture ${invoice.invoice_number} - ${company?.trade_name || 'Votre artisan'}`,
       htmlBody,
-      pdfBuffer,
-      filename: `${invoice.invoice_number}.pdf`,
     })
 
     if (!sent.ok) {

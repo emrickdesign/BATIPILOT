@@ -29,6 +29,37 @@ function buildMultipartEmail(from: string, to: string, subject: string, htmlBody
   return Buffer.from(parts).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
+export async function sendGmailHtml(params: {
+  accessToken: string
+  fromEmail: string
+  to: string
+  subject: string
+  htmlBody: string
+}): Promise<{ ok: boolean; error?: string }> {
+  const raw = [
+    `From: ${params.fromEmail}`,
+    `To: ${params.to}`,
+    `Subject: ${encodeSubject(params.subject)}`,
+    `MIME-Version: 1.0`,
+    `Content-Type: text/html; charset=utf-8`,
+    ``,
+    params.htmlBody,
+  ].join('\r\n')
+  const encoded = Buffer.from(raw).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+
+  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${params.accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ raw: encoded }),
+  })
+
+  if (!res.ok) {
+    const err = await res.text()
+    return { ok: false, error: err }
+  }
+  return { ok: true }
+}
+
 export async function sendGmailWithPdf(params: {
   accessToken: string
   fromEmail: string

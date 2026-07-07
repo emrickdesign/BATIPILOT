@@ -1,8 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { generateQuotePDF } from '@/lib/pdf-generator'
 import { getValidGmailToken } from '@/lib/gmail-token'
-import { sendGmailWithPdf } from '@/lib/gmail-send'
+import { sendGmailHtml } from '@/lib/gmail-send'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -60,10 +59,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
     const signUrl = `${req.nextUrl.origin}/signature/${signatureId}`
 
-    // Générer le PDF (version non signée, jointe pour référence)
-    const pdfBuffer = await generateQuotePDF(quote, company)
-
-    // Corps HTML de l'email (léger, avec CTA vers la signature en ligne)
+    // Corps HTML de l'email (léger, avec CTA vers la signature en ligne — le devis complet
+    // est consultable et signable sur la page, pas besoin de PDF joint à ce stade)
     const htmlBody = `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <style>body{font-family:Arial,sans-serif;font-size:14px;color:#222;max-width:600px;margin:0 auto;padding:20px}
 .header{background:${primaryColor};color:white;padding:20px 24px;border-radius:8px 8px 0 0}
@@ -75,7 +72,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 <div class="header"><h2 style="margin:0">Devis ${quote.quote_number}</h2><p style="margin:4px 0 0;opacity:.8">${company?.trade_name || ''}</p></div>
 <div class="body">
 <p>Bonjour ${clientName},</p>
-<p>Veuillez trouver votre devis <strong>${quote.quote_number}</strong>${quote.title ? ` pour : <em>${quote.title}</em>` : ''} (copie PDF jointe pour référence).</p>
+<p>Votre devis <strong>${quote.quote_number}</strong>${quote.title ? ` pour : <em>${quote.title}</em>` : ''} est prêt à consulter et signer en ligne.</p>
 <div class="amount">${fmt(quote.total_ttc)} TTC</div>
 ${quote.valid_until ? `<p style="color:#666;font-size:13px">Valable jusqu'au ${new Date(quote.valid_until).toLocaleDateString('fr-FR')}</p>` : ''}
 <div style="text-align:center"><a href="${signUrl}" class="cta">✍️ Consulter et signer en ligne</a></div>
@@ -85,14 +82,12 @@ ${quote.notes ? `<div class="note"><strong>Modalités de paiement :</strong><br>
 <p>Cordialement,<br><strong>${company?.trade_name || ''}</strong><br>${company?.phone || ''}</p>
 </div></body></html>`
 
-    const sent = await sendGmailWithPdf({
+    const sent = await sendGmailHtml({
       accessToken: gmailToken.accessToken,
       fromEmail: gmailToken.gmailEmail,
       to: client.email,
       subject: `Devis ${quote.quote_number} - ${company?.trade_name || 'Votre artisan'}`,
       htmlBody,
-      pdfBuffer,
-      filename: `${quote.quote_number}.pdf`,
     })
 
     if (!sent.ok) {
