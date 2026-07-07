@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Download, Send, Edit, CheckCircle, XCircle, FileText } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import QuoteActions from './QuoteActions'
+import SignatureStatus from '@/components/SignatureStatus'
 
 const statusLabels: Record<string, string> = {
   brouillon: 'Brouillon', pret: 'Prêt à envoyer', envoye: 'Envoyé',
@@ -42,6 +43,14 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
     .select('*')
     .eq('user_id', user.id)
     .single()
+
+  const { data: signature } = await supabase
+    .from('document_signatures')
+    .select('*')
+    .eq('quote_id', id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
   const client = quote.clients as any
   const lines = (quote.quote_lines as any[]).sort((a, b) => a.sort_order - b.sort_order)
@@ -88,6 +97,8 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
         quoteTitle={quote.title}
         companyName={company?.trade_name}
       />
+
+      <SignatureStatus signature={signature} />
 
       {/* Aperçu du devis */}
       <Card>

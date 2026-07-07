@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import InvoiceActions from './InvoiceActions'
+import SignatureStatus from '@/components/SignatureStatus'
 
 const statusLabels: Record<string, string> = {
   brouillon: 'À préparer', envoyee: 'Envoyée', payee_partiellement: 'Partiellement payée',
@@ -35,6 +36,14 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
   if (!invoice) return notFound()
 
   const { data: company } = await supabase.from('companies').select('*').eq('user_id', user.id).single()
+
+  const { data: signature } = await supabase
+    .from('document_signatures')
+    .select('*')
+    .eq('invoice_id', id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
   const client = invoice.clients as any
   const lines = (invoice.invoice_lines as any[]).sort((a, b) => a.sort_order - b.sort_order)
@@ -84,6 +93,8 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
         totalTtc={invoice.total_ttc}
         amountDue={invoice.amount_due}
       />
+
+      <SignatureStatus signature={signature} />
 
       <Card>
         <CardContent className="p-4 space-y-4">

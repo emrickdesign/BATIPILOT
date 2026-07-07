@@ -2,37 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { generateInvoicePDF } from '@/lib/pdf-generator'
 import { getValidGmailToken } from '@/lib/gmail-token'
-
-function encodeSubject(s: string) {
-  return /[^\x00-\x7F]/.test(s) ? `=?UTF-8?B?${Buffer.from(s).toString('base64')}?=` : s
-}
-
-function buildMultipartEmail(from: string, to: string, subject: string, htmlBody: string, pdfBuffer: Buffer, filename: string) {
-  const boundary = `----BatiPilot${Date.now()}`
-  const parts = [
-    `From: ${from}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
-    `MIME-Version: 1.0`,
-    `Content-Type: multipart/mixed; boundary="${boundary}"`,
-    ``,
-    `--${boundary}`,
-    `Content-Type: text/html; charset=utf-8`,
-    `Content-Transfer-Encoding: 7bit`,
-    ``,
-    htmlBody,
-    ``,
-    `--${boundary}`,
-    `Content-Type: application/pdf`,
-    `Content-Disposition: attachment; filename="${filename}"`,
-    `Content-Transfer-Encoding: base64`,
-    ``,
-    pdfBuffer.toString('base64').match(/.{1,76}/g)!.join('\r\n'),
-    ``,
-    `--${boundary}--`,
-  ].join('\r\n')
-  return Buffer.from(parts).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
-}
+import { sendGmailWithPdf } from '@/lib/gmail-send'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -59,7 +29,38 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const tmpl = (company as any)?.template_style || {}
     const primaryColor = tmpl.primary_color || '#1a1a2e'
 
-    // Générer le PDF
+    // Demande de signature électronique (acquit de paiement) : réutilise une demande en attente
+    // existante (re-envoi), sinon en crée une nouvelle.
+    const { data: existingSig } = await supabase
+      .from('document_signatures')
+      .select('id')
+      .eq('invoice_id', id)
+      .eq('status', 'en_attente')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    let signatureId: string
+    if (existingSig) {
+      signatureId = existingSig.id
+      await supabase.from('document_signatures').update({
+        signer_name: clientName,
+        signer_email: client.email,
+        sent_at: new Date().toISOString(),
+        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      }).eq('id', signatureId)
+    } else {
+      const { data: created, error: sigError } = await supabase
+        .from('document_signatures')
+        .insert({ user_id: user.id, invoice_id: id, signer_name: clientName, signer_email: client.email })
+        .select('id')
+        .single()
+      if (sigError || !created) return NextResponse.json({ error: 'Erreur création demande de signature' }, { status: 500 })
+      signatureId = created.id
+    }
+    const signUrl = `${req.nextUrl.origin}/signature/${signatureId}`
+
+    // Générer le PDF (version non signée, jointe pour référence)
     const pdfBuffer = await generateInvoicePDF(invoice, company)
 
     const htmlBody = `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -69,35 +70,38 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 .amount{font-size:24px;font-weight:bold;color:#dc2626;margin:12px 0}
 .iban{background:#eff6ff;padding:14px;border-radius:8px;font-size:13px;color:#1e40af;margin:16px 0}
 .warn{background:#fef3c7;padding:14px;border-radius:8px;font-size:13px;color:#92400e;margin:16px 0}
+.cta{display:inline-block;background:${primaryColor};color:white;text-decoration:none;padding:14px 28px;border-radius:8px;font-weight:bold;margin:16px 0}
 </style></head><body>
 <div class="header"><h2 style="margin:0">Facture ${invoice.invoice_number}</h2><p style="margin:4px 0 0;opacity:.8">${company?.trade_name || ''}</p></div>
 <div class="body">
 <p>Bonjour ${clientName},</p>
-<p>Veuillez trouver en pièce jointe votre facture <strong>${invoice.invoice_number}</strong>.</p>
+<p>Veuillez trouver votre facture <strong>${invoice.invoice_number}</strong> (copie PDF jointe pour référence).</p>
 <div class="amount">Reste à payer : ${fmt(invoice.amount_due)}</div>
 ${invoice.due_date ? `<div class="warn">⏰ Règlement à effectuer avant le <strong>${new Date(invoice.due_date).toLocaleDateString('fr-FR')}</strong></div>` : ''}
+<div style="text-align:center"><a href="${signUrl}" class="cta">✍️ Consulter et signer en ligne</a></div>
+<p style="font-size:12px;color:#999;text-align:center">Lien personnel, valable 30 jours.</p>
 ${company?.iban ? `<div class="iban"><strong>Coordonnées bancaires :</strong><br>IBAN : ${company.iban}</div>` : ''}
 <p>N'hésitez pas à nous contacter pour toute question.</p>
 <p>Cordialement,<br><strong>${company?.trade_name || ''}</strong><br>${company?.phone || ''}</p>
 </div></body></html>`
 
-    const subject = encodeSubject(`Facture ${invoice.invoice_number} - ${company?.trade_name || 'Votre artisan'}`)
-    const encoded = buildMultipartEmail(gmailToken.gmailEmail, client.email, subject, htmlBody, pdfBuffer, `${invoice.invoice_number}.pdf`)
-
-    const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${gmailToken.accessToken}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw: encoded }),
+    const sent = await sendGmailWithPdf({
+      accessToken: gmailToken.accessToken,
+      fromEmail: gmailToken.gmailEmail,
+      to: client.email,
+      subject: `Facture ${invoice.invoice_number} - ${company?.trade_name || 'Votre artisan'}`,
+      htmlBody,
+      pdfBuffer,
+      filename: `${invoice.invoice_number}.pdf`,
     })
 
-    if (!res.ok) {
-      const err = await res.text()
-      console.error('Gmail send error:', err)
+    if (!sent.ok) {
+      console.error('Gmail send error:', sent.error)
       return NextResponse.json({ error: 'Erreur envoi Gmail' }, { status: 502 })
     }
 
     await supabase.from('invoices').update({ status: 'envoyee' }).eq('id', id)
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, signUrl })
   } catch (err: any) {
     console.error('Envoyer facture error:', err)
     return NextResponse.json({ error: err?.message || 'Erreur serveur' }, { status: 500 })

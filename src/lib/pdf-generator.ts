@@ -352,7 +352,14 @@ function renderNotes(doc: any, cfg: TemplateConfig, notes: string, startY: numbe
 
 // ─── SIGNATURES ────────────────────────────────────────────────────────────────
 
-function renderSignatures(doc: any, cfg: TemplateConfig, company: any, issueDate: string, startY: number, leftLabel: string): number {
+export interface ClientSignatureInfo {
+  name: string
+  signedAt: string
+  imageBuffer?: Buffer
+  hash?: string
+}
+
+function renderSignatures(doc: any, cfg: TemplateConfig, company: any, issueDate: string, startY: number, leftLabel: string, clientSig?: ClientSignatureInfo): number {
   const ML = cfg.margin
   const CW = doc.page.width - 2 * ML
   const P = hexToRgb(cfg.primaryColor)
@@ -363,11 +370,32 @@ function renderSignatures(doc: any, cfg: TemplateConfig, company: any, issueDate
   drawBox(doc, cfg, ML, y, sigW, sigH)
   drawBox(doc, cfg, ML + sigW + 12, y, sigW, sigH)
   doc.fillColor(P).fontSize(7).font(F.bold).text(leftLabel, ML + 12, y + 10, { characterSpacing: 0.5 })
-  doc.fillColor('#aaa').fontSize(8.5).font(F.reg).text('Date : ___________________', ML + 12, y + 26).text('Signature :', ML + 12, y + 44)
+  if (clientSig) {
+    doc.fillColor('#111').fontSize(8.5).font(F.bold).text(clientSig.name, ML + 12, y + 24, { width: sigW - 24 })
+    doc.fillColor('#888').fontSize(7).font(F.reg).text(`Signé électroniquement le ${fmtDate(clientSig.signedAt)}`, ML + 12, y + 36, { width: sigW - 24 })
+    if (clientSig.imageBuffer) {
+      try { doc.image(clientSig.imageBuffer, ML + 12, y + 46, { fit: [sigW - 24, 28] }) } catch { /* image illisible, on garde le texte */ }
+    }
+  } else {
+    doc.fillColor('#aaa').fontSize(8.5).font(F.reg).text('Date : ___________________', ML + 12, y + 26).text('Signature :', ML + 12, y + 44)
+  }
   const rx = ML + sigW + 24
   doc.fillColor(P).fontSize(7).font(F.bold).text(`${(company?.trade_name || 'Prestataire').toUpperCase()} — ÉMETTEUR`, rx, y + 10, { width: sigW - 24 })
   doc.fillColor('#555').fontSize(8.5).font(F.reg).text(company?.trade_name || '', rx, y + 26).text(`Date : ${fmtDate(issueDate)}`, rx, y + 42)
+  if (clientSig) {
+    doc.fillColor('#16a34a').fontSize(7).font(F.bold).text("✓ Validé à l'envoi", rx, y + 58)
+  }
   return y + sigH + 16
+}
+
+function renderSignatureProof(doc: any, cfg: TemplateConfig, signature: ClientSignatureInfo, startY: number): number {
+  const ML = cfg.margin
+  const CW = doc.page.width - 2 * ML
+  const F = fonts(cfg)
+  const dateStr = new Date(signature.signedAt).toLocaleString('fr-FR')
+  const text = `Preuve de signature électronique — ${signature.name}, le ${dateStr}${signature.hash ? ` — empreinte document ${signature.hash.slice(0, 16)}…` : ''}`
+  doc.fillColor('#bbb').fontSize(6.5).font(F.reg).text(text, ML, startY, { width: CW })
+  return startY + 12
 }
 
 function renderFooter(doc: any, cfg: TemplateConfig, company: any, footerNote: string, startY: number) {
@@ -383,7 +411,7 @@ function renderFooter(doc: any, cfg: TemplateConfig, company: any, footerNote: s
 
 // ─── PUBLIC API ────────────────────────────────────────────────────────────────
 
-export async function generateQuotePDF(quote: any, company: any): Promise<Buffer> {
+export async function generateQuotePDF(quote: any, company: any, signature?: ClientSignatureInfo): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     const cfg = getTemplateConfig(company)
@@ -413,13 +441,14 @@ export async function generateQuotePDF(quote: any, company: any): Promise<Buffer
     }
 
     y = renderNotes(doc, cfg, quote.notes || '', y)
-    y = renderSignatures(doc, cfg, company, quote.issue_date, y, 'BON POUR ACCORD — CLIENT')
+    y = renderSignatures(doc, cfg, company, quote.issue_date, y, 'BON POUR ACCORD — CLIENT', signature)
+    if (signature) y = renderSignatureProof(doc, cfg, signature, y)
     renderFooter(doc, cfg, company, 'TVA non applicable — art. 293B CGI (micro-entreprise)', y)
     doc.end()
   })
 }
 
-export async function generateInvoicePDF(invoice: any, company: any): Promise<Buffer> {
+export async function generateInvoicePDF(invoice: any, company: any, signature?: ClientSignatureInfo): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
     const cfg = getTemplateConfig(company)
@@ -460,7 +489,8 @@ export async function generateInvoicePDF(invoice: any, company: any): Promise<Bu
       y += 38 + cfg.sectionGap
     }
 
-    y = renderSignatures(doc, cfg, company, invoice.issue_date, y, 'ACQUIT DE PAIEMENT — CLIENT')
+    y = renderSignatures(doc, cfg, company, invoice.issue_date, y, 'ACQUIT DE PAIEMENT — CLIENT', signature)
+    if (signature) y = renderSignatureProof(doc, cfg, signature, y)
     renderFooter(doc, cfg, company, 'En cas de retard : pénalités 3× taux légal + indemnité forfaitaire 40 €', y)
     doc.end()
   })

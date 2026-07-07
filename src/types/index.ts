@@ -307,6 +307,26 @@ export interface Invoice {
   clients?: Client
 }
 
+export type DocumentSignatureStatus = 'en_attente' | 'signee' | 'expiree' | 'annulee'
+
+export interface DocumentSignature {
+  id: string
+  user_id: string
+  quote_id?: string | null
+  invoice_id?: string | null
+  status: DocumentSignatureStatus
+  signer_name?: string | null
+  signer_email?: string | null
+  signature_image?: string | null
+  document_hash?: string | null
+  signed_at?: string | null
+  signer_ip?: string | null
+  signer_user_agent?: string | null
+  sent_at: string
+  expires_at: string
+  created_at: string
+}
+
 export interface Email {
   id: string
   user_id: string

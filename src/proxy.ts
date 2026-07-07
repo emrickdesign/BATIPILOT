@@ -34,7 +34,12 @@ export async function proxy(request: NextRequest) {
   const hasEmployeeCookie = request.nextUrl.pathname.startsWith('/terrain') &&
     !!request.cookies.get('bp_employee_session')?.value
 
-  if (!user && !isAuthPage && !hasEmployeeCookie) {
+  // Page de signature électronique : accessible au client final sans aucune session,
+  // la sécurité repose sur le token (uuid non-devinable) dans l'URL, pas sur l'auth.
+  const isPublicSignaturePath = request.nextUrl.pathname.startsWith('/signature/') ||
+    request.nextUrl.pathname.startsWith('/api/signature/')
+
+  if (!user && !isAuthPage && !hasEmployeeCookie && !isPublicSignaturePath) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
