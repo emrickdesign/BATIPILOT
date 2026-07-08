@@ -16,7 +16,7 @@ import DonutMetricCard from '@/components/charts/DonutMetricCard'
 import ColoredStatCard from '@/components/ui/colored-stat-card'
 import { statColors } from '@/lib/statColors'
 
-const DONUT_COLORS = ['#5B9BFF', '#F5A623', '#8B5CF6', '#22C55E', '#64748B']
+const DONUT_COLORS = ['#D05C43', '#C77D0E', '#8A4B24', '#3F7A2E', '#94918A']
 
 const MONTHS = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc']
 const CLOSED = ['termine', 'facture', 'paye', 'archive']
@@ -116,11 +116,11 @@ async function getData(userId: string) {
   const todos: Todo[] = []
   if (aRelancer > 0) todos.push({ icon: Bell, tile: 'bg-accent text-primary', text: `${aRelancer} devis à relancer`, href: '/relances' })
   if (facturesEchues > 0) todos.push({ icon: Landmark, tile: 'bg-amber-100 text-amber-600', text: `${facturesEchues} facture${facturesEchues > 1 ? 's' : ''} échue${facturesEchues > 1 ? 's' : ''} à encaisser`, href: '/banque' })
-  if (aRapprocher > 0) todos.push({ icon: BadgeEuro, tile: 'bg-blue-100 text-blue-600', text: `${aRapprocher} paiement${aRapprocher > 1 ? 's' : ''} à rapprocher`, href: '/banque' })
-  if (ticketsAValider > 0) todos.push({ icon: ReceiptText, tile: 'bg-rose-100 text-rose-600', text: `${ticketsAValider} ticket${ticketsAValider > 1 ? 's' : ''} à valider`, href: '/tickets' })
-  if (aTransmettre > 0) todos.push({ icon: FileCheck2, tile: 'bg-violet-100 text-violet-600', text: `${aTransmettre} justificatif${aTransmettre > 1 ? 's' : ''} à transmettre comptable`, href: '/comptable' })
+  if (aRapprocher > 0) todos.push({ icon: BadgeEuro, tile: 'bg-[#FCE7DE] text-[#C14E33]', text: `${aRapprocher} paiement${aRapprocher > 1 ? 's' : ''} à rapprocher`, href: '/banque' })
+  if (ticketsAValider > 0) todos.push({ icon: ReceiptText, tile: 'bg-[#FBE0DA] text-[#C0392B]', text: `${ticketsAValider} ticket${ticketsAValider > 1 ? 's' : ''} à valider`, href: '/tickets' })
+  if (aTransmettre > 0) todos.push({ icon: FileCheck2, tile: 'bg-[#F3E5D6] text-[#8A4B24]', text: `${aTransmettre} justificatif${aTransmettre > 1 ? 's' : ''} à transmettre comptable`, href: '/comptable' })
   if (salariesSansHeures > 0) todos.push({ icon: Clock, tile: 'bg-amber-100 text-amber-600', text: `${salariesSansHeures} salarié${salariesSansHeures > 1 ? 's n\'ont' : ' n\'a'} pas déclaré ses heures`, href: '/heures' })
-  if (sansEquipeDemain > 0) todos.push({ icon: HardHat, tile: 'bg-rose-100 text-rose-600', text: `${sansEquipeDemain} chantier${sansEquipeDemain > 1 ? 's' : ''} sans équipe prévue demain`, href: '/planning' })
+  if (sansEquipeDemain > 0) todos.push({ icon: HardHat, tile: 'bg-[#FBE0DA] text-[#C0392B]', text: `${sansEquipeDemain} chantier${sansEquipeDemain > 1 ? 's' : ''} sans équipe prévue demain`, href: '/planning' })
 
   // ── 3. Suivi des chantiers ──────────────────────────────────────────
   const chantiers = {
@@ -247,7 +247,7 @@ async function getData(userId: string) {
 
 function MiniStat({ label, value, icon: Icon, tile, accent }: { label: string; value: string | number; icon: LucideIcon; tile: string; accent?: boolean }) {
   return (
-    <div className="rounded-2xl bg-white border border-gray-200/80 p-3.5 shadow-[var(--shadow-xs)]">
+    <div className="rounded-lg bg-white border border-gray-200/80 p-3.5 shadow-[var(--shadow-xs)]">
       <span className={`grid place-items-center w-8 h-8 rounded-lg ${tile}`}><Icon className="w-4 h-4" /></span>
       <div className={`text-2xl font-bold mt-2 leading-none ${accent ? 'text-primary' : 'text-marine'}`}>{value}</div>
       <div className="text-[11px] text-gray-500 mt-1 leading-tight">{label}</div>
@@ -288,7 +288,7 @@ function DevisBars({ data }: { data: { label: string; envoyes: number; acceptes:
 }
 
 const actIcon: Record<string, LucideIcon> = { devis: FileText, facture: Receipt, client: Users, chantier: HardHat }
-const actTile: Record<string, string> = { devis: 'bg-accent text-primary', facture: 'bg-violet-100 text-violet-600', client: 'bg-emerald-100 text-emerald-600', chantier: 'bg-blue-100 text-blue-600' }
+const actTile: Record<string, string> = { devis: 'bg-accent text-primary', facture: 'bg-[#F3E5D6] text-[#8A4B24]', client: 'bg-emerald-100 text-emerald-600', chantier: 'bg-[#FCE7DE] text-[#C14E33]' }
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -323,7 +323,23 @@ export default async function DashboardPage() {
   ]
 
   return (
-    <div className="space-y-7">
+    <div className="relative space-y-7">
+      {/* Fond décoratif : grille blueprint très pâle + halo corail (sort des carrés blancs) */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -inset-4 md:-inset-8 -z-10"
+        style={{
+          backgroundImage: [
+            'radial-gradient(55% 45% at 100% -5%, rgba(224,103,76,0.07), transparent 60%)',
+            'radial-gradient(50% 40% at 0% 100%, rgba(76,111,24,0.05), transparent 55%)',
+            'linear-gradient(rgba(24,23,15,0.028) 1px, transparent 1px)',
+            'linear-gradient(90deg, rgba(24,23,15,0.028) 1px, transparent 1px)',
+          ].join(', '),
+          backgroundSize: '100% 100%, 100% 100%, 24px 24px, 24px 24px',
+          maskImage: 'linear-gradient(180deg, #000 0%, #000 70%, transparent 100%)',
+          WebkitMaskImage: 'linear-gradient(180deg, #000 0%, #000 70%, transparent 100%)',
+        }}
+      />
       {/* Header */}
       <div className="flex items-start justify-between gap-4 animate-fade-up">
         <div>
@@ -336,7 +352,7 @@ export default async function DashboardPage() {
           <span className="hidden sm:flex items-center gap-1.5 px-3 h-9 rounded-full bg-white border border-gray-200 text-sm text-gray-600 capitalize shadow-[var(--shadow-xs)]">
             <CalendarDays className="w-4 h-4 text-gray-400" /> {dateLabel}
           </span>
-          <span className="grid place-items-center w-9 h-9 rounded-full bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] text-white text-xs font-bold">{initials}</span>
+          <span className="grid place-items-center w-9 h-9 rounded-full bg-gradient-to-br from-[#F09A80] to-[#D05C43] text-white text-xs font-bold">{initials}</span>
         </div>
       </div>
 
@@ -393,9 +409,9 @@ export default async function DashboardPage() {
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="lg:col-span-1 grid grid-cols-2 gap-3 content-start">
             <MiniStat label="En cours" value={d.chantiers.enCours} icon={PlayCircle} tile="bg-accent text-primary" accent />
-            <MiniStat label="À démarrer" value={d.chantiers.aDemarrer} icon={CalendarClock} tile="bg-blue-100 text-blue-600" />
-            <MiniStat label="À facturer" value={d.chantiers.aFacturer} icon={Receipt} tile="bg-violet-100 text-violet-600" />
-            <MiniStat label="En retard" value={d.chantiers.enRetard} icon={AlertTriangle} tile="bg-rose-100 text-rose-600" />
+            <MiniStat label="À démarrer" value={d.chantiers.aDemarrer} icon={CalendarClock} tile="bg-[#FCE7DE] text-[#C14E33]" />
+            <MiniStat label="À facturer" value={d.chantiers.aFacturer} icon={Receipt} tile="bg-[#F3E5D6] text-[#8A4B24]" />
+            <MiniStat label="En retard" value={d.chantiers.enRetard} icon={AlertTriangle} tile="bg-[#FBE0DA] text-[#C0392B]" />
             <div className="col-span-2"><MiniStat label="Sans équipe prévue demain" value={d.chantiers.sansEquipe} icon={HardHat} tile="bg-amber-100 text-amber-600" /></div>
           </div>
           <Card className="lg:col-span-2 border border-gray-200/80 bg-white">
@@ -408,7 +424,7 @@ export default async function DashboardPage() {
                   {d.chantiersActifs.map(c => (
                     <Link key={c.id} href={`/chantiers/${c.id}`}>
                       <div className="flex items-center gap-3 py-2 hover:bg-gray-50 rounded-xl px-2 -mx-2 transition-colors">
-                        <span className="grid place-items-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0"><HardHat className="w-4 h-4" /></span>
+                        <span className="grid place-items-center w-8 h-8 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><HardHat className="w-4 h-4" /></span>
                         <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{c.title}</span>
                         {c.retardJours > 0 && (
                           <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-rose-600 flex-shrink-0">
@@ -458,12 +474,12 @@ export default async function DashboardPage() {
           <Link href="/pointage" className="text-xs font-medium text-primary hover:underline">Voir le terrain</Link>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <MiniStat label="Salariés prévus" value={d.terrain.salariesPrevus} icon={Users2} tile="bg-blue-100 text-blue-600" />
+          <MiniStat label="Salariés prévus" value={d.terrain.salariesPrevus} icon={Users2} tile="bg-[#FCE7DE] text-[#C14E33]" />
           <MiniStat label="Ont pointé" value={d.terrain.ontPointe} icon={Camera} tile="bg-emerald-100 text-emerald-600" />
           <MiniStat label="Heures déclarées" value={`${d.terrain.heuresJour} h`} icon={Clock} tile="bg-accent text-primary" accent />
-          <MiniStat label="Véhicules actifs" value={d.terrain.vehiculesActifs} icon={Truck} tile="bg-violet-100 text-violet-600" />
+          <MiniStat label="Véhicules actifs" value={d.terrain.vehiculesActifs} icon={Truck} tile="bg-[#F3E5D6] text-[#8A4B24]" />
           {d.terrain.pointagesManquants > 0 && <MiniStat label="Pointages photo manquants" value={d.terrain.pointagesManquants} icon={Camera} tile="bg-amber-100 text-amber-600" />}
-          {d.terrain.incoherences > 0 && <MiniStat label="Heures / véhicules à vérifier" value={d.terrain.incoherences} icon={GitCompare} tile="bg-rose-100 text-rose-600" />}
+          {d.terrain.incoherences > 0 && <MiniStat label="Heures / véhicules à vérifier" value={d.terrain.incoherences} icon={GitCompare} tile="bg-[#FBE0DA] text-[#C0392B]" />}
         </div>
       </div>
 
@@ -476,11 +492,11 @@ export default async function DashboardPage() {
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="lg:col-span-2 grid grid-cols-2 gap-3 content-start">
             <MiniStat label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tile="bg-accent text-primary" accent />
-            <MiniStat label="Tickets scannés" value={d.admin.ticketsScannesMois} icon={ReceiptText} tile="bg-blue-100 text-blue-600" />
+            <MiniStat label="Tickets scannés" value={d.admin.ticketsScannesMois} icon={ReceiptText} tile="bg-[#FCE7DE] text-[#C14E33]" />
             <MiniStat label="Tickets à valider" value={d.admin.ticketsAVerifier} icon={CheckCircle2} tile="bg-amber-100 text-amber-600" />
-            <MiniStat label="Justif. à transmettre" value={d.admin.aTransmettre} icon={FileCheck2} tile="bg-violet-100 text-violet-600" />
+            <MiniStat label="Justif. à transmettre" value={d.admin.aTransmettre} icon={FileCheck2} tile="bg-[#F3E5D6] text-[#8A4B24]" />
             <MiniStat label="Transmis comptable" value={d.admin.transmisComptable} icon={Send} tile="bg-emerald-100 text-emerald-600" />
-            <MiniStat label="Paiements à rapprocher" value={d.admin.paiementsARapprocher} icon={BadgeEuro} tile="bg-blue-100 text-blue-600" />
+            <MiniStat label="Paiements à rapprocher" value={d.admin.paiementsARapprocher} icon={BadgeEuro} tile="bg-[#FCE7DE] text-[#C14E33]" />
           </div>
           <div className="lg:col-span-1">
             <DonutMetricCard

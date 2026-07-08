@@ -86,7 +86,7 @@
   --chart-3: #C77D0E;               /* Ambre */
   --chart-4: #8F3810;               /* Terre cuite */
   --chart-5: #6B6862;               /* Gris chaud */
-  --radius: 1rem;                   /* 16px (Potentieel) */
+  --radius: 0.7rem;                 /* ~11px : entre-deux, peu arrondi mais pas carré */
 
   /* Succès (bouton Valider, confirmations) — olive Potentieel */
   --success: #4C6F18;
