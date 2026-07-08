@@ -17,13 +17,13 @@ import GaugeRing from '@/components/charts/GaugeRing'
 
 const DONUT_COLORS = ['#D05C43', '#C77D0E', '#8A4B24', '#3F7A2E', '#94918A']
 
-// Tons sémantiques chauds pour les cartes KPI (chip + accent sparkline)
+// Tons sémantiques chauds — cartes KPI dégradées + glow coloré
 const TONES = {
-  green: { fg: '#3F7A2E', bg: '#EAF1DF' },
-  coral: { fg: '#C14E33', bg: '#FCE7DE' },
-  amber: { fg: '#8A5A08', bg: '#FBEED6' },
-  terre: { fg: '#8A4B24', bg: '#F1E6D8' },
-  red: { fg: '#C0392B', bg: '#FBE0DA' },
+  green: { fg: '#3F7A2E', chipA: '#6AA636', chipB: '#3F7A2E', tintA: '#E9F2DB', tintB: '#F6FAEF', glow: 'rgba(76,111,24,.22)', bd: '#DDE9C9' },
+  coral: { fg: '#C14E33', chipA: '#F09A80', chipB: '#D0562F', tintA: '#FCE5DC', tintB: '#FEF5F0', glow: 'rgba(224,103,76,.26)', bd: '#F4D7CA' },
+  amber: { fg: '#8A5A08', chipA: '#E2A536', chipB: '#C77D0E', tintA: '#FBEFD4', tintB: '#FEF9EE', glow: 'rgba(199,125,14,.22)', bd: '#F0E1C0' },
+  terre: { fg: '#8A4B24', chipA: '#BC824F', chipB: '#8A4B24', tintA: '#F4E7D8', tintB: '#FBF5ED', glow: 'rgba(138,75,36,.20)', bd: '#EAD9C7' },
+  red: { fg: '#C0392B', chipA: '#E06A5A', chipB: '#C0392B', tintA: '#FBE0DA', tintB: '#FEF2EF', glow: 'rgba(192,57,43,.22)', bd: '#F1D2CB' },
 } as const
 type Tone = keyof typeof TONES
 
@@ -44,41 +44,64 @@ function StatPro({ label, value, icon: Icon, tone, delta, gauge, note, spark }: 
   gauge?: number; note?: string; spark?: number[]
 }) {
   const t = TONES[tone]
-  const sp = spark ? sparkPath(spark) : null
+  const sp = spark ? sparkPath(spark, 120, 44, 4) : null
   const uid = `sp-${label.replace(/\W/g, '')}`
-  const deltaCls = delta?.dir === 'up' ? 'bg-[#EAF1DF] text-[#3F7A2E]'
-    : delta?.dir === 'down' ? 'bg-[#FBE0DA] text-[#C0392B]' : 'bg-[#F1EDE6] text-gray-500'
+  const deltaCls = delta?.dir === 'up' ? 'bg-[#E9F2DB] text-[#3F7A2E]'
+    : delta?.dir === 'down' ? 'bg-[#FBE0DA] text-[#C0392B]' : 'bg-white/70 text-gray-500'
   return (
-    <div className="h-full rounded-xl bg-white border border-border p-4 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 transition-all duration-200">
-      <div className="flex items-start justify-between mb-3">
-        <span className="grid place-items-center w-9 h-9 rounded-lg flex-shrink-0" style={{ background: t.bg, color: t.fg }}>
-          <Icon className="w-[18px] h-[18px]" strokeWidth={2} />
-        </span>
-        {gauge !== undefined ? (
-          <GaugeRing value={gauge} size={40} strokeWidth={5} trackColor="#F0ECE4" fillColor={t.fg}>
-            <span className="text-[10px] font-bold" style={{ color: t.fg }}>{gauge}%</span>
-          </GaugeRing>
-        ) : delta ? (
-          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${deltaCls}`}>{delta.text}</span>
-        ) : null}
-      </div>
-      <div className="text-[25px] font-bold text-marine leading-none tracking-tight tabular-nums">{value}</div>
-      <div className="text-[12.5px] text-gray-500 mt-1.5 font-medium">{label}</div>
-      {sp ? (
-        <svg className="w-full h-8 mt-2.5 block" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden>
+    <div
+      className="group relative h-full min-h-[152px] overflow-hidden rounded-xl border p-4 transition-all duration-200 hover:-translate-y-1"
+      style={{
+        borderColor: t.bd,
+        background: `linear-gradient(150deg, ${t.tintA} 0%, ${t.tintB} 58%, #ffffff 100%)`,
+        boxShadow: `0 14px 32px -16px ${t.glow}`,
+      }}
+    >
+      {/* halo coloré */}
+      <div aria-hidden className="absolute -top-10 -right-8 w-36 h-36 rounded-full pointer-events-none opacity-90"
+        style={{ background: `radial-gradient(circle, ${t.glow}, transparent 70%)` }} />
+      {/* sparkline plein-largeur en fond bas */}
+      {sp && (
+        <svg className="absolute inset-x-0 bottom-0 w-full h-16" viewBox="0 0 120 44" preserveAspectRatio="none" aria-hidden>
           <defs>
             <linearGradient id={uid} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor={t.fg} stopOpacity="0.22" />
-              <stop offset="1" stopColor={t.fg} stopOpacity="0" />
+              <stop offset="0" stopColor={t.chipB} stopOpacity="0.30" />
+              <stop offset="1" stopColor={t.chipB} stopOpacity="0" />
             </linearGradient>
           </defs>
           <path d={sp.area} fill={`url(#${uid})`} />
-          <path d={sp.line} fill="none" stroke={t.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          <path d={sp.line} fill="none" stroke={t.chipB} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
-      ) : note ? (
-        <div className="text-[11px] text-gray-400 mt-2 leading-tight">{note}</div>
-      ) : null}
+      )}
+      <div className="relative">
+        <div className="flex items-start justify-between mb-3">
+          <span className="grid place-items-center w-9 h-9 rounded-lg text-white shadow-[0_4px_10px_-3px_rgba(40,25,10,.35)] flex-shrink-0"
+            style={{ background: `linear-gradient(135deg, ${t.chipA}, ${t.chipB})` }}>
+            <Icon className="w-[18px] h-[18px]" strokeWidth={2} />
+          </span>
+          {gauge !== undefined ? (
+            <GaugeRing value={gauge} size={42} strokeWidth={5} trackColor="rgba(40,25,10,.10)" fillColor={t.chipB}>
+              <span className="text-[10px] font-bold" style={{ color: t.fg }}>{gauge}%</span>
+            </GaugeRing>
+          ) : delta ? (
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm ${deltaCls}`}>{delta.text}</span>
+          ) : null}
+        </div>
+        <div className="text-[26px] font-bold text-marine leading-none tracking-tight tabular-nums">{value}</div>
+        <div className="text-[12.5px] text-gray-600 mt-1.5 font-medium">{label}</div>
+        {!sp && note ? <div className="text-[11px] text-gray-500 mt-2 leading-tight">{note}</div> : null}
+      </div>
     </div>
+  )
+}
+
+function TodoItem({ href, icon: Icon, tile, text }: { href: string; icon: LucideIcon; tile: string; text: string }) {
+  return (
+    <Link href={href} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-black/[0.03] transition-colors group">
+      <span className={`grid place-items-center w-9 h-9 rounded-lg flex-shrink-0 ${tile}`}><Icon className="w-4 h-4" /></span>
+      <span className="text-sm text-gray-700 flex-1">{text}</span>
+      <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors flex-shrink-0" />
+    </Link>
   )
 }
 
@@ -444,28 +467,48 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* 2. À traiter aujourd'hui */}
-      <div className="animate-fade-up" style={{ animationDelay: '120ms' }}>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">À traiter aujourd&apos;hui</h2>
-        <Card className="border border-gray-200/80 bg-white">
-          <CardContent className="p-4">
-            {d.todos.length === 0 ? (
-              <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
-                <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Rien d&apos;urgent — tout est à jour. Belle journée !
-              </div>
-            ) : (
-              <div className="grid sm:grid-cols-2 gap-1">
-                {d.todos.map((t, i) => (
-                  <Link key={i} href={t.href} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-gray-50 transition-colors group">
-                    <span className={`grid place-items-center w-9 h-9 rounded-lg flex-shrink-0 ${t.tile}`}><t.icon className="w-4 h-4" /></span>
-                    <span className="text-sm text-gray-700 flex-1">{t.text}</span>
-                    <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors flex-shrink-0" />
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+      {/* 2. À traiter (moitié gauche) + Évolution des encaissements (moitié droite) */}
+      <div className="grid lg:grid-cols-2 gap-4 items-stretch animate-fade-up" style={{ animationDelay: '120ms' }}>
+        <div className="flex flex-col">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">À traiter aujourd&apos;hui</h2>
+          <Card className="flex-1 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
+            <CardContent className="p-3">
+              {d.todos.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Rien d&apos;urgent — tout est à jour. Belle journée !
+                </div>
+              ) : (
+                <div className="space-y-0.5">
+                  {d.todos.slice(0, 4).map((t, i) => (
+                    <TodoItem key={i} href={t.href} icon={t.icon} tile={t.tile} text={t.text} />
+                  ))}
+                  {d.todos.length > 4 && (
+                    <details className="group/more">
+                      <summary className="flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-primary cursor-pointer list-none hover:underline">
+                        <span className="group-open/more:hidden">Afficher plus ({d.todos.length - 4})</span>
+                        <span className="hidden group-open/more:inline">Réduire</span>
+                        <ArrowRight className="w-3.5 h-3.5 rotate-90 group-open/more:-rotate-90 transition-transform" />
+                      </summary>
+                      <div className="space-y-0.5 mt-0.5">
+                        {d.todos.slice(4).map((t, i) => (
+                          <TodoItem key={i} href={t.href} icon={t.icon} tile={t.tile} text={t.text} />
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+        <div className="flex flex-col">
+          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Évolution des encaissements</h2>
+          <Card className="flex-1 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
+            <CardContent className="p-5">
+              <EncaissementsChart series={d.series} />
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* 3. Suivi des chantiers */}
@@ -482,7 +525,7 @@ export default async function DashboardPage() {
             <MiniStat label="En retard" value={d.chantiers.enRetard} icon={AlertTriangle} tile="bg-[#FBE0DA] text-[#C0392B]" />
             <div className="col-span-2"><MiniStat label="Sans équipe prévue demain" value={d.chantiers.sansEquipe} icon={HardHat} tile="bg-amber-100 text-amber-600" /></div>
           </div>
-          <Card className="lg:col-span-2 border border-gray-200/80 bg-white">
+          <Card className="lg:col-span-2 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
             <CardContent className="p-5">
               <h3 className="text-sm font-semibold text-gray-500 mb-3">Chantiers actifs</h3>
               {d.chantiersActifs.length === 0 ? (
@@ -515,20 +558,10 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* 4. Évolution des encaissements */}
-      <div className="animate-fade-up" style={{ animationDelay: '180ms' }}>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Évolution des encaissements</h2>
-        <Card className="border border-gray-200/80 bg-white">
-          <CardContent className="p-5">
-            <EncaissementsChart series={d.series} />
-          </CardContent>
-        </Card>
-      </div>
-
       {/* 4b. Devis envoyés vs acceptés */}
       <div className="animate-fade-up" style={{ animationDelay: '195ms' }}>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Devis envoyés vs acceptés</h2>
-        <Card className="border border-gray-200/80 bg-white">
+        <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
           <CardContent className="p-5">
             <DevisBars data={d.devisSeries} />
           </CardContent>
@@ -581,7 +614,7 @@ export default async function DashboardPage() {
       {/* 7. Activité récente */}
       <div className="animate-fade-up" style={{ animationDelay: '270ms' }}>
         <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Activité récente</h2>
-        <Card className="border border-gray-200/80 bg-white">
+        <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
           <CardContent className="p-5">
             {d.activity.length === 0 ? (
               <p className="text-sm text-gray-400 py-8 text-center">Votre activité apparaîtra ici.</p>
