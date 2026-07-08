@@ -96,7 +96,7 @@ function NavItem({ href, label, icon: Icon, active, onClick, mobile, collapsed }
       onClick={onClick}
       title={collapsed ? label : undefined}
       className={cn(
-        'group relative flex items-center gap-3 rounded-xl font-medium transition-all duration-200',
+        'group relative flex items-center gap-3 rounded-xl font-medium transition-all duration-200 overflow-hidden whitespace-nowrap',
         collapsed ? 'justify-center px-0 py-2.5' : mobile ? 'px-3 py-3 text-[15px]' : 'px-3 py-2.5 text-sm',
         active
           ? 'bg-white text-[var(--sidebar-primary-foreground)] shadow-[0_5px_14px_rgba(60,20,0,0.22)]'
@@ -164,7 +164,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   const SidebarBody = ({ mobile, rail }: { mobile?: boolean; rail?: boolean }) => (
     <>
-      <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
+      <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
         {topNav.map(item => (
           <NavItem key={item.href} {...item} active={isActive(item.href)} mobile={mobile} collapsed={rail} onClick={mobile ? () => setMenuOpen(false) : undefined} />
         ))}
@@ -177,10 +177,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               ) : (
                 <button
                   onClick={() => toggleGroup(group.id)}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/60 hover:text-white/90 transition-colors"
+                  className="w-full flex items-center justify-between gap-2 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/60 hover:text-white/90 transition-colors overflow-hidden whitespace-nowrap"
                 >
-                  {group.label}
-                  <ChevronDown className={cn('w-3.5 h-3.5 transition-transform duration-200', open ? 'rotate-0' : '-rotate-90')} />
+                  <span className="truncate">{group.label}</span>
+                  <ChevronDown className={cn('w-3.5 h-3.5 shrink-0 transition-transform duration-200', open ? 'rotate-0' : '-rotate-90')} />
                 </button>
               )}
               {(rail || open) && (
