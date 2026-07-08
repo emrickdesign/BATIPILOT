@@ -277,7 +277,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         'flex-1 pt-14 md:pt-0 min-h-screen bg-app-bg transition-[margin] duration-200 ease-out',
         collapsed ? 'md:ml-[72px]' : 'md:ml-60'
       )}>
-        <div className="p-4 md:p-8 max-w-6xl mx-auto">
+        <div className="p-4 md:p-8">
           {children}
         </div>
       </main>

@@ -261,10 +261,12 @@
    Dégradé corail qui dérive lentement + 3 halos (corail clair, rouge, blanc)
    qui se déplacent chacun à leur rythme → nuances chaudes « aléatoires ». */
 .bp-sidebar {
-  position: relative;
-  /* Pas d'overflow:hidden ici : le bouton de repli déborde volontairement à
-     droite (-right-3) et ne doit pas être rogné. Les halos sont clippés par
-     .bp-sidebar__glows à la place. */
+  /* Pas de position ici : l'aside garde sa classe `fixed` (Tailwind) — la
+     forcer en `relative` la remettrait dans le flux et décalerait tout le
+     contenu. Le `fixed` sert déjà de contexte de positionnement aux halos.
+     Pas d'overflow:hidden non plus : le bouton de repli déborde volontairement
+     à droite (-right-3) et ne doit pas être rogné (halos clippés par
+     .bp-sidebar__glows). */
   background: linear-gradient(160deg, var(--sidebar-g1) 0%, var(--sidebar-g2) 46%, var(--sidebar-g3) 100%);
   background-size: 180% 180%;
   animation: bp-side-shift 18s ease-in-out infinite;
