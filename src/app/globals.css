@@ -262,10 +262,20 @@
    qui se déplacent chacun à leur rythme → nuances chaudes « aléatoires ». */
 .bp-sidebar {
   position: relative;
-  overflow: hidden;
+  /* Pas d'overflow:hidden ici : le bouton de repli déborde volontairement à
+     droite (-right-3) et ne doit pas être rogné. Les halos sont clippés par
+     .bp-sidebar__glows à la place. */
   background: linear-gradient(160deg, var(--sidebar-g1) 0%, var(--sidebar-g2) 46%, var(--sidebar-g3) 100%);
   background-size: 180% 180%;
   animation: bp-side-shift 18s ease-in-out infinite;
+}
+/* Calque qui contient et clippe les halos, sans affecter le bouton de repli. */
+.bp-sidebar__glows {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  z-index: 0;
+  pointer-events: none;
 }
 .bp-sidebar__glow {
   position: absolute;

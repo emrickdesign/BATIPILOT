@@ -118,13 +118,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   // Sidebar repliable (desktop) : préférence persistée par appareil.
   useEffect(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('batipilot_sidebar_collapsed') : null
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('batipilot_sidebar_collapsed_v2') : null
     if (stored === '1') setCollapsed(true)
   }, [])
   const toggleCollapsed = () => {
     setCollapsed(prev => {
       const next = !prev
-      if (typeof window !== 'undefined') localStorage.setItem('batipilot_sidebar_collapsed', next ? '1' : '0')
+      if (typeof window !== 'undefined') localStorage.setItem('batipilot_sidebar_collapsed_v2', next ? '1' : '0')
       return next
     })
   }
@@ -234,9 +234,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           collapsed ? 'w-[72px]' : 'w-60'
         )}
       >
-        <span className="bp-sidebar__glow bp-sidebar__glow--a" aria-hidden />
-        <span className="bp-sidebar__glow bp-sidebar__glow--b" aria-hidden />
-        <span className="bp-sidebar__glow bp-sidebar__glow--c" aria-hidden />
+        <div className="bp-sidebar__glows" aria-hidden>
+          <span className="bp-sidebar__glow bp-sidebar__glow--a" />
+          <span className="bp-sidebar__glow bp-sidebar__glow--b" />
+          <span className="bp-sidebar__glow bp-sidebar__glow--c" />
+        </div>
         <div className={cn('relative z-10 h-16 flex items-center border-b border-white/15', collapsed ? 'px-2' : 'px-4')}>
           <Logo collapsed={collapsed} />
         </div>
