@@ -13,10 +13,74 @@ import { projectStatusLabels, projectStatusColors } from '@/lib/chantiers'
 import type { ProjectStatus } from '@/types'
 import EncaissementsChart from './EncaissementsChart'
 import DonutMetricCard from '@/components/charts/DonutMetricCard'
-import ColoredStatCard from '@/components/ui/colored-stat-card'
-import { statColors } from '@/lib/statColors'
+import GaugeRing from '@/components/charts/GaugeRing'
 
 const DONUT_COLORS = ['#D05C43', '#C77D0E', '#8A4B24', '#3F7A2E', '#94918A']
+
+// Tons sémantiques chauds pour les cartes KPI (chip + accent sparkline)
+const TONES = {
+  green: { fg: '#3F7A2E', bg: '#EAF1DF' },
+  coral: { fg: '#C14E33', bg: '#FCE7DE' },
+  amber: { fg: '#8A5A08', bg: '#FBEED6' },
+  terre: { fg: '#8A4B24', bg: '#F1E6D8' },
+  red: { fg: '#C0392B', bg: '#FBE0DA' },
+} as const
+type Tone = keyof typeof TONES
+
+// Génère les tracés d'un mini-sparkline (ligne + aire) à partir d'une série
+function sparkPath(vals: number[], w = 120, h = 34, pad = 4) {
+  if (vals.length < 2) return null
+  const max = Math.max(...vals), min = Math.min(...vals)
+  const rng = max - min || 1
+  const step = w / (vals.length - 1)
+  const pts = vals.map((v, i) => [+(i * step).toFixed(1), +(h - pad - ((v - min) / rng) * (h - 2 * pad)).toFixed(1)])
+  const line = 'M' + pts.map(p => p.join(',')).join(' L')
+  return { line, area: `${line} L${w},${h} L0,${h} Z` }
+}
+
+function StatPro({ label, value, icon: Icon, tone, delta, gauge, note, spark }: {
+  label: string; value: string; icon: LucideIcon; tone: Tone
+  delta?: { text: string; dir: 'up' | 'down' | 'flat' }
+  gauge?: number; note?: string; spark?: number[]
+}) {
+  const t = TONES[tone]
+  const sp = spark ? sparkPath(spark) : null
+  const uid = `sp-${label.replace(/\W/g, '')}`
+  const deltaCls = delta?.dir === 'up' ? 'bg-[#EAF1DF] text-[#3F7A2E]'
+    : delta?.dir === 'down' ? 'bg-[#FBE0DA] text-[#C0392B]' : 'bg-[#F1EDE6] text-gray-500'
+  return (
+    <div className="h-full rounded-xl bg-white border border-border p-4 shadow-[var(--shadow-sm)] hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5 transition-all duration-200">
+      <div className="flex items-start justify-between mb-3">
+        <span className="grid place-items-center w-9 h-9 rounded-lg flex-shrink-0" style={{ background: t.bg, color: t.fg }}>
+          <Icon className="w-[18px] h-[18px]" strokeWidth={2} />
+        </span>
+        {gauge !== undefined ? (
+          <GaugeRing value={gauge} size={40} strokeWidth={5} trackColor="#F0ECE4" fillColor={t.fg}>
+            <span className="text-[10px] font-bold" style={{ color: t.fg }}>{gauge}%</span>
+          </GaugeRing>
+        ) : delta ? (
+          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${deltaCls}`}>{delta.text}</span>
+        ) : null}
+      </div>
+      <div className="text-[25px] font-bold text-marine leading-none tracking-tight tabular-nums">{value}</div>
+      <div className="text-[12.5px] text-gray-500 mt-1.5 font-medium">{label}</div>
+      {sp ? (
+        <svg className="w-full h-8 mt-2.5 block" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden>
+          <defs>
+            <linearGradient id={uid} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0" stopColor={t.fg} stopOpacity="0.22" />
+              <stop offset="1" stopColor={t.fg} stopOpacity="0" />
+            </linearGradient>
+          </defs>
+          <path d={sp.area} fill={`url(#${uid})`} />
+          <path d={sp.line} fill="none" stroke={t.fg} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      ) : note ? (
+        <div className="text-[11px] text-gray-400 mt-2 leading-tight">{note}</div>
+      ) : null}
+    </div>
+  )
+}
 
 const MONTHS = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc']
 const CLOSED = ['termine', 'facture', 'paye', 'archive']
@@ -183,6 +247,20 @@ async function getData(userId: string) {
     }
   })
 
+  // Séries mensuelles pour les sparklines des cartes KPI (6 mois)
+  const monthSeries = (pred: (i: (typeof inv)[number]) => boolean) =>
+    Array.from({ length: 6 }, (_, k) => {
+      const dM = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1)
+      const inM = (d?: string | null) => {
+        if (!d) return false
+        const x = new Date(d)
+        return x.getFullYear() === dM.getFullYear() && x.getMonth() === dM.getMonth()
+      }
+      return inv.filter(i => pred(i) && inM(i.issue_date)).reduce((s, i) => s + num(i.total_ttc), 0)
+    })
+  const encaisseSeries = monthSeries(i => isPaid(i.status))
+  const factureSeries = monthSeries(i => i.status !== 'brouillon')
+
   // ── 5. Équipes & terrain (aujourd'hui) ──────────────────────────────
   const heuresJour = times.filter(t => t.date === today).reduce((s, t) => s + num(t.hours), 0)
   const pointagesManquants = [...assignedTodayEmp].filter(e => !pointedTodayEmp.has(e)).length
@@ -237,6 +315,7 @@ async function getData(userId: string) {
 
   return {
     fin: { encaisseMois, encaisseMoisPrec, factureMois, resteAEncaisser, devisEnAttente },
+    kpiSparks: { encaisse: encaisseSeries, facture: factureSeries },
     todos,
     chantiers, chantiersActifs,
     series: { '7j': s7, mois: sMois, trimestre: sTri, annee: sAnnee },
@@ -304,22 +383,22 @@ export default async function DashboardPage() {
   const encVarPct = d.fin.encaisseMoisPrec > 0
     ? Math.round(((d.fin.encaisseMois - d.fin.encaisseMoisPrec) / d.fin.encaisseMoisPrec) * 100)
     : null
-  const encSub: { text: string; positive: boolean } | null =
-    encVarPct !== null
-      ? { text: `${encVarPct >= 0 ? '+' : ''}${encVarPct} % vs mois dernier`, positive: encVarPct >= 0 }
-      : d.fin.encaisseMois > 0
-        ? { text: 'vs 0 € le mois dernier', positive: true }
-        : null
-
   const encaissePct = d.fin.factureMois > 0 ? Math.round((d.fin.encaisseMois / d.fin.factureMois) * 100) : 0
 
-  // Logique couleur (cf src/lib/statColors.ts) : vert = déjà encaissé, orange = reste à obtenir,
-  // bleu = information neutre (facturé), violet = pipeline commercial (devis).
-  const finCards: { label: string; value: string; icon: LucideIcon; color: string; href: string; sub?: { text: string; positive: boolean } | null; gauge?: number }[] = [
-    { label: 'Encaissé ce mois', value: formatCurrency(d.fin.encaisseMois), icon: Wallet, color: statColors.success, href: '/banque', sub: encSub },
-    { label: 'Facturé ce mois', value: formatCurrency(d.fin.factureMois), icon: Send, color: statColors.info, href: '/factures' },
-    { label: 'Reste à encaisser', value: formatCurrency(d.fin.resteAEncaisser), icon: Coins, color: statColors.warning, href: '/relances', gauge: encaissePct },
-    { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, color: statColors.accent, href: '/devis?statut=envoye' },
+  // Cartes KPI pro : vert = encaissé (positif), corail = facturé (marque),
+  // ambre = reste à encaisser (en attente, jauge), terre = devis (pipeline).
+  const finCards: {
+    label: string; value: string; icon: LucideIcon; tone: Tone; href: string
+    delta?: { text: string; dir: 'up' | 'down' | 'flat' }; gauge?: number; note?: string; spark?: number[]
+  }[] = [
+    {
+      label: 'Encaissé ce mois', value: formatCurrency(d.fin.encaisseMois), icon: Wallet, tone: 'green', href: '/banque',
+      spark: d.kpiSparks.encaisse,
+      delta: encVarPct !== null ? { text: `${encVarPct >= 0 ? '+' : ''}${encVarPct}%`, dir: encVarPct >= 0 ? 'up' : 'down' } : undefined,
+    },
+    { label: 'Facturé ce mois', value: formatCurrency(d.fin.factureMois), icon: Send, tone: 'coral', href: '/factures', spark: d.kpiSparks.facture },
+    { label: 'Reste à encaisser', value: formatCurrency(d.fin.resteAEncaisser), icon: Coins, tone: 'amber', href: '/relances', gauge: encaissePct, note: `${encaissePct}% du facturé déjà encaissé` },
+    { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, tone: 'terre', href: '/devis?statut=envoye', note: 'Pipeline commercial en cours' },
   ]
 
   return (
@@ -357,21 +436,10 @@ export default async function DashboardPage() {
       </div>
 
       {/* 1. Chiffres vitaux */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {finCards.map((k, i) => (
           <Link key={k.label} href={k.href} className="animate-fade-up block" style={{ animationDelay: `${i * 60}ms` }}>
-            <ColoredStatCard
-              label={k.label}
-              value={k.value}
-              color={k.color}
-              icon={k.icon}
-              gauge={k.gauge}
-              subText={
-                k.sub ? `${k.sub.positive ? '↗' : '↘'} ${k.sub.text}`
-                  : k.gauge !== undefined ? `${k.gauge}% déjà encaissé sur le facturé`
-                    : undefined
-              }
-            />
+            <StatPro label={k.label} value={k.value} icon={k.icon} tone={k.tone} delta={k.delta} gauge={k.gauge} note={k.note} spark={k.spark} />
           </Link>
         ))}
       </div>
