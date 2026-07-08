@@ -59,65 +59,72 @@
 }
 
 :root {
-  /* ─── Charte graphique BatiPilot ─────────────────────────────── */
+  /* ─── Charte graphique BatiPilot — ADN Potentieel (crème + corail chaud) ───
+     Palette dérivée du site Potentieel : fond blanc/crème, corail chaud comme
+     couleur d'action, olive comme succès, encre chaude à la place du marine. */
   --background: #ffffff;
-  --app-bg: #F4F6F5;                /* Fond app doux (style Fynix) */
-  --foreground: #334155;            /* Gris texte */
+  --app-bg: #F7F6F3;                /* Crème Potentieel (fond app) */
+  --foreground: #3F3D37;            /* Gris chaud (texte courant) */
   --card: #ffffff;
-  --card-foreground: #1e293b;
+  --card-foreground: #18170F;       /* Encre chaude */
   --popover: #ffffff;
-  --popover-foreground: #1e293b;
-  --primary: #FF6A00;               /* Chantier (orange) — bouton primaire */
+  --popover-foreground: #18170F;
+  --primary: #E0674C;               /* Corail chaud (B) — bouton primaire */
   --primary-foreground: #ffffff;
-  --secondary: #F1F5F9;             /* Gris clair */
-  --secondary-foreground: #0F172A;
-  --muted: #F1F5F9;
-  --muted-foreground: #64748B;      /* Gris moyen */
-  --accent: #FFF1E6;                /* Sable orangé léger */
-  --accent-foreground: #C2410C;
-  --destructive: #DC2626;
-  --border: #E7E9EE;
-  --input: #E2E8F0;
-  --ring: #FF6A00;
-  --chart-1: #FF6A00;               /* Chantier */
-  --chart-2: #2563EB;               /* Action */
-  --chart-3: #16A34A;               /* Succès */
-  --chart-4: #7C3AED;               /* Accent */
-  --chart-5: #0F172A;               /* Marine */
-  --radius: 0.875rem;
+  --secondary: #F0EEE7;             /* Crème 2 */
+  --secondary-foreground: #18170F;
+  --muted: #F0EEE7;
+  --muted-foreground: #6B6862;      /* Gris chaud moyen */
+  --accent: #FCE7DE;                /* Corail très pâle */
+  --accent-foreground: #C14E33;     /* Corail profond */
+  --destructive: #C0392B;           /* Rouge chaud */
+  --border: #E7E3D9;                /* Bordure crème */
+  --input: #DED9CC;
+  --ring: #E0674C;
+  --chart-1: #E0674C;               /* Corail */
+  --chart-2: #4C6F18;               /* Olive */
+  --chart-3: #C77D0E;               /* Ambre */
+  --chart-4: #8F3810;               /* Terre cuite */
+  --chart-5: #6B6862;               /* Gris chaud */
+  --radius: 1rem;                   /* 16px (Potentieel) */
 
-  /* Succès (bouton Valider, confirmations) */
-  --success: #16A34A;
-  --success-strong: #15803D;
+  /* Succès (bouton Valider, confirmations) — olive Potentieel */
+  --success: #4C6F18;
+  --success-strong: #3A5511;
   --success-foreground: #ffffff;
 
-  /* Surface sombre (cartes mesures/glow, style "donut 3D") */
-  --surface-dark: #0B1220;
+  /* Surface sombre (cartes mesures/glow) — encre chaude */
+  --surface-dark: #18170F;
   --surface-dark-foreground: #ffffff;
-  --surface-dark-muted: #8B99B3;
+  --surface-dark-muted: #A8A296;
 
   /* Marque BatiPilot */
-  --brand: #FF6A00;                 /* Chantier */
-  --brand-strong: #E85D00;
-  --brand-soft: #FFF1E6;
+  --brand: #E0674C;                 /* Corail */
+  --brand-strong: #D05C43;
+  --brand-soft: #FCE7DE;
   --brand-foreground: #ffffff;
-  --marine: #0F172A;                /* Marine (sidebar, titres forts) */
+  --marine: #18170F;                /* Encre chaude (titres forts) */
   --sable: #F7F3EE;
 
-  /* Échelle d'élévation (ombres douces premium) */
-  --shadow-xs: 0 1px 2px 0 rgb(15 23 42 / 0.04);
-  --shadow-sm: 0 1px 3px 0 rgb(15 23 42 / 0.06), 0 1px 2px -1px rgb(15 23 42 / 0.06);
-  --shadow-md: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 6px -2px rgb(15 23 42 / 0.05);
-  --shadow-lg: 0 12px 28px -6px rgb(15 23 42 / 0.12), 0 6px 12px -6px rgb(15 23 42 / 0.07);
+  /* Échelle d'élévation (ombres douces, teinte chaude) */
+  --shadow-xs: 0 1px 2px 0 rgb(40 25 10 / 0.04);
+  --shadow-sm: 0 1px 3px 0 rgb(40 25 10 / 0.06), 0 1px 2px -1px rgb(40 25 10 / 0.06);
+  --shadow-md: 0 4px 12px -2px rgb(40 25 10 / 0.08), 0 2px 6px -2px rgb(40 25 10 / 0.05);
+  --shadow-lg: 0 12px 28px -6px rgb(40 25 10 / 0.12), 0 6px 12px -6px rgb(40 25 10 / 0.07);
   --shadow-brand: 0 8px 24px -6px color-mix(in oklch, var(--brand) 40%, transparent);
-  --sidebar: #0F172A;                       /* Marine */
-  --sidebar-foreground: #CBD5E1;
-  --sidebar-primary: #FF6A00;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgb(255 255 255 / 0.06);
+
+  /* Sidebar corail animée (dégradé + halos, cf. .bp-sidebar) */
+  --sidebar-g1: #F09A80;                    /* Corail clair */
+  --sidebar-g2: #E5735A;                    /* Corail chaud */
+  --sidebar-g3: #D05C43;                    /* Corail profond */
+  --sidebar: #E5735A;                       /* Fallback plat */
+  --sidebar-foreground: rgb(255 255 255 / 0.82);
+  --sidebar-primary: #ffffff;               /* Pastille item actif */
+  --sidebar-primary-foreground: #C14E33;    /* Texte item actif */
+  --sidebar-accent: rgb(255 255 255 / 0.15);
   --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgb(255 255 255 / 0.08);
-  --sidebar-ring: #FF6A00;
+  --sidebar-border: rgb(255 255 255 / 0.16);
+  --sidebar-ring: #ffffff;
 }
 
 /* ─── Accent dynamique par pôle ──────────────────────────────────
@@ -125,11 +132,11 @@
    Chaque pôle remappe l'accent ; le marine reste l'encre commune.
    Pôle par défaut (aucun attribut) = Commercial / orange = rendu actuel. */
 [data-pole="commercial"] {
-  --primary: #FF6A00; --primary-foreground: #ffffff;
-  --ring: #FF6A00; --brand: #FF6A00; --brand-strong: #E85D00; --brand-soft: #FFF1E6;
-  --accent: #FFF1E6; --accent-foreground: #9A3412;
-  --sidebar-primary: #FF6A00; --sidebar-ring: #FF6A00;
-  --chart-1: #FF6A00;
+  --primary: #E0674C; --primary-foreground: #ffffff;
+  --ring: #E0674C; --brand: #E0674C; --brand-strong: #D05C43; --brand-soft: #FCE7DE;
+  --accent: #FCE7DE; --accent-foreground: #C14E33;
+  --sidebar-primary: #ffffff; --sidebar-ring: #ffffff;
+  --chart-1: #E0674C;
 }
 [data-pole="terrain"] {
   --primary: #2E8FFF; --primary-foreground: #ffffff;
@@ -249,6 +256,49 @@
   transform: translateX(-100%);
 }
 .sheen:hover::after { animation: shimmer 0.9s ease; }
+
+/* ─── Sidebar corail animée (ADN Potentieel) ─────────────────────────────
+   Dégradé corail qui dérive lentement + 3 halos (corail clair, rouge, blanc)
+   qui se déplacent chacun à leur rythme → nuances chaudes « aléatoires ». */
+.bp-sidebar {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(160deg, var(--sidebar-g1) 0%, var(--sidebar-g2) 46%, var(--sidebar-g3) 100%);
+  background-size: 180% 180%;
+  animation: bp-side-shift 18s ease-in-out infinite;
+}
+.bp-sidebar__glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  filter: blur(8px);
+  mix-blend-mode: screen;
+  z-index: 0;
+}
+.bp-sidebar__glow--a {
+  width: 280px; height: 280px; top: -110px; left: -90px;
+  background: radial-gradient(circle, rgba(255,182,158,0.5), transparent 65%);
+  animation: bp-side-d1 15s ease-in-out infinite;
+}
+.bp-sidebar__glow--b {
+  width: 240px; height: 240px; bottom: 80px; right: -110px;
+  background: radial-gradient(circle, rgba(235,110,92,0.5), transparent 65%);
+  animation: bp-side-d2 21s ease-in-out infinite;
+}
+.bp-sidebar__glow--c {
+  width: 190px; height: 190px; top: 44%; left: -60px;
+  background: radial-gradient(circle, rgba(255,255,255,0.10), transparent 60%);
+  animation: bp-side-d3 12s ease-in-out infinite;
+}
+@keyframes bp-side-shift {
+  0%   { background-position: 0% 0%; }
+  33%  { background-position: 100% 30%; }
+  66%  { background-position: 30% 100%; }
+  100% { background-position: 0% 0%; }
+}
+@keyframes bp-side-d1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(60px,80px); } }
+@keyframes bp-side-d2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-70px,-50px); } }
+@keyframes bp-side-d3 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(50px,-35px); } }
 
 /* Respect de prefers-reduced-motion (accessibilité) */
 @media (prefers-reduced-motion: reduce) {
