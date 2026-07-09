@@ -67,8 +67,8 @@ export default function ChantiersList({ projects }: { projects: ChantierCard[] }
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                      <HardHat className="w-5 h-5 text-blue-600" />
+                    <div className="w-10 h-10 rounded-full bg-[#FBEDE7] flex items-center justify-center flex-shrink-0">
+                      <HardHat className="w-5 h-5 text-[#C14E33]" />
                     </div>
                     <div className="min-w-0">
                       <div className="font-semibold text-gray-900 truncate">{project.title || 'Chantier sans titre'}</div>
@@ -107,7 +107,7 @@ export default function ChantiersList({ projects }: { projects: ChantierCard[] }
                   </div>
                   <div>
                     <div className="text-[11px] text-gray-400">Marge est.</div>
-                    <div className={`font-semibold tabular-nums mt-0.5 ${project.marge == null ? 'text-gray-400' : project.marge >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    <div className={`font-semibold tabular-nums mt-0.5 ${project.marge == null ? 'text-gray-400' : project.marge >= 0 ? 'text-[#3F7A2E]' : 'text-rose-600'}`}>
                       {project.marge == null ? '—' : formatCurrency(project.marge)}
                     </div>
                   </div>
@@ -127,7 +127,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       type="button"
       onClick={onClick}
       className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-        active ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+        active ? 'border-primary bg-[#FBEDE7] text-[#B0472F]' : 'border-gray-200 text-gray-600 hover:border-gray-300'
       }`}
     >
       {children}

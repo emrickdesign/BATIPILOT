@@ -218,9 +218,9 @@ export default function EquipeManager({ employees, meta }: { employees: Employee
                 </div>
                 <div className="flex items-center gap-1 flex-shrink-0">
                   <button onClick={() => toggleActive(e)} title={e.active ? 'Désactiver' : 'Réactiver'}
-                    className={`grid place-items-center w-8 h-8 rounded-md hover:bg-gray-50 ${e.active ? 'text-gray-400 hover:text-amber-600' : 'text-green-500'}`}><Check className="w-4 h-4" /></button>
+                    className={`grid place-items-center w-8 h-8 rounded-md hover:bg-gray-50 ${e.active ? 'text-gray-400 hover:text-amber-600' : 'text-[#3F7A2E]'}`}><Check className="w-4 h-4" /></button>
                   <button onClick={() => startEdit(e)} title="Modifier"
-                    className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-blue-600 hover:bg-gray-50"><Pencil className="w-4 h-4" /></button>
+                    className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-[#C14E33] hover:bg-gray-50"><Pencil className="w-4 h-4" /></button>
                   <SetPinButton employeeId={e.id} employeeName={e.full_name} />
                   <button onClick={() => handleDelete(e)} title="Supprimer"
                     className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-50"><Trash2 className="w-4 h-4" /></button>

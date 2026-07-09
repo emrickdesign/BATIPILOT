@@ -27,7 +27,7 @@ const selectClass =
 
 const sourceColors: Record<string, string> = {
   ticket: 'bg-accent text-primary',
-  banque: 'bg-blue-100 text-blue-700',
+  banque: 'bg-[#FCE7DE] text-[#B0472F]',
   manuel: 'bg-gray-100 text-gray-600',
 }
 
@@ -142,9 +142,9 @@ export default function DepensesLedger({
       </div>
 
       {/* Connexion bancaire (à venir) */}
-      <Card className="border border-blue-100 bg-blue-50/50">
+      <Card className="border border-[#F3D9CF] bg-[#FBEDE7]/50">
         <CardContent className="p-4 flex items-center gap-3">
-          <span className="grid place-items-center w-11 h-11 rounded-xl bg-blue-100 text-blue-600 flex-shrink-0">
+          <span className="grid place-items-center w-11 h-11 rounded-xl bg-[#FCE7DE] text-[#C14E33] flex-shrink-0">
             <Landmark className="w-5 h-5" />
           </span>
           <div className="flex-1 min-w-0">
@@ -257,7 +257,7 @@ export default function DepensesLedger({
                     {exp.category && <Badge variant="outline" className="text-xs">{exp.category}</Badge>}
                     {exp.expense_date && <span>{formatDate(exp.expense_date)}</span>}
                     {exp.projects && (
-                      <Link href={`/chantiers/${exp.project_id}`} className="flex items-center gap-1 hover:text-blue-600">
+                      <Link href={`/chantiers/${exp.project_id}`} className="flex items-center gap-1 hover:text-[#C14E33]">
                         <HardHat className="w-3 h-3" />{exp.projects.title}
                       </Link>
                     )}

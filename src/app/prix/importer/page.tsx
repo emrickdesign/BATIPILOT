@@ -128,7 +128,7 @@ export default function ImporterPrixPage() {
       {step === 'analyse' && (
         <Card>
           <CardContent className="py-16 text-center space-y-4">
-            <Loader2 className="w-12 h-12 mx-auto text-blue-500 animate-spin" />
+            <Loader2 className="w-12 h-12 mx-auto text-[#C14E33] animate-spin" />
             <p className="font-medium text-gray-700">Analyse en cours...</p>
             <p className="text-sm text-gray-500">L&apos;IA lit votre document et extrait vos prix. 20 à 40 secondes.</p>
           </CardContent>
@@ -137,13 +137,13 @@ export default function ImporterPrixPage() {
 
       {step === 'valider' && (
         <>
-          <Card className="border-blue-200 bg-blue-50">
+          <Card className="border-[#F3D9CF] bg-[#FBEDE7]">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <AlertCircle className="w-5 h-5 text-[#C14E33] mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-medium text-blue-800">Vérifiez les prix avant d&apos;importer</p>
-                  <p className="text-sm text-blue-600 mt-1">
+                  <p className="font-medium text-[#8A3A26]">Vérifiez les prix avant d&apos;importer</p>
+                  <p className="text-sm text-[#C14E33] mt-1">
                     L&apos;IA a extrait {totalEnabled} prestations. Vous pouvez modifier les noms, unités et prix,
                     ou décocher les lignes que vous ne voulez pas.
                     <br />Cliquez sur une valeur pour la modifier directement.
@@ -187,7 +187,7 @@ export default function ImporterPrixPage() {
                           />
                         ) : (
                           <span
-                            className="text-sm text-gray-900 cursor-pointer hover:text-blue-600 flex items-center gap-1 group"
+                            className="text-sm text-gray-900 cursor-pointer hover:text-[#C14E33] flex items-center gap-1 group"
                             onClick={() => setEditingCell({ catIdx, itemIdx, field: 'name' })}
                           >
                             {item.name}
@@ -216,7 +216,7 @@ export default function ImporterPrixPage() {
                           />
                         ) : (
                           <span
-                            className="text-sm font-semibold w-20 text-right cursor-pointer hover:text-blue-600 group flex items-center justify-end gap-1"
+                            className="text-sm font-semibold w-20 text-right cursor-pointer hover:text-[#C14E33] group flex items-center justify-end gap-1"
                             onClick={() => setEditingCell({ catIdx, itemIdx, field: 'price' })}
                           >
                             <Pencil className="w-3 h-3 opacity-0 group-hover:opacity-50" />
@@ -246,7 +246,7 @@ export default function ImporterPrixPage() {
       {step === 'saving' && (
         <Card>
           <CardContent className="py-16 text-center space-y-4">
-            <Loader2 className="w-12 h-12 mx-auto text-green-500 animate-spin" />
+            <Loader2 className="w-12 h-12 mx-auto text-[#3F7A2E] animate-spin" />
             <p className="font-medium text-gray-700">Sauvegarde en cours...</p>
           </CardContent>
         </Card>

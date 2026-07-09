@@ -22,7 +22,7 @@ type ClientOption = {
 }
 
 const selectClass =
-  'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 export default function ChantierForm({ project }: { project?: Project }) {
   const isEdit = !!project

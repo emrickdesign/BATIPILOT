@@ -207,11 +207,11 @@ export default function TicketsManager({
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           <MiniStat label="Total tickets" value={formatCurrency(totalTTC)} tile="bg-accent text-primary" icon={<ReceiptText className="w-4 h-4" />} />
           <MiniStat label="À vérifier" value={String(aVerifier)} tile="bg-amber-100 text-amber-600" icon={<Search className="w-4 h-4" />} />
-          <MiniStat label="Tickets" value={String(expenses.length)} tile="bg-violet-100 text-violet-600" icon={<FileText className="w-4 h-4" />} />
+          <MiniStat label="Tickets" value={String(expenses.length)} tile="bg-[#F3E5D6] text-[#8A4B24]" icon={<FileText className="w-4 h-4" />} />
           <button onClick={handleExport} className="text-left">
             <Card className="card-interactive border border-gray-200/80 h-full">
               <CardContent className="p-3">
-                <span className="grid place-items-center w-8 h-8 rounded-lg bg-emerald-100 text-emerald-600"><Download className="w-4 h-4" /></span>
+                <span className="grid place-items-center w-8 h-8 rounded-lg bg-[#E9F2DB] text-[#3F7A2E]"><Download className="w-4 h-4" /></span>
                 <div className="text-sm font-bold text-[#0F172A] mt-2 leading-tight">Exporter</div>
                 <div className="text-[11px] text-gray-500 mt-1">CSV pour la comptable</div>
               </CardContent>
@@ -330,7 +330,7 @@ export default function TicketsManager({
                       {exp.expense_date && <span>{formatDate(exp.expense_date)}</span>}
                       {Number(exp.vat_amount) > 0 && <span>TVA {formatCurrency(Number(exp.vat_amount))}</span>}
                       {pr && (
-                        <Link href={`/chantiers/${exp.project_id}`} className="flex items-center gap-1 hover:text-blue-600">
+                        <Link href={`/chantiers/${exp.project_id}`} className="flex items-center gap-1 hover:text-[#C14E33]">
                           <HardHat className="w-3 h-3" />{pr.title}
                         </Link>
                       )}
@@ -343,14 +343,14 @@ export default function TicketsManager({
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {exp.status === 'a_verifier' && (
                       <button onClick={() => changeStatus(exp, 'valide')} title="Valider"
-                        className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-green-600 hover:bg-gray-50"><Check className="w-4 h-4" /></button>
+                        className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-[#3F7A2E] hover:bg-gray-50"><Check className="w-4 h-4" /></button>
                     )}
                     {exp.status === 'valide' && (
                       <button onClick={() => changeStatus(exp, 'envoye_comptable')} title="Marquer envoyé à la comptable"
-                        className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-violet-600 hover:bg-gray-50"><Send className="w-4 h-4" /></button>
+                        className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-[#8A4B24] hover:bg-gray-50"><Send className="w-4 h-4" /></button>
                     )}
                     <button onClick={() => startEdit(exp)} title="Corriger"
-                      className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-blue-600 hover:bg-gray-50"><Pencil className="w-4 h-4" /></button>
+                      className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-[#C14E33] hover:bg-gray-50"><Pencil className="w-4 h-4" /></button>
                     <button onClick={() => handleDelete(exp)} title="Supprimer"
                       className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-50"><Trash2 className="w-4 h-4" /></button>
                   </div>

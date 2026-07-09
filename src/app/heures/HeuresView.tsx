@@ -27,14 +27,14 @@ const keyOf = (e: string, p: string | null, d: string) => `${e}|${p || ''}|${d}`
 
 const ST: Record<HeureStatus, { label: string; cls: string }> = {
   declare: { label: 'À vérifier', cls: 'bg-amber-100 text-amber-700' },
-  valide: { label: 'Validé', cls: 'bg-emerald-100 text-emerald-700' },
+  valide: { label: 'Validé', cls: 'bg-[#E9F2DB] text-[#3F7A2E]' },
   refuse: { label: 'À corriger', cls: 'bg-rose-100 text-rose-700' },
 }
 
 // Contrôle h/véhicules (doc §15.4)
 type CtrlStatus = 'coherent' | 'ecart_faible' | 'ecart_important' | 'sans_vehicule' | 'sans_heures'
 const CTRL: Record<CtrlStatus, { label: string; cls: string }> = {
-  coherent: { label: 'Cohérent', cls: 'bg-emerald-100 text-emerald-700' },
+  coherent: { label: 'Cohérent', cls: 'bg-[#E9F2DB] text-[#3F7A2E]' },
   ecart_faible: { label: 'Écart faible', cls: 'bg-amber-100 text-amber-700' },
   ecart_important: { label: 'Écart important', cls: 'bg-rose-100 text-rose-700' },
   sans_vehicule: { label: 'Heures sans véhicule', cls: 'bg-amber-100 text-amber-700' },
@@ -294,10 +294,10 @@ export default function HeuresView({
         <>
           {/* Synthèse */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Mini label="Total heures" value={`${totals.grand.toFixed(1).replace('.0', '')} h`} tile="bg-blue-100 text-blue-600" icon={<Clock className="w-4 h-4" />} />
+            <Mini label="Total heures" value={`${totals.grand.toFixed(1).replace('.0', '')} h`} tile="bg-[#FCE7DE] text-[#C14E33]" icon={<Clock className="w-4 h-4" />} />
             <Mini label="À vérifier" value={String(totals.aVerifier)} tile="bg-amber-100 text-amber-600" icon={<Clock className="w-4 h-4" />} />
-            <Mini label="Masse salariale est." value={formatCurrency(totals.cost)} tile="bg-violet-100 text-violet-600" icon={<Users2 className="w-4 h-4" />} />
-            <Mini label="Salariés actifs" value={String(employees.length)} tile="bg-emerald-100 text-emerald-600" icon={<Users2 className="w-4 h-4" />} />
+            <Mini label="Masse salariale est." value={formatCurrency(totals.cost)} tile="bg-[#F3E5D6] text-[#8A4B24]" icon={<Users2 className="w-4 h-4" />} />
+            <Mini label="Salariés actifs" value={String(employees.length)} tile="bg-[#E9F2DB] text-[#3F7A2E]" icon={<Users2 className="w-4 h-4" />} />
           </div>
 
           {/* Filtres */}
@@ -359,7 +359,7 @@ export default function HeuresView({
                               {pres && (
                                 <span className="text-[11px] text-gray-400 flex items-center gap-1">
                                   {pres.arrivee || '—'}<span className="text-gray-300">→</span>{pres.depart || '—'}
-                                  {pres.photo && <Camera className="w-3 h-3 text-emerald-500" />}
+                                  {pres.photo && <Camera className="w-3 h-3 text-[#3F7A2E]" />}
                                 </span>
                               )}
                               <div className="flex items-center gap-1 flex-shrink-0">
@@ -371,7 +371,7 @@ export default function HeuresView({
                               </div>
                               {hasHours && <Badge className={`${ST[st].cls} border-0 text-[10px]`}>{ST[st].label}</Badge>}
                               {hasHours && st !== 'valide' && (
-                                <button onClick={() => setStatus(r.key, 'valide')} title="Valider" className="grid place-items-center w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100"><Check className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setStatus(r.key, 'valide')} title="Valider" className="grid place-items-center w-7 h-7 rounded-lg bg-[#F1F6E9] text-[#3F7A2E] hover:bg-[#E9F2DB]"><Check className="w-3.5 h-3.5" /></button>
                               )}
                               {hasHours && st !== 'refuse' && (
                                 <button onClick={() => setStatus(r.key, 'refuse')} title="À corriger" className="grid place-items-center w-7 h-7 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100"><X className="w-3.5 h-3.5" /></button>

@@ -194,7 +194,7 @@ export default function PointageClient({
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Pas encore pointés aujourd&apos;hui ({notPointed.length})</h2>
           <Card className="border border-gray-200/80 bg-white"><CardContent className="p-3 sm:p-4">
             {notPointed.length === 0 ? (
-              <p className="text-sm text-emerald-600">Tous les salariés prévus ont pointé. 👌</p>
+              <p className="text-sm text-[#3F7A2E]">Tous les salariés prévus ont pointé. 👌</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {notPointed.map(e => (

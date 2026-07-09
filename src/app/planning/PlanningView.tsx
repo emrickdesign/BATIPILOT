@@ -191,7 +191,7 @@ export default function PlanningView({
               {projects.map(p => (
                 <div key={p.id} className="grid border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors" style={{ gridTemplateColumns: '200px repeat(7, 1fr)' }}>
                   <div className="p-3 flex items-center gap-2.5 min-w-0">
-                    <span className="grid place-items-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0"><HardHat className="w-4 h-4" /></span>
+                    <span className="grid place-items-center w-8 h-8 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><HardHat className="w-4 h-4" /></span>
                     <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 truncate hover:text-primary">{p.title}</Link>
                   </div>
                   {days.map(d => (
@@ -215,7 +215,7 @@ export default function PlanningView({
               <Card key={p.id} className="card-interactive border-0 shadow-[var(--shadow-sm)]">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2.5 mb-3">
-                    <span className="grid place-items-center w-9 h-9 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0"><HardHat className="w-4 h-4" /></span>
+                    <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><HardHat className="w-4 h-4" /></span>
                     <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate">{p.title}</Link>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
@@ -227,13 +227,13 @@ export default function PlanningView({
             ))}
           </div>
           {/* Disponibilités (§11.1) */}
-          <Card className="border-0 bg-emerald-50/60 shadow-[var(--shadow-sm)]">
+          <Card className="border-0 bg-[#F1F6E9]/60 shadow-[var(--shadow-sm)]">
             <CardContent className="p-4">
-              <h3 className="text-sm font-semibold text-emerald-800 mb-2.5 flex items-center gap-2"><UserCheck className="w-4 h-4 text-emerald-600" /> Disponibles ce jour ({dispoJour.length})</h3>
-              {dispoJour.length === 0 ? <p className="text-sm text-emerald-700/70">Tout le monde est affecté.</p> : (
+              <h3 className="text-sm font-semibold text-[#2E5A22] mb-2.5 flex items-center gap-2"><UserCheck className="w-4 h-4 text-[#3F7A2E]" /> Disponibles ce jour ({dispoJour.length})</h3>
+              {dispoJour.length === 0 ? <p className="text-sm text-[#3F7A2E]/70">Tout le monde est affecté.</p> : (
                 <div className="flex flex-wrap gap-1.5">
                   {dispoJour.map(e => (
-                    <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-emerald-100 pl-1 pr-2.5 py-0.5 text-xs shadow-sm">
+                    <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-[#CFE0BE] pl-1 pr-2.5 py-0.5 text-xs shadow-sm">
                       <span className="grid place-items-center w-5 h-5 rounded-full text-white text-[9px]" style={{ backgroundColor: e.color }}>{employeeInitials(e.full_name)}</span>
                       {e.full_name}
                     </span>
@@ -260,7 +260,7 @@ export default function PlanningView({
                     {Number(d.split('-')[2])}
                   </span>
                   {n > 0 && (
-                    <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[11px] font-semibold">
+                    <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FCE7DE] text-[#B0472F] text-[11px] font-semibold">
                       <Users2 className="w-3 h-3" />{n}
                     </div>
                   )}

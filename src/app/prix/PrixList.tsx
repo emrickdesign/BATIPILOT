@@ -106,7 +106,7 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
                 return (
                   <div
                     key={item.id}
-                    className={`group flex items-center gap-2 py-2 px-3 rounded-lg transition-colors ${isEditing ? 'bg-blue-50' : 'hover:bg-gray-50'} ${isBusy ? 'opacity-50' : ''}`}
+                    className={`group flex items-center gap-2 py-2 px-3 rounded-lg transition-colors ${isEditing ? 'bg-[#FBEDE7]' : 'hover:bg-gray-50'} ${isBusy ? 'opacity-50' : ''}`}
                   >
                     {isEditing ? (
                       <>
@@ -137,7 +137,7 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
                           />
                           <span className="text-xs text-gray-400">€ HT</span>
                         </div>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-100" onClick={() => saveEdit(cat.id, item)}>
+                        <Button size="icon" variant="ghost" className="h-8 w-8 text-[#3F7A2E] hover:text-[#3F7A2E] hover:bg-[#E9F2DB]" onClick={() => saveEdit(cat.id, item)}>
                           <Check className="w-4 h-4" />
                         </Button>
                         <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-gray-600" onClick={() => setEditingId(null)}>
@@ -156,7 +156,7 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
                         </span>
                         <span className="text-xs text-gray-400 flex-shrink-0">HT</span>
                         <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-blue-600" onClick={() => startEdit(item)}>
+                          <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-[#C14E33]" onClick={() => startEdit(item)}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
                           <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-red-600" onClick={() => remove(cat.id, item)}>

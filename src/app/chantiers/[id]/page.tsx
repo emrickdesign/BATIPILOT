@@ -134,7 +134,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           {p.clients && (
             <div className="flex items-center gap-2 text-sm">
               <User className="w-4 h-4 text-gray-400" />
-              <Link href={`/clients/${p.client_id}`} className="text-blue-600 hover:underline">{clientDisplayName(p.clients)}</Link>
+              <Link href={`/clients/${p.client_id}`} className="text-[#C14E33] hover:underline">{clientDisplayName(p.clients)}</Link>
             </div>
           )}
           {addr && (
@@ -149,7 +149,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
 
       {/* Bloc financier (admin) */}
       <Card>
-        <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base">Financier {margePct !== null && <span className={`text-sm font-semibold ${marge >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>· marge {margePct} %</span>}</CardTitle></CardHeader>
+        <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base">Financier {margePct !== null && <span className={`text-sm font-semibold ${marge >= 0 ? 'text-[#3F7A2E]' : 'text-rose-600'}`}>· marge {margePct} %</span>}</CardTitle></CardHeader>
         <CardContent className="px-4 pb-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center">
             <Fin label="Devis" value={montantDevis} />
@@ -180,7 +180,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
                 <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 border border-gray-200 pl-1.5 pr-2.5 py-1 text-sm">
                   <span className="w-5 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: e.color || '#94A3B8' }} />
                   {e.full_name}
-                  {e.id === chef?.id && <Badge className="bg-violet-100 text-violet-700 border-0 text-[10px]">chef</Badge>}
+                  {e.id === chef?.id && <Badge className="bg-[#F3E5D6] text-[#7A4220] border-0 text-[10px]">chef</Badge>}
                 </span>
               ))}
             </div>
@@ -345,8 +345,8 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
 }
 
 function Fin({ label, value, tone }: { label: string; value: number; tone?: 'emerald' | 'rose' | 'amber' }) {
-  const color = tone === 'emerald' ? 'text-emerald-600' : tone === 'rose' ? 'text-rose-600' : tone === 'amber' ? 'text-amber-600' : 'text-marine'
-  const bg = tone === 'emerald' ? 'bg-emerald-50' : tone === 'rose' ? 'bg-rose-50' : tone === 'amber' ? 'bg-amber-50' : 'bg-gray-50'
+  const color = tone === 'emerald' ? 'text-[#3F7A2E]' : tone === 'rose' ? 'text-rose-600' : tone === 'amber' ? 'text-amber-600' : 'text-marine'
+  const bg = tone === 'emerald' ? 'bg-[#F1F6E9]' : tone === 'rose' ? 'bg-rose-50' : tone === 'amber' ? 'bg-amber-50' : 'bg-gray-50'
   return (
     <div className={`rounded-lg ${bg} p-3`}>
       <p className="text-[11px] text-gray-400 mb-1">{label}</p>

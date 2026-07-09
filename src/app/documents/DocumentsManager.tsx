@@ -20,7 +20,7 @@ type ClientOption = { id: string; type: string; first_name: string | null; last_
 type ProjectOption = { id: string; title: string }
 
 const selectClass =
-  'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
+  'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 export default function DocumentsManager({
   documents, clients, projects, preselectClient, preselectProject,
@@ -132,7 +132,7 @@ export default function DocumentsManager({
                 type="file"
                 accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.csv,.doc,.docx,image/*"
                 onChange={e => setFile(e.target.files?.[0] || null)}
-                className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-blue-50 file:text-blue-700 file:text-sm file:font-medium hover:file:bg-blue-100"
+                className="block w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:bg-[#FBEDE7] file:text-[#B0472F] file:text-sm file:font-medium hover:file:bg-[#FCE7DE]"
               />
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -233,12 +233,12 @@ export default function DocumentsManager({
                         </Badge>
                       )}
                       {c && (
-                        <Link href={`/clients/${doc.client_id}`} className="flex items-center gap-1 hover:text-blue-600">
+                        <Link href={`/clients/${doc.client_id}`} className="flex items-center gap-1 hover:text-[#C14E33]">
                           <User className="w-3 h-3" />{clientDisplayName(c)}
                         </Link>
                       )}
                       {pr && (
-                        <Link href={`/chantiers/${doc.project_id}`} className="flex items-center gap-1 hover:text-blue-600">
+                        <Link href={`/chantiers/${doc.project_id}`} className="flex items-center gap-1 hover:text-[#C14E33]">
                           <HardHat className="w-3 h-3" />{pr.title}
                         </Link>
                       )}
@@ -248,7 +248,7 @@ export default function DocumentsManager({
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {doc.signedUrl && (
                       <a href={doc.signedUrl} target="_blank" rel="noopener noreferrer"
-                        className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-blue-600 hover:bg-gray-50" title="Télécharger / ouvrir">
+                        className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-[#C14E33] hover:bg-gray-50" title="Télécharger / ouvrir">
                         <Download className="w-4 h-4" />
                       </a>
                     )}
@@ -271,7 +271,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
   return (
     <button type="button" onClick={onClick}
       className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-        active ? 'border-blue-500 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:border-gray-300'
+        active ? 'border-primary bg-[#FBEDE7] text-[#B0472F]' : 'border-gray-200 text-gray-600 hover:border-gray-300'
       }`}>
       {children}
     </button>

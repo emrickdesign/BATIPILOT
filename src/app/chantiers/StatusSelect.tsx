@@ -35,7 +35,7 @@ export default function StatusSelect({
       value={status}
       disabled={saving}
       onChange={e => change(e.target.value as ProjectStatus)}
-      className={`h-8 rounded-full border-0 px-3 text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ${projectStatusColors[status]}`}
+      className={`h-8 rounded-full border-0 px-3 text-xs font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary ${projectStatusColors[status]}`}
     >
       {projectStatusOrder.map(s => (
         <option key={s} value={s} className="bg-white text-gray-900">

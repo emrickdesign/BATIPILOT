@@ -26,7 +26,7 @@ export default function SetPinButton({ employeeId, employeeName }: { employeeId:
   return (
     <>
       <button onClick={() => setOpen(true)} title="Code PIN messagerie"
-        className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-teal-600 hover:bg-gray-50">
+        className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-[#3F7A2E] hover:bg-gray-50">
         <KeyRound className="w-4 h-4" />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
