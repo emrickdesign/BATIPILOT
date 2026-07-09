@@ -90,7 +90,7 @@ export default function DonutMetricCard({
                     fill="none"
                     stroke={`url(#${a.id})`}
                     strokeWidth={STROKE}
-                    strokeLinecap="round"
+                    strokeLinecap="butt"
                     strokeDasharray={`${a.length} ${CIRC - a.length}`}
                     strokeDashoffset={a.offset}
                   />
@@ -112,8 +112,10 @@ export default function DonutMetricCard({
               {vis.map((s, i) => (
                 <div key={i} className="flex items-center gap-2 text-[12.5px] min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                  <span className="text-gray-600 truncate flex-1">{s.label}</span>
-                  <span className="font-bold text-marine tabular-nums flex-shrink-0">{format(s.value)}</span>
+                  <span className="truncate">
+                    <b className="font-bold text-marine tabular-nums">{format(s.value)}</b>{' '}
+                    <span className="text-gray-600">{s.label}</span>
+                  </span>
                 </div>
               ))}
             </div>
