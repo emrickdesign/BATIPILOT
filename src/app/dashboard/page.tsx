@@ -383,10 +383,22 @@ function MiniStat({ label, value, icon: Icon, tile, accent }: { label: string; v
   )
 }
 
+// Arrondi "joli" au-dessus d'une valeur (80k -> 100k, 42k -> 50k, 9,3k -> 10k)
+function niceCeil(v: number) {
+  if (v <= 0) return 10
+  const pow = Math.pow(10, Math.floor(Math.log10(v)))
+  const n = v / pow
+  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10
+  return step * pow
+}
+
 function CashflowBars({ data }: { data: { label: string; entrees: number; depenses: number }[] }) {
-  const max = Math.max(...data.flatMap(d => [d.entrees, d.depenses]), 1)
+  const rawMax = Math.max(...data.flatMap(d => [d.entrees, d.depenses]), 1)
+  const niceMax = niceCeil(rawMax)
   const totalEnt = data.reduce((s, d) => s + d.entrees, 0)
   const totalDep = data.reduce((s, d) => s + d.depenses, 0)
+  const levels = [0, 0.25, 0.5, 0.75, 1].map(f => f * niceMax)
+  const fmtAxis = (v: number) => (v >= 1000 ? `${+(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k` : `${Math.round(v)}`)
   return (
     <div>
       <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
@@ -403,25 +415,46 @@ function CashflowBars({ data }: { data: { label: string; entrees: number; depens
           <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#DC3B2E]" /> Dépenses</span>
         </div>
       </div>
-      <div className="flex items-end justify-between gap-3 h-44">
-        {data.map((d, i) => (
-          <div key={i} className="flex-1 h-full flex items-end justify-center gap-1">
-            {/* entrées (vert) */}
-            <div
-              className="flex-1 max-w-[14px] rounded-t bg-gradient-to-t from-[#22A45A] to-[#5CCB86]"
-              style={{ height: `${Math.max((d.entrees / max) * 100, d.entrees > 0 ? 2 : 0)}%` }}
-              title={`Entrées ${formatCurrency(d.entrees)}`}
-            />
-            {/* dépenses (rouge) */}
-            <div
-              className="flex-1 max-w-[14px] rounded-t bg-gradient-to-t from-[#DC3B2E] to-[#EF7563]"
-              style={{ height: `${Math.max((d.depenses / max) * 100, d.depenses > 0 ? 2 : 0)}%` }}
-              title={`Dépenses ${formatCurrency(d.depenses)}`}
-            />
-          </div>
-        ))}
+
+      <div className="relative h-48">
+        {/* graduation : valeurs Y + lignes horizontales */}
+        {levels.map((lvl, i) => {
+          const pct = (lvl / niceMax) * 100
+          return (
+            <div key={i}>
+              <div
+                className={`absolute left-10 right-0 ${i === 0 ? 'border-t border-gray-300' : 'border-t border-dashed border-[#EBE4DA]'}`}
+                style={{ bottom: `${pct}%` }}
+              />
+              <span
+                className="absolute left-0 w-9 pr-1.5 text-right text-[10px] text-gray-400 tabular-nums leading-none"
+                style={{ bottom: `${pct}%`, transform: 'translateY(50%)' }}
+              >
+                {fmtAxis(lvl)}
+              </span>
+            </div>
+          )
+        })}
+        {/* barres */}
+        <div className="absolute inset-y-0 left-10 right-0 flex items-end justify-between gap-3">
+          {data.map((d, i) => (
+            <div key={i} className="flex-1 h-full flex items-end justify-center gap-1">
+              <div
+                className="flex-1 max-w-[14px] rounded-t bg-gradient-to-t from-[#22A45A] to-[#5CCB86]"
+                style={{ height: `${Math.max((d.entrees / niceMax) * 100, d.entrees > 0 ? 1.5 : 0)}%` }}
+                title={`Entrées ${formatCurrency(d.entrees)}`}
+              />
+              <div
+                className="flex-1 max-w-[14px] rounded-t bg-gradient-to-t from-[#DC3B2E] to-[#EF7563]"
+                style={{ height: `${Math.max((d.depenses / niceMax) * 100, d.depenses > 0 ? 1.5 : 0)}%` }}
+                title={`Dépenses ${formatCurrency(d.depenses)}`}
+              />
+            </div>
+          ))}
+        </div>
       </div>
-      <div className="flex justify-between gap-3 mt-2">
+      {/* mois */}
+      <div className="flex justify-between gap-3 mt-2 pl-10">
         {data.map((d, i) => <span key={i} className="flex-1 text-center text-[11px] text-gray-400">{d.label}</span>)}
       </div>
     </div>
