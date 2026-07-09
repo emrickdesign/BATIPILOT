@@ -318,6 +318,9 @@ export default function MessagesView({ conversations, participants, employees, i
   const selected = sortedConversations.find(c => c.id === selectedId) || null
   const selectedMessages = selectedId ? (messagesByConv.get(selectedId) || []) : []
   const roster = employees.filter(e => viewer.kind === 'admin' || e.id !== viewer.employeeId)
+  const selectedParticipants = selected ? (participantsByConv.get(selected.id) || []) : []
+  // Numéro à appeler (tel:) — le salarié d'une conversation directe. Groupe / sans numéro → pas d'appel.
+  const callPhone = selected && selected.type !== 'group' ? (selectedParticipants[0]?.phone || null) : null
 
   return (
     <div className="flex gap-4 h-[calc(100vh-9rem)] min-h-[540px]">
@@ -407,8 +410,10 @@ export default function MessagesView({ conversations, participants, employees, i
                   ? <p className="text-[11px] text-gray-400 truncate">{(participantsByConv.get(selected.id) || []).length} participants</p>
                   : <p className="text-[11px] text-[#3F7A2E] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#3F7A2E]" /> En ligne</p>}
               </div>
-              <button onClick={() => setScheduleOpen(true)} title="Planifier un appel" className="grid place-items-center w-9 h-9 rounded-full bg-[#F5F1EA] hover:bg-[#EFE8DF] text-[#C14E33]"><Phone className="w-[18px] h-[18px]" /></button>
-              <button onClick={() => setScheduleOpen(true)} title="Planifier une visio" className="grid place-items-center w-9 h-9 rounded-full bg-[#F5F1EA] hover:bg-[#EFE8DF] text-[#C14E33]"><Video className="w-[18px] h-[18px]" /></button>
+              {callPhone && (
+                <a href={`tel:${callPhone.replace(/\s/g, '')}`} title={`Appeler ${convName(selected)}`} className="grid place-items-center w-9 h-9 rounded-full text-white shadow-[0_6px_14px_-4px_rgba(208,92,67,.5)]" style={{ background: 'linear-gradient(135deg,#F09A80,#D05C43)' }}><Phone className="w-[18px] h-[18px]" /></a>
+              )}
+              <button onClick={() => setScheduleOpen(true)} title="Planifier une réunion" className="grid place-items-center w-9 h-9 rounded-full bg-[#F5F1EA] hover:bg-[#EFE8DF] text-[#C14E33]"><Video className="w-[18px] h-[18px]" /></button>
             </div>
             <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5 bg-[#FBF9F6]">
               {selectedMessages.length === 0 ? (
@@ -476,10 +481,15 @@ export default function MessagesView({ conversations, participants, employees, i
               </span>
               <p className="mt-3 text-base font-bold text-marine">{convName(selected)}</p>
               <span className="mt-1 text-[11px] px-2 py-0.5 rounded-full bg-[#F4F0E9] text-gray-500">{selected.type === 'group' ? 'Groupe' : 'Conversation directe'}</span>
+              {callPhone && <p className="mt-1.5 text-xs text-gray-500 tabular-nums">{callPhone}</p>}
             </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <button onClick={() => setScheduleOpen(true)} className="flex flex-col items-center gap-1 py-3 rounded-xl bg-[#F5F1EA] hover:bg-[#EFE8DF] text-[#C14E33] transition-colors"><Phone className="w-5 h-5" /><span className="text-[11px] font-medium">Appeler</span></button>
-              <button onClick={() => setScheduleOpen(true)} className="flex flex-col items-center gap-1 py-3 rounded-xl bg-[#F5F1EA] hover:bg-[#EFE8DF] text-[#C14E33] transition-colors"><Video className="w-5 h-5" /><span className="text-[11px] font-medium">Visio</span></button>
+            <div className="mt-5 space-y-2">
+              {callPhone ? (
+                <a href={`tel:${callPhone.replace(/\s/g, '')}`} className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl text-white font-medium text-sm shadow-[0_8px_18px_-6px_rgba(208,92,67,.5)]" style={{ background: 'linear-gradient(135deg,#F09A80,#D05C43)' }}><Phone className="w-4 h-4" /> Appeler</a>
+              ) : (
+                <p className="text-center text-[11px] text-gray-400 py-1.5">{selected.type === 'group' ? 'Appel indisponible pour un groupe.' : 'Aucun numéro de téléphone renseigné.'}</p>
+              )}
+              <button onClick={() => setScheduleOpen(true)} className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-[#F5F1EA] hover:bg-[#EFE8DF] text-[#C14E33] font-medium text-sm transition-colors"><Video className="w-4 h-4" /> Planifier une réunion</button>
             </div>
             <div className="mt-6">
               <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Participants</h4>
