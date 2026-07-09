@@ -526,10 +526,10 @@ export default async function DashboardPage() {
               total={String(d.chantiers.enCours + d.chantiers.aDemarrer + d.chantiers.enRetard + d.chantiers.aFacturer)}
               centerLabel="Chantiers"
               segments={[
-                { label: `${d.chantiers.enCours} En cours`, value: d.chantiers.enCours, color: '#E0674C' },
-                { label: `${d.chantiers.aDemarrer} À démarrer`, value: d.chantiers.aDemarrer, color: '#C77D0E' },
-                { label: `${d.chantiers.aFacturer} À facturer`, value: d.chantiers.aFacturer, color: '#4C6F18' },
-                { label: `${d.chantiers.enRetard} En retard`, value: d.chantiers.enRetard, color: '#C0392B' },
+                { label: 'En cours', value: d.chantiers.enCours, color: '#E0674C' },
+                { label: 'À démarrer', value: d.chantiers.aDemarrer, color: '#C77D0E' },
+                { label: 'À facturer', value: d.chantiers.aFacturer, color: '#4C6F18' },
+                { label: 'En retard', value: d.chantiers.enRetard, color: '#C0392B' },
               ]}
               emptyMessage="Aucun chantier en cours pour le moment."
             />
@@ -623,6 +623,7 @@ export default async function DashboardPage() {
               subtitle="Ce mois-ci, par catégorie"
               total={formatCurrency(d.admin.depensesMois)}
               segments={d.admin.parCategorie.map((c, i) => ({ label: c.label, value: c.value, color: DONUT_COLORS[i % DONUT_COLORS.length] }))}
+              format={v => (v >= 1000 ? `${(v / 1000).toFixed(1).replace('.', ',')} k€` : `${Math.round(v)} €`)}
               emptyMessage="Aucune dépense enregistrée ce mois-ci."
             />
           </div>
