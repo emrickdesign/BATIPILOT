@@ -383,38 +383,6 @@ function MiniStat({ label, value, icon: Icon, tile, accent }: { label: string; v
   )
 }
 
-function DevisBars({ data }: { data: { label: string; envoyes: number; acceptes: number }[] }) {
-  const max = Math.max(...data.map(d => d.envoyes), 1)
-  const totalEnv = data.reduce((s, d) => s + d.envoyes, 0)
-  const totalAcc = data.reduce((s, d) => s + d.acceptes, 0)
-  const taux = totalEnv > 0 ? Math.round((totalAcc / totalEnv) * 100) : 0
-  return (
-    <div>
-      <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
-        <div>
-          <p className="text-sm text-gray-500 font-medium">Taux d&apos;acceptation (6 mois)</p>
-          <p className="text-[26px] font-bold text-marine leading-none mt-1">{taux} %<span className="text-sm font-medium text-gray-400 ml-2">{totalAcc}/{totalEnv} devis</span></p>
-        </div>
-        <div className="flex items-center gap-3 text-xs text-gray-500">
-          <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-gray-300" /> Envoyés</span>
-          <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-primary" /> Acceptés</span>
-        </div>
-      </div>
-      <div className="flex items-end justify-between gap-2 h-32">
-        {data.map((d, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-1.5 min-w-0">
-            <div className="w-full flex items-end justify-center gap-1 flex-1">
-              <div className="w-1/2 max-w-[14px] rounded-t bg-gray-200" style={{ height: `${Math.max((d.envoyes / max) * 100, d.envoyes > 0 ? 4 : 0)}%` }} title={`${d.envoyes} envoyés`} />
-              <div className="w-1/2 max-w-[14px] rounded-t bg-primary" style={{ height: `${Math.max((d.acceptes / max) * 100, d.acceptes > 0 ? 4 : 0)}%` }} title={`${d.acceptes} acceptés`} />
-            </div>
-            <span className="text-[11px] text-gray-400">{d.label}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
 function CashflowBars({ data }: { data: { label: string; entrees: number; depenses: number }[] }) {
   const max = Math.max(...data.flatMap(d => [d.entrees, d.depenses]), 1)
   const totalEnt = data.reduce((s, d) => s + d.entrees, 0)
@@ -435,26 +403,26 @@ function CashflowBars({ data }: { data: { label: string; entrees: number; depens
           <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#DC3B2E]" /> Dépenses</span>
         </div>
       </div>
-      <div className="flex items-end justify-between gap-2 h-40">
+      <div className="flex items-end justify-between gap-3 h-44">
         {data.map((d, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-2 min-w-0">
-            <div className="w-full flex-1 flex items-end justify-center gap-1">
-              {/* entrées (vert) */}
-              <div
-                className="flex-1 max-w-[13px] rounded-t bg-gradient-to-t from-[#22A45A] to-[#5CCB86]"
-                style={{ height: `${Math.max((d.entrees / max) * 100, d.entrees > 0 ? 2 : 0)}%` }}
-                title={`Entrées ${formatCurrency(d.entrees)}`}
-              />
-              {/* dépenses (rouge) */}
-              <div
-                className="flex-1 max-w-[13px] rounded-t bg-gradient-to-t from-[#DC3B2E] to-[#EF7563]"
-                style={{ height: `${Math.max((d.depenses / max) * 100, d.depenses > 0 ? 2 : 0)}%` }}
-                title={`Dépenses ${formatCurrency(d.depenses)}`}
-              />
-            </div>
-            <span className="text-[11px] text-gray-400">{d.label}</span>
+          <div key={i} className="flex-1 h-full flex items-end justify-center gap-1">
+            {/* entrées (vert) */}
+            <div
+              className="flex-1 max-w-[14px] rounded-t bg-gradient-to-t from-[#22A45A] to-[#5CCB86]"
+              style={{ height: `${Math.max((d.entrees / max) * 100, d.entrees > 0 ? 2 : 0)}%` }}
+              title={`Entrées ${formatCurrency(d.entrees)}`}
+            />
+            {/* dépenses (rouge) */}
+            <div
+              className="flex-1 max-w-[14px] rounded-t bg-gradient-to-t from-[#DC3B2E] to-[#EF7563]"
+              style={{ height: `${Math.max((d.depenses / max) * 100, d.depenses > 0 ? 2 : 0)}%` }}
+              title={`Dépenses ${formatCurrency(d.depenses)}`}
+            />
           </div>
         ))}
+      </div>
+      <div className="flex justify-between gap-3 mt-2">
+        {data.map((d, i) => <span key={i} className="flex-1 text-center text-[11px] text-gray-400">{d.label}</span>)}
       </div>
     </div>
   )
@@ -479,6 +447,11 @@ export default async function DashboardPage() {
     : null
   const encaissePct = d.fin.factureMois > 0 ? Math.round((d.fin.encaisseMois / d.fin.factureMois) * 100) : 0
 
+  // Taux d'acceptation des devis (6 mois) — affiché en badge sur la carte "Devis en attente"
+  const totalEnvDevis = d.devisSeries.reduce((s, x) => s + x.envoyes, 0)
+  const totalAccDevis = d.devisSeries.reduce((s, x) => s + x.acceptes, 0)
+  const tauxAccept = totalEnvDevis > 0 ? Math.round((totalAccDevis / totalEnvDevis) * 100) : 0
+
   // Cartes KPI pro : vert = encaissé (positif), corail = facturé (marque),
   // ambre = reste à encaisser (en attente, jauge), terre = devis (pipeline).
   const finCards: {
@@ -492,7 +465,7 @@ export default async function DashboardPage() {
     },
     { label: 'Factures envoyées ce mois', value: formatCurrency(d.fin.factureMois), icon: Send, tone: 'coral', href: '/factures', spark: d.kpiSparks.facture },
     { label: 'Reste à encaisser', value: formatCurrency(d.fin.resteAEncaisser), icon: Coins, tone: 'amber', href: '/relances', gauge: encaissePct, note: `${encaissePct}% du facturé déjà encaissé` },
-    { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, tone: 'terre', href: '/devis?statut=envoye', note: 'Pipeline commercial en cours' },
+    { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, tone: 'terre', href: '/devis?statut=envoye', note: 'Pipeline commercial en cours', delta: { text: `${tauxAccept}% acceptés`, dir: 'up' } },
   ]
 
   return (
@@ -644,16 +617,6 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      {/* 4b. Devis envoyés vs acceptés */}
-      <div className="animate-fade-up" style={{ animationDelay: '195ms' }}>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Devis envoyés vs acceptés</h2>
-        <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
-          <CardContent className="p-5">
-            <DevisBars data={d.devisSeries} />
-          </CardContent>
-        </Card>
       </div>
 
       {/* 5. Équipes & terrain */}
