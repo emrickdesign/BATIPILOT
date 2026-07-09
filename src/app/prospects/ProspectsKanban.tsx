@@ -10,7 +10,6 @@ import { Phone, Mail, Building2, User, MessageCircle, FileText, Calendar } from 
 import { formatCurrency } from '@/lib/utils'
 import { isProspect } from '@/lib/clients'
 import DndKanban from '@/components/kanban/DndKanban'
-import ClientStatusSelect from './ClientStatusSelect'
 import { PROSPECT_COLUMNS, type ProspectCardData } from './kanban-config'
 import type { ClientStatus } from '@/types'
 
@@ -61,7 +60,7 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
       columns={PROSPECT_COLUMNS}
       items={items}
       onMove={move}
-      footer={<p className="text-[11px] text-gray-400 mt-3">Glissez une carte d&apos;une colonne à l&apos;autre, ou utilisez le menu de statut. Accepté = conversion en client.</p>}
+      footer={<p className="text-[11px] text-gray-400 mt-3">Glissez une carte d&apos;une colonne à l&apos;autre pour changer son statut. Accepté = conversion en client.</p>}
       renderCard={(p) => {
         const dot = dotOf(p.col)
         return (
@@ -83,26 +82,22 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
                 </div>
               </div>
 
-              <div className="mt-3 flex items-center justify-between gap-2 min-h-[22px]">
-                {p.pot > 0 ? (
-                  <span className="inline-flex items-center text-xs font-semibold text-[#3F7A2E] bg-[#E9F2DB] rounded-md px-2 py-1">
-                    {formatCurrency(p.pot)}<span className="font-normal text-[#3F7A2E]/70 ml-1">potentiel</span>
+              <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 min-h-[22px]">
+                {p.pot > 0 && (
+                  <span className="inline-flex items-center min-w-0 max-w-full text-xs font-semibold text-[#3F7A2E] bg-[#E9F2DB] rounded-md px-2 py-1">
+                    <span className="truncate">{formatCurrency(p.pot)}</span>
                   </span>
-                ) : <span />}
-                <span className="flex items-center gap-1 text-[11px] text-gray-400 flex-shrink-0">
-                  <Calendar className="w-3 h-3" />{new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                )}
+                <span className="flex items-center gap-1 text-[11px] text-gray-400 flex-shrink-0 ml-auto whitespace-nowrap">
+                  <Calendar className="w-3 h-3 flex-shrink-0" />{new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
                 </span>
               </div>
 
-              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center gap-1.5">
+              <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-1.5">
                 {p.phone && <ActionBtn href={`tel:${p.phone}`} label="Appeler"><Phone className="w-3.5 h-3.5" /></ActionBtn>}
                 {p.waHref && <ActionBtn href={p.waHref} label="WhatsApp" external><MessageCircle className="w-3.5 h-3.5" /></ActionBtn>}
                 {p.email && <ActionBtn href={`mailto:${p.email}`} label="Envoyer un email"><Mail className="w-3.5 h-3.5" /></ActionBtn>}
                 <ActionBtn href={`/devis/nouveau?client=${p.id}`} label="Créer un devis"><FileText className="w-3.5 h-3.5" /></ActionBtn>
-              </div>
-
-              <div className="mt-3">
-                <ClientStatusSelect clientId={p.id} current={p.status} />
               </div>
             </CardContent>
           </Card>
