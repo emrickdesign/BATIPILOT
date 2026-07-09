@@ -41,12 +41,12 @@ async function getData(userId: string) {
   const enRetard = projects.filter(p => !CLOSED.includes(p.status) && p.end_date && p.end_date < today).length
 
   const lines: Line[] = []
-  if (employeesDeclared > 0) lines.push({ icon: Clock, tile: 'bg-blue-100 text-blue-600', text: `${employeesDeclared} salarié${employeesDeclared > 1 ? 's ont' : ' a'} déclaré ${totalHours} h aujourd'hui`, href: '/heures' })
-  if (pointagesToday > 0) lines.push({ icon: Camera, tile: 'bg-violet-100 text-violet-600', text: `${pointagesToday} pointage${pointagesToday > 1 ? 's' : ''} chantier enregistré${pointagesToday > 1 ? 's' : ''}`, href: '/pointage' })
-  if (ticketsToday > 0) lines.push({ icon: ReceiptText, tile: 'bg-rose-100 text-rose-600', text: `${ticketsToday} ticket${ticketsToday > 1 ? 's' : ''} / dépense${ticketsToday > 1 ? 's' : ''} ajouté${ticketsToday > 1 ? 's' : ''}`, href: '/depenses' })
+  if (employeesDeclared > 0) lines.push({ icon: Clock, tile: 'bg-[#FCE7DE] text-[#C14E33]', text: `${employeesDeclared} salarié${employeesDeclared > 1 ? 's ont' : ' a'} déclaré ${totalHours} h aujourd'hui`, href: '/heures' })
+  if (pointagesToday > 0) lines.push({ icon: Camera, tile: 'bg-[#F3E5D6] text-[#8A4B24]', text: `${pointagesToday} pointage${pointagesToday > 1 ? 's' : ''} chantier enregistré${pointagesToday > 1 ? 's' : ''}`, href: '/pointage' })
+  if (ticketsToday > 0) lines.push({ icon: ReceiptText, tile: 'bg-[#FBE0DA] text-[#C0392B]', text: `${ticketsToday} ticket${ticketsToday > 1 ? 's' : ''} / dépense${ticketsToday > 1 ? 's' : ''} ajouté${ticketsToday > 1 ? 's' : ''}`, href: '/depenses' })
   if (aRelancer > 0) lines.push({ icon: BellRing, tile: 'bg-accent text-primary', text: `${aRelancer} devis attend${aRelancer > 1 ? 'ent' : ''} une relance`, href: '/relances' })
   if (echues > 0) lines.push({ icon: Landmark, tile: 'bg-amber-100 text-amber-600', text: `${echues} facture${echues > 1 ? 's' : ''} échue${echues > 1 ? 's' : ''} à encaisser`, href: '/banque' })
-  if (enRetard > 0) lines.push({ icon: HardHat, tile: 'bg-rose-100 text-rose-600', text: `${enRetard} chantier${enRetard > 1 ? 's ont' : ' a'} dépassé la date de fin prévue`, href: '/chantiers' })
+  if (enRetard > 0) lines.push({ icon: HardHat, tile: 'bg-[#FBE0DA] text-[#C0392B]', text: `${enRetard} chantier${enRetard > 1 ? 's ont' : ' a'} dépassé la date de fin prévue`, href: '/chantiers' })
 
   return { lines, totalHours, employeesDeclared, ticketsToday, aRelancer }
 }
@@ -74,7 +74,7 @@ export default async function ResumePage() {
           <p className="text-sm text-gray-500 mb-4">Bonjour <span className="font-semibold text-marine">{prenom}</span>, voici ta journée en un coup d&apos;œil :</p>
           {d.lines.length === 0 ? (
             <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Rien à signaler pour l&apos;instant — journée calme.
+              <CheckCircle2 className="w-4 h-4 text-[#3F7A2E]" /> Rien à signaler pour l&apos;instant — journée calme.
             </div>
           ) : (
             <div className="space-y-2">

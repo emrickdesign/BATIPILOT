@@ -40,7 +40,7 @@ async function getSuggestions(userId: string): Promise<Suggestion[]> {
   // Devis accepté sans chantier → créer le chantier
   for (const q of quotes.filter(q => (q.status === 'accepte' || q.status === 'transforme') && !q.project_id)) {
     const name = clientDisplayName(q.clients as unknown as ClientLite)
-    out.push({ id: `chantier-${q.id}`, icon: HardHat, tile: 'bg-blue-100 text-blue-600',
+    out.push({ id: `chantier-${q.id}`, icon: HardHat, tile: 'bg-[#FCE7DE] text-[#C14E33]',
       title: `Devis accepté — créer le chantier`, detail: `${q.quote_number} · ${name}`,
       actionLabel: 'Créer le chantier', href: `/chantiers/nouveau${q.client_id ? `?client=${q.client_id}` : ''}` })
   }
@@ -52,19 +52,19 @@ async function getSuggestions(userId: string): Promise<Suggestion[]> {
 
   // Chantier actif sans devis → créer un devis
   for (const p of projects.filter(p => !CLOSED.includes(p.status) && !projectsWithQuote.has(p.id))) {
-    out.push({ id: `devis-${p.id}`, icon: FileText, tile: 'bg-violet-100 text-violet-600',
+    out.push({ id: `devis-${p.id}`, icon: FileText, tile: 'bg-[#F3E5D6] text-[#8A4B24]',
       title: 'Chantier sans devis', detail: p.title,
       actionLabel: 'Créer un devis', href: `/devis/nouveau?project=${p.id}${p.client_id ? `&client=${p.client_id}` : ''}` })
   }
   // Chantier terminé/à facturer sans facture → créer la facture
   for (const p of projects.filter(p => (p.status === 'termine' || p.status === 'a_facturer') && !projectsWithInvoice.has(p.id))) {
-    out.push({ id: `facture-${p.id}`, icon: Receipt, tile: 'bg-emerald-100 text-emerald-600',
+    out.push({ id: `facture-${p.id}`, icon: Receipt, tile: 'bg-[#E9F2DB] text-[#3F7A2E]',
       title: 'Chantier terminé — à facturer', detail: p.title,
       actionLabel: 'Créer la facture', href: `/factures/nouveau?project=${p.id}` })
   }
   // Dépenses sans chantier → rattacher
   const expSansChantier = expenses.filter(e => !e.project_id)
-  if (expSansChantier.length) out.push({ id: 'exp-orphelines', icon: ReceiptText, tile: 'bg-rose-100 text-rose-600',
+  if (expSansChantier.length) out.push({ id: 'exp-orphelines', icon: ReceiptText, tile: 'bg-[#FBE0DA] text-[#C0392B]',
     title: `${expSansChantier.length} dépense(s) sans chantier`, detail: 'À rattacher pour un suivi de marge fiable',
     actionLabel: 'Rattacher', href: '/depenses' })
 
@@ -76,7 +76,7 @@ async function getSuggestions(userId: string): Promise<Suggestion[]> {
 
   // Emails demande de devis non traités
   const demandes = emails.filter(e => e.category === 'demande_devis' && e.status !== 'traite' && e.status !== 'archive')
-  if (demandes.length) out.push({ id: 'emails', icon: Mail, tile: 'bg-blue-100 text-blue-600',
+  if (demandes.length) out.push({ id: 'emails', icon: Mail, tile: 'bg-[#FCE7DE] text-[#C14E33]',
     title: `${demandes.length} demande(s) de devis par email`, detail: 'À transformer en client / devis',
     actionLabel: 'Traiter les emails', href: '/emails' })
 
@@ -104,7 +104,7 @@ export default async function AutomatisationsPage() {
       {suggestions.length === 0 ? (
         <Card className="border border-gray-200/80 bg-white">
           <CardContent className="p-10 text-center">
-            <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto mb-2" />
+            <CheckCircle2 className="w-8 h-8 text-[#3F7A2E] mx-auto mb-2" />
             <p className="text-sm text-gray-500">Tout est à jour — aucune action en attente. 🎉</p>
           </CardContent>
         </Card>

@@ -124,7 +124,7 @@ export default async function FacturesPage({ searchParams }: { searchParams: Pro
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3.5">
+        <div className="space-y-5">
           {list.map(inv => {
             const disp = displayStatus(inv)
             const clientName = inv.clients ? clientDisplayName(inv.clients) : 'Sans client'

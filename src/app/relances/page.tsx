@@ -113,7 +113,7 @@ function Section({ title, count, children }: { title: string; count: number; chi
 
 const empty = (msg: string) => (
   <div className="flex items-center gap-2 text-sm text-gray-400 py-6 justify-center">
-    <CheckCircle2 className="w-4 h-4 text-emerald-500" /> {msg}
+    <CheckCircle2 className="w-4 h-4 text-[#3F7A2E]" /> {msg}
   </div>
 )
 
@@ -133,9 +133,9 @@ export default async function RelancesPage() {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up">
         <Kpi label="Devis à relancer" value={String(d.nbARelancer)} icon={Clock} tile="bg-accent text-primary" />
-        <Kpi label="En attente de signature" value={formatCurrency(d.montantEnAttenteSignature)} icon={TrendingUp} tile="bg-violet-100 text-violet-600" sub="devis envoyés (TTC)" />
-        <Kpi label="Factures en retard" value={String(d.nbFacturesEnRetard)} icon={AlertTriangle} tile="bg-rose-100 text-rose-600" />
-        <Kpi label="Reste à encaisser" value={formatCurrency(d.montantAEncaisser)} icon={Wallet} tile="bg-emerald-100 text-emerald-600" />
+        <Kpi label="En attente de signature" value={formatCurrency(d.montantEnAttenteSignature)} icon={TrendingUp} tile="bg-[#F3E5D6] text-[#8A4B24]" sub="devis envoyés (TTC)" />
+        <Kpi label="Factures en retard" value={String(d.nbFacturesEnRetard)} icon={AlertTriangle} tile="bg-[#FBE0DA] text-[#C0392B]" />
+        <Kpi label="Reste à encaisser" value={formatCurrency(d.montantAEncaisser)} icon={Wallet} tile="bg-[#E9F2DB] text-[#3F7A2E]" />
       </div>
 
       {/* Devis à relancer (§9.1) */}
@@ -153,8 +153,8 @@ export default async function RelancesPage() {
                       {clientDisplayName(c)} · <span className="font-mono text-xs text-gray-400">{q.quote_number}</span>
                     </Link>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className={`text-xs ${j >= 14 ? 'text-rose-600 font-medium' : 'text-gray-500'}`}>envoyé il y a {j} j</span>
-                      {j >= 14 && <Badge className="bg-rose-100 text-rose-700 border-0 text-[10px]">prioritaire</Badge>}
+                      <span className={`text-xs ${j >= 14 ? 'text-[#C0392B] font-medium' : 'text-gray-500'}`}>envoyé il y a {j} j</span>
+                      {j >= 14 && <Badge className="bg-[#FBE0DA] text-[#C0392B] border-0 text-[10px]">prioritaire</Badge>}
                       {q.reminded_at && <Badge variant="outline" className="text-[10px]">relancé le {formatDate(q.reminded_at)}</Badge>}
                     </div>
                   </div>
@@ -176,16 +176,16 @@ export default async function RelancesPage() {
               const c = inv.clients as unknown as ClientJoined
               return (
                 <div key={inv.id} className="flex items-center gap-3 py-2.5 px-1">
-                  <span className={`grid place-items-center w-9 h-9 rounded-lg flex-shrink-0 ${inv.enRetard ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'}`}><Receipt className="w-4 h-4" /></span>
+                  <span className={`grid place-items-center w-9 h-9 rounded-lg flex-shrink-0 ${inv.enRetard ? 'bg-[#FBE0DA] text-[#C0392B]' : 'bg-[#FCE7DE] text-[#C14E33]'}`}><Receipt className="w-4 h-4" /></span>
                   <div className="min-w-0 flex-1">
                     <Link href={`/factures/${inv.id}`} className="text-sm font-medium text-marine hover:text-primary truncate block">
                       {clientDisplayName(c)} · <span className="font-mono text-xs text-gray-400">{inv.invoice_number}</span>
                     </Link>
                     <div className="flex items-center gap-2 mt-0.5">
                       {inv.due_date
-                        ? <span className={`text-xs ${inv.enRetard ? 'text-rose-600 font-medium' : 'text-gray-500'}`}>{inv.enRetard ? 'échue le' : 'échéance'} {formatDate(inv.due_date)}</span>
+                        ? <span className={`text-xs ${inv.enRetard ? 'text-[#C0392B] font-medium' : 'text-gray-500'}`}>{inv.enRetard ? 'échue le' : 'échéance'} {formatDate(inv.due_date)}</span>
                         : <span className="text-xs text-gray-400">sans échéance</span>}
-                      {inv.enRetard && <Badge className="bg-rose-100 text-rose-700 border-0 text-[10px]">En retard</Badge>}
+                      {inv.enRetard && <Badge className="bg-[#FBE0DA] text-[#C0392B] border-0 text-[10px]">En retard</Badge>}
                     </div>
                   </div>
                   <span className="text-sm font-semibold text-marine tabular-nums hidden sm:block">{formatCurrency(num(inv.amount_due) || num(inv.total_ttc))}</span>

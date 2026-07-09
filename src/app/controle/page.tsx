@@ -9,9 +9,9 @@ const num = (v: unknown) => Number(v) || 0
 
 type Status = 'coherent' | 'ecart_faible' | 'ecart_important' | 'sans_vehicule' | 'sans_heures'
 const STATUS: Record<Status, { label: string; cls: string }> = {
-  coherent: { label: 'Cohérent', cls: 'bg-emerald-100 text-emerald-700' },
+  coherent: { label: 'Cohérent', cls: 'bg-[#E9F2DB] text-[#3F7A2E]' },
   ecart_faible: { label: 'Écart faible', cls: 'bg-amber-100 text-amber-700' },
-  ecart_important: { label: 'Écart important', cls: 'bg-rose-100 text-rose-700' },
+  ecart_important: { label: 'Écart important', cls: 'bg-[#FBE0DA] text-[#C0392B]' },
   sans_vehicule: { label: 'Heures sans véhicule', cls: 'bg-amber-100 text-amber-700' },
   sans_heures: { label: 'Véhicule sans heures', cls: 'bg-amber-100 text-amber-700' },
 }
@@ -78,7 +78,7 @@ export default async function ControlePage() {
           <h1 className="text-2xl md:text-[28px] font-heading font-bold text-marine">Contrôle croisé heures / véhicules</h1>
           <p className="text-gray-500 mt-1 text-sm">Compare les heures déclarées par les salariés avec la présence des véhicules sur chantier.</p>
         </div>
-        <Badge className={`${d.nbAlertes > 0 ? 'bg-amber-100 text-amber-700' : 'bg-emerald-100 text-emerald-700'} border-0 gap-1`}>
+        <Badge className={`${d.nbAlertes > 0 ? 'bg-amber-100 text-amber-700' : 'bg-[#E9F2DB] text-[#3F7A2E]'} border-0 gap-1`}>
           {d.nbAlertes > 0 ? <AlertTriangle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
           {d.nbAlertes > 0 ? `${d.nbAlertes} à vérifier` : 'Tout cohérent'}
         </Badge>

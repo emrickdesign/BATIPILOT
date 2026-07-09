@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
-import { Card, CardContent } from '@/components/ui/card'
 import { ArrowDownToLine, Wallet, Link2 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
+import StatCard from '@/components/charts/StatCard'
 import BanqueClient, { type TxItem } from './BanqueClient'
 
 const num = (v: unknown) => Number(v) || 0
@@ -62,20 +62,6 @@ async function getData(userId: string) {
   return { transactions, totalEntrees, nbSuggestions, resteAEncaisser, partiels, nbPayeesMois: payeesMois.length, montantPayeMois, openInvoices: invoices }
 }
 
-function Kpi({ label, value, icon: Icon, tile }: { label: string; value: string; icon: typeof Wallet; tile: string }) {
-  return (
-    <Card className="border border-gray-200/80 bg-white">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-500 font-medium">{label}</span>
-          <span className={`grid place-items-center w-8 h-8 rounded-lg ${tile}`}><Icon className="w-4 h-4" /></span>
-        </div>
-        <div className="text-[24px] font-bold text-marine mt-2 leading-none">{value}</div>
-      </CardContent>
-    </Card>
-  )
-}
-
 export default async function BanquePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -89,10 +75,10 @@ export default async function BanquePage() {
         <p className="text-gray-500 mt-1 text-sm">Le client a-t-il payé ? Importe ton relevé, rapproche les virements de tes factures, ou marque un paiement à la main.</p>
       </div>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up">
-        <Kpi label="Reste à encaisser" value={formatCurrency(d.resteAEncaisser)} icon={Wallet} tile="bg-amber-100 text-amber-600" />
-        <Kpi label="Encaissé ce mois" value={formatCurrency(d.montantPayeMois)} icon={ArrowDownToLine} tile="bg-emerald-100 text-emerald-600" />
-        <Kpi label="À rapprocher" value={String(d.transactions.length)} icon={Link2} tile="bg-blue-100 text-blue-600" />
-        <Kpi label="Paiements partiels" value={String(d.partiels)} icon={Wallet} tile="bg-violet-100 text-violet-600" />
+        <StatCard label="Reste à encaisser" value={formatCurrency(d.resteAEncaisser)} icon={Wallet} tone="amber" note="factures ouvertes" />
+        <StatCard label="Encaissé ce mois" value={formatCurrency(d.montantPayeMois)} icon={ArrowDownToLine} tone="green" note={`${d.nbPayeesMois} facture${d.nbPayeesMois > 1 ? 's' : ''}`} />
+        <StatCard label="À rapprocher" value={String(d.transactions.length)} icon={Link2} tone="coral" note={`${d.nbSuggestions} suggestion${d.nbSuggestions > 1 ? 's' : ''}`} />
+        <StatCard label="Paiements partiels" value={String(d.partiels)} icon={Wallet} tone="terre" />
       </div>
       <BanqueClient transactions={d.transactions} openInvoices={d.openInvoices} />
     </div>

@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Plus } from 'lucide-react'
+import { Plus, HardHat, AlertTriangle, Banknote, TrendingUp } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
+import StatCard from '@/components/charts/StatCard'
 import ChantiersList, { type ChantierCard } from './ChantiersList'
 
 const num = (v: unknown) => Number(v) || 0
@@ -63,6 +65,12 @@ export default async function ChantiersPage() {
     }
   })
 
+  // KPI en-tête
+  const actifs = cards.filter(c => !CLOSED.includes(c.status)).length
+  const nbRetard = cards.filter(c => c.enRetard).length
+  const totalSigne = [...signedHt.values()].reduce((s, v) => s + v, 0)
+  const totalMarge = cards.reduce((s, c) => s + (c.marge ?? 0), 0)
+
   return (
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4 animate-fade-up">
@@ -74,6 +82,15 @@ export default async function ChantiersPage() {
           <Button className="h-10 gap-2 shadow-sm"><Plus className="w-4 h-4" /> Nouveau chantier</Button>
         </Link>
       </div>
+
+      {cards.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up">
+          <StatCard label="Chantiers actifs" value={String(actifs)} icon={HardHat} tone="coral" note={`${cards.length} au total`} />
+          <StatCard label="En retard" value={String(nbRetard)} icon={AlertTriangle} tone="red" note={nbRetard > 0 ? 'à surveiller' : 'aucun'} />
+          <StatCard label="Chiffre signé" value={formatCurrency(totalSigne)} icon={Banknote} tone="green" note="HT devis signés" />
+          <StatCard label="Marge estimée" value={formatCurrency(totalMarge)} icon={TrendingUp} tone="terre" note="signé − coûts" />
+        </div>
+      )}
 
       <ChantiersList projects={cards} />
     </div>

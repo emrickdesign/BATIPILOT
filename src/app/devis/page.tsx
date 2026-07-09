@@ -143,7 +143,7 @@ export default async function DevisPage({ searchParams }: { searchParams: Promis
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3.5">
+        <div className="space-y-5">
           {list.map(quote => {
             const disp = displayStatus(quote)
             const clientName = quote.clients ? clientDisplayName(quote.clients) : 'Sans client'

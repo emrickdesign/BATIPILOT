@@ -77,8 +77,8 @@ export default async function RolesPage() {
             )}
           </CardContent>
         </Card>
-        <div className="flex items-start gap-2 mt-3 text-xs text-gray-500 bg-blue-50/60 border border-blue-100 rounded-lg p-3">
-          <Info className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+        <div className="flex items-start gap-2 mt-3 text-xs text-gray-500 bg-[#FBEDE7]/70 border border-[#F3D9CF] rounded-lg p-3">
+          <Info className="w-4 h-4 text-[#C14E33] flex-shrink-0 mt-0.5" />
           <span>Les rôles définissent les accès. La <strong>connexion individuelle par salarié</strong> (identifiant propre, pointage mobile dédié) sera activée dans une prochaine étape — elle s&apos;appuiera sur ces rôles.</span>
         </div>
       </div>
@@ -97,7 +97,7 @@ export default async function RolesPage() {
                 <ul className="space-y-1.5">
                   {rolePermissions[role].map((p, i) => (
                     <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600">
-                      <Check className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0 mt-0.5" /> {p}
+                      <Check className="w-3.5 h-3.5 text-[#3F7A2E] flex-shrink-0 mt-0.5" /> {p}
                     </li>
                   ))}
                 </ul>
