@@ -157,7 +157,7 @@ async function getData(userId: string) {
     return x.getFullYear() === lastMonth.getFullYear() && x.getMonth() === lastMonth.getMonth()
   }
 
-  const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes, absRes] = await Promise.all([
+  const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes, absRes, vehAsgRes] = await Promise.all([
     supabase.from('quotes').select('id, quote_number, status, total_ttc, issue_date, reminded_at, client_id, created_at').eq('user_id', userId),
     supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due, issue_date, due_date, client_id, created_at').eq('user_id', userId),
     supabase.from('projects').select('id, title, status, end_date, progress, created_at').eq('user_id', userId).neq('status', 'archive'),
@@ -168,10 +168,11 @@ async function getData(userId: string) {
     supabase.from('assignments').select('employee_id, project_id').eq('user_id', userId).eq('date', today),
     supabase.from('assignments').select('project_id').eq('user_id', userId).eq('date', tomorrowStr),
     supabase.from('bank_transactions').select('id, amount, status').eq('user_id', userId),
-    supabase.from('vehicles').select('id').eq('user_id', userId).eq('active', true),
+    supabase.from('vehicles').select('id, name').eq('user_id', userId).eq('active', true),
     supabase.from('vehicle_logs').select('project_id, date, hours_present').eq('user_id', userId),
     supabase.from('clients').select('id, first_name, last_name, company_name, type, status, request_type, created_at').eq('user_id', userId),
     supabase.from('absences').select('id, employee_id, start_date, end_date, type, reason, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
+    supabase.from('vehicle_assignments').select('vehicle_id, project_id').eq('user_id', userId).eq('date', today),
   ])
 
   const quotes = quotesRes.data || []
@@ -347,6 +348,32 @@ async function getData(userId: string) {
     vehiculesActifs: (vehRes.data || []).length,
   }
 
+  // Constellation : par chantier ayant une équipe aujourd'hui → salariés (+ heures) et véhicules
+  type CEmp = { id: string; name: string; initials: string; color: string; hours: number }
+  type CVeh = { id: string; name: string }
+  const projTitleById = new Map(pr.map(p => [p.id, p.title]))
+  const empInfoById = new Map((empRes.data || []).map(e => [e.id, e]))
+  const vehNameById = new Map((vehRes.data || []).map(v => [v.id, v.name]))
+  const hoursTodayByEmp = new Map<string, number>()
+  for (const t of times) if (t.date === today) hoursTodayByEmp.set(t.employee_id, (hoursTodayByEmp.get(t.employee_id) || 0) + num(t.hours))
+  const groups = new Map<string, { id: string; title: string; employees: CEmp[]; vehicles: CVeh[] }>()
+  for (const a of (asgTodayRes.data || [])) {
+    if (!a.project_id) continue
+    const g = groups.get(a.project_id) || { id: a.project_id, title: projTitleById.get(a.project_id) || 'Chantier', employees: [] as CEmp[], vehicles: [] as CVeh[] }
+    const e = empInfoById.get(a.employee_id)
+    if (e && !g.employees.some(x => x.id === a.employee_id)) {
+      const initials = (e.full_name || '?').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
+      g.employees.push({ id: a.employee_id, name: e.full_name, initials, color: e.color || '#E0674C', hours: hoursTodayByEmp.get(a.employee_id) || 0 })
+    }
+    groups.set(a.project_id, g)
+  }
+  for (const va of (vehAsgRes.data || [])) {
+    if (!va.project_id) continue
+    const g = groups.get(va.project_id)
+    if (g && !g.vehicles.some(x => x.id === va.vehicle_id)) g.vehicles.push({ id: va.vehicle_id, name: vehNameById.get(va.vehicle_id) || 'Véhicule' })
+  }
+  const terrainMap = [...groups.values()].filter(g => g.employees.length > 0).slice(0, 6)
+
   // ── 6. Administratif & comptable (ce mois) ──────────────────────────
   const depensesCeMois = exp.filter(e => inThisMonth(e.expense_date || e.created_at))
   const catTotals = new Map<string, number>()
@@ -424,7 +451,7 @@ async function getData(userId: string) {
     chantiers, chantiersActifs,
     series: { '7j': s7, mois: sMois, trimestre: sTri, annee: sAnnee },
     devisSeries, cashflow,
-    terrain, admin, feeds,
+    terrain, terrainMap, admin, feeds,
   }
 }
 
@@ -560,6 +587,63 @@ function FeedCard({ title, icon: Icon, chip, href, empty, children }: {
         {empty ? <p className="text-xs text-gray-400 py-5 text-center">Rien de récent.</p> : <div className="space-y-0.5">{children}</div>}
       </CardContent>
     </Card>
+  )
+}
+
+type ConstelChantier = {
+  id: string; title: string
+  employees: { id: string; name: string; initials: string; color: string; hours: number }[]
+  vehicles: { id: string; name: string }[]
+}
+function ChantierConstellation({ chantier }: { chantier: ConstelChantier }) {
+  const sats = [
+    ...chantier.employees.map(e => ({ kind: 'emp' as const, id: e.id, initials: e.initials, color: e.color, hours: e.hours, name: e.name })),
+    ...chantier.vehicles.map(v => ({ kind: 'veh' as const, id: v.id, initials: '', color: '', hours: 0, name: v.name })),
+  ]
+  const n = sats.length || 1
+  const R = 36, cx = 50, cy = 46
+  const pos = sats.map((s, i) => {
+    const ang = (i / n) * 2 * Math.PI - Math.PI / 2
+    return { ...s, x: +(cx + R * Math.cos(ang)).toFixed(2), y: +(cy + R * Math.sin(ang)).toFixed(2) }
+  })
+  return (
+    <div className="rounded-xl border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC] p-4 shadow-[var(--shadow-sm)]">
+      <div className="bp-stage relative w-full aspect-square max-w-[250px] mx-auto">
+        <div className="bp-orbit" aria-hidden />
+        <div className="bp-orbit bp-orbit--2" aria-hidden />
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full" aria-hidden>
+          {pos.map((p, i) => <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(138,75,36,0.16)" strokeWidth="0.5" />)}
+        </svg>
+        {/* centre : chantier */}
+        <div className="absolute z-10" style={{ left: `${cx}%`, top: `${cy}%`, transform: 'translate(-50%,-50%)' }}>
+          <span className="grid place-items-center w-[52px] h-[52px] rounded-2xl text-white shadow-[0_10px_22px_-6px_rgba(208,92,67,.55)]" style={{ background: 'linear-gradient(135deg,#F09A80,#D05C43)' }}>
+            <HardHat className="w-6 h-6" strokeWidth={2} />
+          </span>
+        </div>
+        {/* satellites : salariés + véhicules */}
+        {pos.map((p, i) => (
+          <div key={p.id} className="bp-node absolute z-20" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%,-50%)', animationDelay: `${i * 90}ms` }}>
+            <div className="bp-node-float flex flex-col items-center" style={{ animationDelay: `${i * 300}ms` }}>
+              {p.kind === 'emp' ? (
+                <>
+                  <span className="grid place-items-center w-9 h-9 rounded-full text-white text-[11px] font-bold shadow-[0_6px_14px_-4px_rgba(40,25,10,.4)] ring-2 ring-white" style={{ backgroundColor: p.color }} title={p.name}>{p.initials}</span>
+                  <span className="mt-1 px-1.5 py-0.5 rounded-full bg-white text-[10px] font-bold text-marine shadow-sm tabular-nums">{p.hours ? `${p.hours}h` : '—'}</span>
+                </>
+              ) : (
+                <>
+                  <span className="grid place-items-center w-8 h-8 rounded-full bg-white text-[#8A4B24] shadow-[0_6px_14px_-4px_rgba(40,25,10,.35)] ring-2 ring-[#F3E5D6]" title={p.name}><Truck className="w-4 h-4" /></span>
+                  <span className="mt-1 max-w-[62px] truncate text-[9px] text-gray-500 text-center">{p.name}</span>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-1 text-center">
+        <div className="text-sm font-semibold text-marine truncate">{chantier.title}</div>
+        <div className="text-[11px] text-gray-400">{chantier.employees.length} salarié{chantier.employees.length > 1 ? 's' : ''} · {chantier.vehicles.length} véhicule{chantier.vehicles.length > 1 ? 's' : ''}</div>
+      </div>
+    </div>
   )
 }
 
@@ -760,6 +844,14 @@ export default async function DashboardPage() {
           {d.terrain.pointagesManquants > 0 && <MiniStat label="Pointages photo manquants" value={d.terrain.pointagesManquants} icon={Camera} tile="bg-amber-100 text-amber-600" />}
           {d.terrain.incoherences > 0 && <MiniStat label="Heures / véhicules à vérifier" value={d.terrain.incoherences} icon={GitCompare} tile="bg-[#FBE0DA] text-[#C0392B]" />}
         </div>
+        {d.terrainMap.length > 0 && (
+          <>
+            <p className="text-[11px] text-gray-400 mt-5 mb-3">Chantiers en activité aujourd&apos;hui — équipe &amp; véhicules affectés</p>
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              {d.terrainMap.map(c => <ChantierConstellation key={c.id} chantier={c} />)}
+            </div>
+          </>
+        )}
       </div>
 
       {/* 6. Administratif & comptable */}
@@ -768,7 +860,7 @@ export default async function DashboardPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Administratif &amp; comptable — ce mois</h2>
           <Link href="/comptable" className="text-xs font-medium text-primary hover:underline">Voir la compta</Link>
         </div>
-        <div className="grid lg:grid-cols-3 gap-4 items-start">
+        <div className="grid lg:grid-cols-4 gap-4 items-start">
           {/* Colonne dépenses : carte + répartition */}
           <div className="space-y-4">
             <Link href="/depenses" className="block">
@@ -797,8 +889,8 @@ export default async function DashboardPage() {
               emptyMessage="Aucune entrée encaissée ce mois-ci."
             />
           </div>
-          {/* Barres 6 mois à droite */}
-          <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
+          {/* Barres 6 mois à droite (plus large) */}
+          <Card className="lg:col-span-2 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
             <CardContent className="p-5">
               <CashflowBars data={d.cashflow} />
             </CardContent>
