@@ -14,98 +14,10 @@ import { projectStatusLabels, projectStatusColors } from '@/lib/chantiers'
 import type { ProjectStatus } from '@/types'
 import EncaissementsChart from './EncaissementsChart'
 import DonutMetricCard from '@/components/charts/DonutMetricCard'
-import GaugeRing from '@/components/charts/GaugeRing'
+import StatCard, { type StatTone } from '@/components/charts/StatCard'
 
 const DONUT_COLORS = ['#D05C43', '#C77D0E', '#8A4B24', '#3F7A2E', '#94918A']
 const ENTREE_COLORS = ['#22A45A', '#2F7DE0', '#0E9F8E', '#5CCB86', '#94918A']
-
-// Tons sémantiques chauds — cartes KPI dégradées + glow coloré
-const TONES = {
-  green: { fg: '#3F7A2E', chipA: '#6AA636', chipB: '#3F7A2E', tintA: '#E9F2DB', tintB: '#F6FAEF', glow: 'rgba(76,111,24,.22)', bd: '#DDE9C9' },
-  coral: { fg: '#C14E33', chipA: '#F09A80', chipB: '#D0562F', tintA: '#FCE5DC', tintB: '#FEF5F0', glow: 'rgba(224,103,76,.26)', bd: '#F4D7CA' },
-  amber: { fg: '#8A5A08', chipA: '#E2A536', chipB: '#C77D0E', tintA: '#FBEFD4', tintB: '#FEF9EE', glow: 'rgba(199,125,14,.22)', bd: '#F0E1C0' },
-  terre: { fg: '#8A4B24', chipA: '#BC824F', chipB: '#8A4B24', tintA: '#F4E7D8', tintB: '#FBF5ED', glow: 'rgba(138,75,36,.20)', bd: '#EAD9C7' },
-  red: { fg: '#C0392B', chipA: '#E06A5A', chipB: '#C0392B', tintA: '#FBE0DA', tintB: '#FEF2EF', glow: 'rgba(192,57,43,.22)', bd: '#F1D2CB' },
-} as const
-type Tone = keyof typeof TONES
-
-// Courbe lissée (Catmull-Rom → Bézier) pour un mini-sparkline arrondi
-function sparkPath(vals: number[], w = 120, h = 40, pad = 5) {
-  if (vals.length < 2) return null
-  const max = Math.max(...vals), min = Math.min(...vals)
-  const rng = max - min || 1
-  const step = w / (vals.length - 1)
-  const pts = vals.map((v, i) => [+(i * step).toFixed(1), +(h - pad - ((v - min) / rng) * (h - 2 * pad)).toFixed(1)] as const)
-  let line = `M${pts[0][0]},${pts[0][1]}`
-  for (let i = 1; i < pts.length; i++) {
-    const p0 = pts[i - 2] || pts[i - 1], p1 = pts[i - 1], p = pts[i], p3 = pts[i + 1] || p
-    const t = 0.2
-    const c1x = (p1[0] + (p[0] - p0[0]) * t).toFixed(1), c1y = (p1[1] + (p[1] - p0[1]) * t).toFixed(1)
-    const c2x = (p[0] - (p3[0] - p1[0]) * t).toFixed(1), c2y = (p[1] - (p3[1] - p1[1]) * t).toFixed(1)
-    line += ` C${c1x},${c1y} ${c2x},${c2y} ${p[0]},${p[1]}`
-  }
-  return { line, area: `${line} L${w},${h} L0,${h} Z` }
-}
-
-function StatPro({ label, value, icon: Icon, tone, delta, gauge, note, spark }: {
-  label: string; value: string; icon: LucideIcon; tone: Tone
-  delta?: { text: string; dir: 'up' | 'down' | 'flat' }
-  gauge?: number; note?: string; spark?: number[]
-}) {
-  const t = TONES[tone]
-  const sp = spark ? sparkPath(spark, 120, 40, 5) : null
-  const uid = `sp-${label.replace(/\W/g, '')}`
-  const deltaCls = delta?.dir === 'up' ? 'bg-[#E9F2DB] text-[#3F7A2E]'
-    : delta?.dir === 'down' ? 'bg-[#FBE0DA] text-[#C0392B]' : 'bg-white/70 text-gray-500'
-  return (
-    <div
-      className="group relative h-full min-h-[152px] overflow-hidden rounded-xl border p-4 transition-all duration-200 hover:-translate-y-1"
-      style={{
-        borderColor: t.bd,
-        background: `linear-gradient(150deg, ${t.tintA} 0%, ${t.tintB} 58%, #ffffff 100%)`,
-        boxShadow: `0 14px 32px -16px ${t.glow}`,
-      }}
-    >
-      {/* halo coloré */}
-      <div aria-hidden className="absolute -top-10 -right-8 w-36 h-36 rounded-full pointer-events-none opacity-90"
-        style={{ background: `radial-gradient(circle, ${t.glow}, transparent 70%)` }} />
-      <div className="relative">
-        <div className="flex items-start justify-between mb-3">
-          <span className="grid place-items-center w-9 h-9 rounded-lg text-white shadow-[0_4px_10px_-3px_rgba(40,25,10,.35)] flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${t.chipA}, ${t.chipB})` }}>
-            <Icon className="w-[18px] h-[18px]" strokeWidth={2} />
-          </span>
-          {gauge !== undefined ? (
-            <GaugeRing value={gauge} size={42} strokeWidth={5} trackColor="rgba(40,25,10,.10)" fillColor={t.chipB}>
-              <span className="text-[10px] font-bold" style={{ color: t.fg }}>{gauge}%</span>
-            </GaugeRing>
-          ) : delta ? (
-            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm ${deltaCls}`}>{delta.text}</span>
-          ) : null}
-        </div>
-        <div className="text-[26px] font-bold text-marine leading-none tracking-tight tabular-nums">{value}</div>
-        <div className="text-[12.5px] text-gray-600 mt-1.5 font-medium">{label}</div>
-        {/* sparkline : zone dédiée sous le libellé, qui touche les bords de la carte */}
-        {sp ? (
-          <div className="-mx-4 -mb-4 mt-3">
-            <svg className="w-full h-14 block" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden>
-              <defs>
-                <linearGradient id={uid} x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0" stopColor={t.chipB} stopOpacity="0.28" />
-                  <stop offset="1" stopColor={t.chipB} stopOpacity="0" />
-                </linearGradient>
-              </defs>
-              <path d={sp.area} fill={`url(#${uid})`} />
-              <path d={sp.line} fill="none" stroke={t.chipB} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-            </svg>
-          </div>
-        ) : note ? (
-          <div className="text-[11px] text-gray-500 mt-2 leading-tight">{note}</div>
-        ) : null}
-      </div>
-    </div>
-  )
-}
 
 function TodoItem({ href, icon: Icon, tile, text }: { href: string; icon: LucideIcon; tile: string; text: string }) {
   return (
@@ -600,7 +512,7 @@ export default async function DashboardPage() {
   // Cartes KPI pro : vert = encaissé (positif), corail = facturé (marque),
   // ambre = reste à encaisser (en attente, jauge), terre = devis (pipeline).
   const finCards: {
-    label: string; value: string; icon: LucideIcon; tone: Tone; href: string
+    label: string; value: string; icon: LucideIcon; tone: StatTone; href: string
     delta?: { text: string; dir: 'up' | 'down' | 'flat' }; gauge?: number; note?: string; spark?: number[]
   }[] = [
     {
@@ -650,7 +562,7 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {finCards.map((k, i) => (
           <Link key={k.label} href={k.href} className="animate-fade-up block" style={{ animationDelay: `${i * 60}ms` }}>
-            <StatPro label={k.label} value={k.value} icon={k.icon} tone={k.tone} delta={k.delta} gauge={k.gauge} note={k.note} spark={k.spark} />
+            <StatCard label={k.label} value={k.value} icon={k.icon} tone={k.tone} delta={k.delta} gauge={k.gauge} note={k.note} spark={k.spark} />
           </Link>
         ))}
       </div>
@@ -773,7 +685,7 @@ export default async function DashboardPage() {
           {/* Colonne dépenses : carte + répartition */}
           <div className="space-y-4">
             <Link href="/depenses" className="block">
-              <StatPro label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tone="red" spark={d.kpiSparks.depenses} />
+              <StatCard label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tone="red" spark={d.kpiSparks.depenses} />
             </Link>
             <DonutMetricCard
               title="Répartition des dépenses"
@@ -787,7 +699,7 @@ export default async function DashboardPage() {
           {/* Colonne entrées : carte + répartition */}
           <div className="space-y-4">
             <Link href="/banque" className="block">
-              <StatPro label="Entrées du mois" value={formatCurrency(d.fin.encaisseMois)} icon={BadgeEuro} tone="green" spark={d.kpiSparks.encaisse} />
+              <StatCard label="Entrées du mois" value={formatCurrency(d.fin.encaisseMois)} icon={BadgeEuro} tone="green" spark={d.kpiSparks.encaisse} />
             </Link>
             <DonutMetricCard
               title="Répartition des entrées"
