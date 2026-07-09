@@ -16,7 +16,7 @@ type Props = {
 const R = 58
 const STROKE = 17
 const CIRC = 2 * Math.PI * R
-const GAP = CIRC * 0.03 // séparation nette entre les parts
+const GAP = 0 // pas d'écart : les couleurs se touchent
 
 function hexToRgb(hex: string) {
   const h = hex.replace('#', '')
