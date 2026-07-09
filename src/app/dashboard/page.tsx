@@ -416,11 +416,11 @@ export default async function DashboardPage() {
     delta?: { text: string; dir: 'up' | 'down' | 'flat' }; gauge?: number; note?: string; spark?: number[]
   }[] = [
     {
-      label: 'Encaissé ce mois', value: formatCurrency(d.fin.encaisseMois), icon: Wallet, tone: 'green', href: '/banque',
+      label: 'Factures encaissées ce mois', value: formatCurrency(d.fin.encaisseMois), icon: Wallet, tone: 'green', href: '/banque',
       spark: d.kpiSparks.encaisse,
       delta: encVarPct !== null ? { text: `${encVarPct >= 0 ? '+' : ''}${encVarPct}%`, dir: encVarPct >= 0 ? 'up' : 'down' } : undefined,
     },
-    { label: 'Facturé ce mois', value: formatCurrency(d.fin.factureMois), icon: Send, tone: 'coral', href: '/factures', spark: d.kpiSparks.facture },
+    { label: 'Factures envoyées ce mois', value: formatCurrency(d.fin.factureMois), icon: Send, tone: 'coral', href: '/factures', spark: d.kpiSparks.facture },
     { label: 'Reste à encaisser', value: formatCurrency(d.fin.resteAEncaisser), icon: Coins, tone: 'amber', href: '/relances', gauge: encaissePct, note: `${encaissePct}% du facturé déjà encaissé` },
     { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, tone: 'terre', href: '/devis?statut=envoye', note: 'Pipeline commercial en cours' },
   ]
