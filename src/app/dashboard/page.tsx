@@ -2,9 +2,9 @@ import type { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
-  Wallet, Send, Coins, FileText, Clock, ReceiptText, Camera, Landmark, HardHat,
-  Users2, Truck, AlertTriangle, CheckCircle2,
-  Bell, CalendarDays, ArrowRight, Receipt, Users, GitCompare, FileCheck2, BadgeEuro,
+  Wallet, Send, Coins, FileText, Clock, ReceiptText, Landmark, HardHat,
+  AlertTriangle, CheckCircle2,
+  Bell, CalendarDays, ArrowRight, Receipt, Users, FileCheck2, BadgeEuro,
   type LucideIcon,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -455,16 +455,6 @@ async function getData(userId: string) {
   }
 }
 
-function MiniStat({ label, value, icon: Icon, tile, accent }: { label: string; value: string | number; icon: LucideIcon; tile: string; accent?: boolean }) {
-  return (
-    <div className="rounded-lg bg-white border border-gray-200/80 p-3.5 shadow-[var(--shadow-xs)]">
-      <span className={`grid place-items-center w-8 h-8 rounded-lg ${tile}`}><Icon className="w-4 h-4" /></span>
-      <div className={`text-2xl font-bold mt-2 leading-none ${accent ? 'text-primary' : 'text-marine'}`}>{value}</div>
-      <div className="text-[11px] text-gray-500 mt-1 leading-tight">{label}</div>
-    </div>
-  )
-}
-
 // Arrondi "joli" au-dessus d'une valeur (80k -> 100k, 42k -> 50k, 9,3k -> 10k)
 function niceCeil(v: number) {
   if (v <= 0) return 10
@@ -587,63 +577,6 @@ function FeedCard({ title, icon: Icon, chip, href, empty, children }: {
         {empty ? <p className="text-xs text-gray-400 py-5 text-center">Rien de récent.</p> : <div className="space-y-0.5">{children}</div>}
       </CardContent>
     </Card>
-  )
-}
-
-type ConstelChantier = {
-  id: string; title: string
-  employees: { id: string; name: string; initials: string; color: string; hours: number }[]
-  vehicles: { id: string; name: string }[]
-}
-function ChantierConstellation({ chantier }: { chantier: ConstelChantier }) {
-  const sats = [
-    ...chantier.employees.map(e => ({ kind: 'emp' as const, id: e.id, initials: e.initials, color: e.color, hours: e.hours, name: e.name })),
-    ...chantier.vehicles.map(v => ({ kind: 'veh' as const, id: v.id, initials: '', color: '', hours: 0, name: v.name })),
-  ]
-  const n = sats.length || 1
-  const R = 36, cx = 50, cy = 46
-  const pos = sats.map((s, i) => {
-    const ang = (i / n) * 2 * Math.PI - Math.PI / 2
-    return { ...s, x: +(cx + R * Math.cos(ang)).toFixed(2), y: +(cy + R * Math.sin(ang)).toFixed(2) }
-  })
-  return (
-    <div className="rounded-xl border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC] p-4 shadow-[var(--shadow-sm)]">
-      <div className="bp-stage relative w-full aspect-square max-w-[250px] mx-auto">
-        <div className="bp-orbit" aria-hidden />
-        <div className="bp-orbit bp-orbit--2" aria-hidden />
-        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full" aria-hidden>
-          {pos.map((p, i) => <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(138,75,36,0.16)" strokeWidth="0.5" />)}
-        </svg>
-        {/* centre : chantier */}
-        <div className="absolute z-10" style={{ left: `${cx}%`, top: `${cy}%`, transform: 'translate(-50%,-50%)' }}>
-          <span className="grid place-items-center w-[52px] h-[52px] rounded-2xl text-white shadow-[0_10px_22px_-6px_rgba(208,92,67,.55)]" style={{ background: 'linear-gradient(135deg,#F09A80,#D05C43)' }}>
-            <HardHat className="w-6 h-6" strokeWidth={2} />
-          </span>
-        </div>
-        {/* satellites : salariés + véhicules */}
-        {pos.map((p, i) => (
-          <div key={p.id} className="bp-node absolute z-20" style={{ left: `${p.x}%`, top: `${p.y}%`, transform: 'translate(-50%,-50%)', animationDelay: `${i * 90}ms` }}>
-            <div className="bp-node-float flex flex-col items-center" style={{ animationDelay: `${i * 300}ms` }}>
-              {p.kind === 'emp' ? (
-                <>
-                  <span className="grid place-items-center w-9 h-9 rounded-full text-white text-[11px] font-bold shadow-[0_6px_14px_-4px_rgba(40,25,10,.4)] ring-2 ring-white" style={{ backgroundColor: p.color }} title={p.name}>{p.initials}</span>
-                  <span className="mt-1 px-1.5 py-0.5 rounded-full bg-white text-[10px] font-bold text-marine shadow-sm tabular-nums">{p.hours ? `${p.hours}h` : '—'}</span>
-                </>
-              ) : (
-                <>
-                  <span className="grid place-items-center w-8 h-8 rounded-full bg-white text-[#8A4B24] shadow-[0_6px_14px_-4px_rgba(40,25,10,.35)] ring-2 ring-[#F3E5D6]" title={p.name}><Truck className="w-4 h-4" /></span>
-                  <span className="mt-1 max-w-[62px] truncate text-[9px] text-gray-500 text-center">{p.name}</span>
-                </>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="mt-1 text-center">
-        <div className="text-sm font-semibold text-marine truncate">{chantier.title}</div>
-        <div className="text-[11px] text-gray-400">{chantier.employees.length} salarié{chantier.employees.length > 1 ? 's' : ''} · {chantier.vehicles.length} véhicule{chantier.vehicles.length > 1 ? 's' : ''}</div>
-      </div>
-    </div>
   )
 }
 
@@ -828,30 +761,6 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </div>
-      </div>
-
-      {/* 5. Équipes & terrain */}
-      <div className="animate-fade-up" style={{ animationDelay: '210ms' }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Équipes &amp; terrain — aujourd&apos;hui</h2>
-          <Link href="/pointage" className="text-xs font-medium text-primary hover:underline">Voir le terrain</Link>
-        </div>
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <MiniStat label="Salariés prévus" value={d.terrain.salariesPrevus} icon={Users2} tile="bg-[#FCE7DE] text-[#C14E33]" />
-          <MiniStat label="Ont pointé" value={d.terrain.ontPointe} icon={Camera} tile="bg-emerald-100 text-emerald-600" />
-          <MiniStat label="Heures déclarées" value={`${d.terrain.heuresJour} h`} icon={Clock} tile="bg-accent text-primary" accent />
-          <MiniStat label="Véhicules actifs" value={d.terrain.vehiculesActifs} icon={Truck} tile="bg-[#F3E5D6] text-[#8A4B24]" />
-          {d.terrain.pointagesManquants > 0 && <MiniStat label="Pointages photo manquants" value={d.terrain.pointagesManquants} icon={Camera} tile="bg-amber-100 text-amber-600" />}
-          {d.terrain.incoherences > 0 && <MiniStat label="Heures / véhicules à vérifier" value={d.terrain.incoherences} icon={GitCompare} tile="bg-[#FBE0DA] text-[#C0392B]" />}
-        </div>
-        {d.terrainMap.length > 0 && (
-          <>
-            <p className="text-[11px] text-gray-400 mt-5 mb-3">Chantiers en activité aujourd&apos;hui — équipe &amp; véhicules affectés</p>
-            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {d.terrainMap.map(c => <ChantierConstellation key={c.id} chantier={c} />)}
-            </div>
-          </>
-        )}
       </div>
 
       {/* 6. Administratif & comptable */}
