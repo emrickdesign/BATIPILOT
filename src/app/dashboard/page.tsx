@@ -438,18 +438,18 @@ function CashflowBars({ data }: { data: { label: string; entrees: number; depens
       <div className="flex items-end justify-between gap-2 h-40">
         {data.map((d, i) => (
           <div key={i} className="flex-1 flex flex-col items-center gap-2 min-w-0">
-            <div className="relative w-full flex-1">
-              {/* dépenses : barre rouge large, en arrière-plan */}
+            <div className="w-full flex-1 flex items-end justify-center gap-1">
+              {/* entrées (vert) */}
               <div
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] max-w-[34px] rounded-t-md bg-gradient-to-t from-[#DC3B2E] to-[#EF7563]"
-                style={{ height: `${Math.max((d.depenses / max) * 100, d.depenses > 0 ? 3 : 0)}%` }}
-                title={`Dépenses ${formatCurrency(d.depenses)}`}
-              />
-              {/* entrées : barre verte étroite, au premier plan */}
-              <div
-                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[30%] max-w-[17px] rounded-t-md bg-gradient-to-t from-[#22A45A] to-[#5CCB86] shadow-[0_-2px_6px_rgba(34,164,90,.25)]"
-                style={{ height: `${Math.max((d.entrees / max) * 100, d.entrees > 0 ? 3 : 0)}%` }}
+                className="flex-1 max-w-[13px] rounded-t bg-gradient-to-t from-[#22A45A] to-[#5CCB86]"
+                style={{ height: `${Math.max((d.entrees / max) * 100, d.entrees > 0 ? 2 : 0)}%` }}
                 title={`Entrées ${formatCurrency(d.entrees)}`}
+              />
+              {/* dépenses (rouge) */}
+              <div
+                className="flex-1 max-w-[13px] rounded-t bg-gradient-to-t from-[#DC3B2E] to-[#EF7563]"
+                style={{ height: `${Math.max((d.depenses / max) * 100, d.depenses > 0 ? 2 : 0)}%` }}
+                title={`Dépenses ${formatCurrency(d.depenses)}`}
               />
             </div>
             <span className="text-[11px] text-gray-400">{d.label}</span>
