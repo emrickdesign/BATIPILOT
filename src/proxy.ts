@@ -39,7 +39,10 @@ export async function proxy(request: NextRequest) {
   const isPublicSignaturePath = request.nextUrl.pathname.startsWith('/signature/') ||
     request.nextUrl.pathname.startsWith('/api/signature/')
 
-  if (!user && !isAuthPage && !hasEmployeeCookie && !isPublicSignaturePath) {
+  // Routes cron (Vercel Cron) : pas de session, sécurisées par CRON_SECRET dans la route.
+  const isCronPath = request.nextUrl.pathname.startsWith('/api/cron/')
+
+  if (!user && !isAuthPage && !hasEmployeeCookie && !isPublicSignaturePath && !isCronPath) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 

@@ -95,7 +95,13 @@ ${quote.notes ? `<div class="note"><strong>Modalités de paiement :</strong><br>
       return NextResponse.json({ error: 'Erreur envoi Gmail' }, { status: 502 })
     }
 
-    await supabase.from('quotes').update({ status: 'envoye' }).eq('id', id)
+    // On (re)démarre le compteur de relances : sent_at sert de référence aux relances auto (7j/14j).
+    await supabase.from('quotes').update({
+      status: 'envoye',
+      sent_at: new Date().toISOString(),
+      reminder_count: 0,
+      reminded_at: null,
+    }).eq('id', id)
     return NextResponse.json({ success: true, signUrl })
   } catch (err: any) {
     console.error('Envoyer devis error:', err)
