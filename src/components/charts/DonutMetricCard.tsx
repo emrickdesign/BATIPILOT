@@ -17,7 +17,6 @@ const R = 58
 const STROKE = 17
 const CIRC = 2 * Math.PI * R
 const GAP = CIRC * 0.03 // séparation nette entre les parts
-const R_LABEL = R + STROKE / 2 + 15 // rayon des pastilles de valeur
 
 function hexToRgb(hex: string) {
   const h = hex.replace('#', '')
@@ -42,13 +41,8 @@ export default function DonutMetricCard({
       const frac = s.value / sum
       const length = Math.max(frac * CIRC - GAP, 0)
       const offset = -cursor
-      const midFrac = (cursor + (frac * CIRC) / 2) / CIRC
       cursor += frac * CIRC
-      const ang = midFrac * 2 * Math.PI
-      // repère SVG : 0 en haut, sens horaire (le <svg> est tourné de -90°)
-      const lx = 100 + R_LABEL * Math.sin(ang)
-      const ly = 100 - R_LABEL * Math.cos(ang)
-      return { ...s, id: `dseg-${i}`, length, offset, lxPct: (lx / 200) * 100, lyPct: (ly / 200) * 100 }
+      return { ...s, id: `dseg-${i}`, length, offset }
     })
     : []
 
@@ -111,24 +105,15 @@ export default function DonutMetricCard({
                 </div>
               </div>
 
-              {/* pastilles de valeur autour de l'anneau */}
-              {arcs.map(a => (
-                <span
-                  key={a.id}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-white px-2 py-0.5 text-[11px] font-bold tabular-nums shadow-[0_2px_8px_rgba(40,25,10,0.14)] whitespace-nowrap"
-                  style={{ left: `${a.lxPct}%`, top: `${a.lyPct}%`, color: a.color }}
-                >
-                  {format(a.value)}
-                </span>
-              ))}
             </div>
 
-            {/* légende compacte */}
-            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2">
+            {/* légende avec chiffres */}
+            <div className="mt-5 grid grid-cols-2 gap-x-4 gap-y-2.5">
               {vis.map((s, i) => (
                 <div key={i} className="flex items-center gap-2 text-[12.5px] min-w-0">
                   <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-                  <span className="text-gray-600 truncate">{s.label}</span>
+                  <span className="text-gray-600 truncate flex-1">{s.label}</span>
+                  <span className="font-bold text-marine tabular-nums flex-shrink-0">{format(s.value)}</span>
                 </div>
               ))}
             </div>

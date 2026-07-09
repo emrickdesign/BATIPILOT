@@ -526,10 +526,10 @@ export default async function DashboardPage() {
               total={String(d.chantiers.enCours + d.chantiers.aDemarrer + d.chantiers.enRetard + d.chantiers.aFacturer)}
               centerLabel="Chantiers"
               segments={[
-                { label: 'En cours', value: d.chantiers.enCours, color: '#E0674C' },
-                { label: 'À démarrer', value: d.chantiers.aDemarrer, color: '#C77D0E' },
-                { label: 'À facturer', value: d.chantiers.aFacturer, color: '#4C6F18' },
-                { label: 'En retard', value: d.chantiers.enRetard, color: '#C0392B' },
+                { label: 'En cours', value: d.chantiers.enCours, color: '#22A45A' },
+                { label: 'À démarrer', value: d.chantiers.aDemarrer, color: '#2F7DE0' },
+                { label: 'À facturer', value: d.chantiers.aFacturer, color: '#E6B02E' },
+                { label: 'En retard', value: d.chantiers.enRetard, color: '#DC3B2E' },
               ]}
               emptyMessage="Aucun chantier en cours pour le moment."
             />
