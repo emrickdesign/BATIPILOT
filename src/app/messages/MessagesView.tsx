@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MessageSquarePlus, Send, Users2, Search, Mic, Square, Trash2, Video } from 'lucide-react'
-import { Card } from '@/components/ui/card'
+import { MessageSquarePlus, Send, Users2, Search, Mic, Square, Trash2, Video, Play, Pause, Phone, ArrowLeft } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -33,6 +32,29 @@ function relativeTime(iso: string) {
   const diffH = Math.floor(diffMin / 60)
   if (diffH < 24) return `${diffH} h`
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
+
+function VoiceBubble({ src, seconds, mine }: { src: string; seconds?: number; mine: boolean }) {
+  const audioRef = useRef<HTMLAudioElement>(null)
+  const [playing, setPlaying] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const bars = useMemo(() => Array.from({ length: 26 }, (_, i) => 0.28 + Math.abs(Math.sin(i * 1.7)) * 0.72), [])
+  const dur = typeof seconds === 'number' ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : ''
+  const toggle = () => { const a = audioRef.current; if (!a) return; if (a.paused) a.play(); else a.pause() }
+  return (
+    <div className="flex items-center gap-2.5 min-w-[180px]">
+      <button type="button" onClick={toggle} className={cn('grid place-items-center w-8 h-8 rounded-full flex-shrink-0', mine ? 'bg-white/25 text-white' : 'bg-[#E0674C] text-white')}>
+        {playing ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+      </button>
+      <div className="flex items-center gap-[2px] h-6 flex-1">
+        {bars.map((b, i) => (
+          <span key={i} className="w-[2.5px] rounded-full" style={{ height: `${b * 100}%`, backgroundColor: mine ? 'rgba(255,255,255,.85)' : '#E0674C', opacity: i / bars.length <= progress ? 1 : 0.35 }} />
+        ))}
+      </div>
+      {dur && <span className={cn('text-[10px] tabular-nums flex-shrink-0', mine ? 'text-white/80' : 'text-gray-400')}>{dur}</span>}
+      <audio ref={audioRef} src={src} className="hidden" onPlay={() => setPlaying(true)} onPause={() => setPlaying(false)} onEnded={() => { setPlaying(false); setProgress(0) }} onTimeUpdate={e => { const a = e.currentTarget; setProgress(a.duration ? a.currentTime / a.duration : 0) }} />
+    </div>
+  )
 }
 
 export default function MessagesView({ conversations, participants, employees, initialMessages, viewer }: Props) {
@@ -80,6 +102,8 @@ export default function MessagesView({ conversations, participants, employees, i
   const [newConvOpen, setNewConvOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
   const [search, setSearch] = useState('')
+  const [tab, setTab] = useState<'all' | 'direct' | 'group'>('all')
+  const [mobileThread, setMobileThread] = useState(false)
   const [recording, setRecording] = useState(false)
   const [recSeconds, setRecSeconds] = useState(0)
   const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null)
@@ -296,83 +320,97 @@ export default function MessagesView({ conversations, participants, employees, i
   const roster = employees.filter(e => viewer.kind === 'admin' || e.id !== viewer.employeeId)
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-[300px_1fr] gap-4 h-[calc(100vh-11rem)] min-h-[500px]">
-      {/* Liste des conversations */}
-      <Card className="border-0 shadow-[var(--shadow-sm)] flex flex-col overflow-hidden">
-        <div className="p-3 border-b border-gray-100 flex items-center gap-2">
-          <div className="relative flex-1">
-            <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher" className="pl-8 h-8" />
+    <div className="flex gap-4 h-[calc(100vh-9rem)] min-h-[540px]">
+      {/* ── Liste des conversations ── */}
+      <div className={cn('w-full md:w-[300px] xl:w-[336px] flex-shrink-0 flex-col overflow-hidden rounded-2xl bg-white border border-[#EFE8DF] shadow-[var(--shadow-md)]', mobileThread ? 'hidden md:flex' : 'flex')}>
+        <div className="p-4 pb-3">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-bold text-marine">Messages</h2>
+            <button onClick={() => setNewConvOpen(true)} title="Nouvelle conversation" className="grid place-items-center w-9 h-9 rounded-full text-white shadow-[0_6px_14px_-4px_rgba(208,92,67,.5)]" style={{ background: 'linear-gradient(135deg,#F09A80,#D05C43)' }}>
+              <MessageSquarePlus className="w-[18px] h-[18px]" />
+            </button>
           </div>
-          <Button size="icon-sm" style={{ backgroundColor: COLOR }} className="text-white flex-shrink-0" onClick={() => setNewConvOpen(true)} title="Nouvelle conversation">
-            <MessageSquarePlus className="w-4 h-4" />
-          </Button>
+          <div className="relative">
+            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher" className="w-full h-10 pl-9 pr-3 rounded-full bg-[#F5F1EA] border border-transparent focus:border-[#E7C7B8] focus:bg-white text-sm outline-none transition-colors" />
+          </div>
+          {sortedConversations.length > 0 && (
+            <div className="flex gap-3 overflow-x-auto pt-3.5 pb-1 -mx-1 px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              {sortedConversations.slice(0, 12).map(c => {
+                const emps = participantsByConv.get(c.id) || []
+                return (
+                  <button key={c.id} onClick={() => { setSelectedId(c.id); setMobileThread(true) }} className="flex flex-col items-center gap-1 flex-shrink-0 w-[52px]">
+                    <span className={cn('grid place-items-center w-12 h-12 rounded-full text-white text-xs font-bold ring-2 ring-offset-2 ring-offset-white', c.id === selectedId ? 'ring-[#E0674C]' : 'ring-transparent')} style={{ backgroundColor: c.type === 'group' ? COLOR : (emps[0]?.color || COLOR) }}>
+                      {c.type === 'group' ? <Users2 className="w-5 h-5" /> : (emps[0] ? employeeInitials(emps[0].full_name) : 'D')}
+                    </span>
+                    <span className="text-[10px] text-gray-500 truncate w-full text-center">{convName(c).split(' ')[0]}</span>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <div className="flex gap-1 mt-3 p-1 rounded-full bg-[#F4F0E9]">
+            {([['all', 'Tous'], ['direct', 'Directs'], ['group', 'Groupes']] as const).map(([k, lbl]) => (
+              <button key={k} onClick={() => setTab(k)} className={cn('flex-1 py-1.5 rounded-full text-xs font-medium transition-colors', tab === k ? 'bg-white text-[#C14E33] shadow-sm' : 'text-gray-500 hover:text-gray-700')}>{lbl}</button>
+            ))}
+          </div>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto px-2 pb-2">
           {sortedConversations.length === 0 ? (
-            <div className="p-6 text-center text-sm text-gray-400">Aucune conversation pour l&apos;instant.</div>
+            <div className="p-6 text-center text-sm text-gray-400">Aucune conversation.</div>
           ) : (
             sortedConversations
+              .filter(c => tab === 'all' ? true : tab === 'group' ? c.type === 'group' : c.type !== 'group')
               .filter(c => convName(c).toLowerCase().includes(search.toLowerCase()))
               .map(c => {
                 const emps = participantsByConv.get(c.id) || []
                 const last = convLastMessage(c.id)
                 const active = c.id === selectedId
                 return (
-                  <button
-                    key={c.id}
-                    onClick={() => setSelectedId(c.id)}
-                    className={cn('w-full flex items-center gap-3 p-3 text-left border-b border-gray-50 hover:bg-gray-50 transition-colors', active && 'bg-accent hover:bg-accent')}
-                  >
-                    {c.type === 'group' ? (
-                      <span className="grid place-items-center w-10 h-10 rounded-full flex-shrink-0 text-white" style={{ backgroundColor: COLOR }}>
-                        <Users2 className="w-[18px] h-[18px]" />
-                      </span>
-                    ) : (
-                      <span className="grid place-items-center w-10 h-10 rounded-full flex-shrink-0 text-white text-xs font-bold" style={{ backgroundColor: emps[0]?.color || COLOR }}>
-                        {emps[0] ? employeeInitials(emps[0].full_name) : 'D'}
-                      </span>
-                    )}
+                  <button key={c.id} onClick={() => { setSelectedId(c.id); setMobileThread(true) }} className={cn('w-full flex items-center gap-3 p-2.5 rounded-xl text-left transition-colors mb-0.5', active ? 'bg-[#FCE7DE]' : 'hover:bg-black/[0.03]')}>
+                    <span className="grid place-items-center w-11 h-11 rounded-full flex-shrink-0 text-white text-[13px] font-bold" style={{ backgroundColor: c.type === 'group' ? COLOR : (emps[0]?.color || COLOR) }}>
+                      {c.type === 'group' ? <Users2 className="w-5 h-5" /> : (emps[0] ? employeeInitials(emps[0].full_name) : 'D')}
+                    </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{convName(c)}</p>
-                        {last && <span className="text-[11px] text-gray-400 flex-shrink-0">{relativeTime(last.created_at)}</span>}
+                        <p className={cn('text-sm font-semibold truncate', active ? 'text-[#C14E33]' : 'text-gray-900')}>{convName(c)}</p>
+                        {last && <span className="text-[10px] text-gray-400 flex-shrink-0">{relativeTime(last.created_at)}</span>}
                       </div>
-                      <p className="text-xs text-gray-400 truncate mt-0.5">{last ? last.body : 'Aucun message'}</p>
+                      <p className="text-xs text-gray-400 truncate mt-0.5">{last ? (last.audio_url ? '🎤 Message vocal' : last.body) : 'Aucun message'}</p>
                     </div>
                   </button>
                 )
               })
           )}
         </div>
-      </Card>
+      </div>
 
-      {/* Fil de discussion */}
-      <Card className="border-0 shadow-[var(--shadow-sm)] flex flex-col overflow-hidden">
+      {/* ── Fil de discussion ── */}
+      <div className={cn('flex-1 flex-col overflow-hidden rounded-2xl bg-white border border-[#EFE8DF] shadow-[var(--shadow-md)]', mobileThread ? 'flex' : 'hidden md:flex')}>
         {!selected ? (
           <div className="flex-1 grid place-items-center text-center text-gray-400 p-8">
             <div>
-              <MessageSquarePlus className="w-10 h-10 mx-auto mb-2 text-gray-300" />
+              <div className="w-14 h-14 rounded-2xl mx-auto mb-3 grid place-items-center bg-[#FCE7DE] text-[#C14E33]"><MessageSquarePlus className="w-7 h-7" /></div>
               <p className="text-sm">Choisis une conversation, ou démarre-en une nouvelle.</p>
             </div>
           </div>
         ) : (
           <>
-            <div className="p-3.5 border-b border-gray-100 flex items-center gap-2.5">
-              <span className="grid place-items-center w-8 h-8 rounded-lg flex-shrink-0" style={{ backgroundColor: `${COLOR}18`, color: COLOR }}>
-                {selected.type === 'group' ? <Users2 className="w-4 h-4" /> : <span className="text-xs font-bold">{employeeInitials(convName(selected))}</span>}
+            <div className="px-4 py-3 border-b border-[#F0EAE1] flex items-center gap-3 bg-gradient-to-r from-white to-[#FBF2EC]">
+              <button onClick={() => setMobileThread(false)} className="md:hidden grid place-items-center w-8 h-8 rounded-full hover:bg-black/5 text-gray-500 flex-shrink-0"><ArrowLeft className="w-5 h-5" /></button>
+              <span className="grid place-items-center w-10 h-10 rounded-full flex-shrink-0 text-white text-xs font-bold" style={{ backgroundColor: selected.type === 'group' ? COLOR : ((participantsByConv.get(selected.id) || [])[0]?.color || COLOR) }}>
+                {selected.type === 'group' ? <Users2 className="w-5 h-5" /> : employeeInitials(convName(selected))}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-marine truncate">{convName(selected)}</p>
-                {selected.type === 'group' && (
-                  <p className="text-xs text-gray-400 truncate">{(participantsByConv.get(selected.id) || []).map(e => e.full_name).join(', ')}</p>
-                )}
+                <p className="text-sm font-bold text-marine truncate">{convName(selected)}</p>
+                {selected.type === 'group'
+                  ? <p className="text-[11px] text-gray-400 truncate">{(participantsByConv.get(selected.id) || []).length} participants</p>
+                  : <p className="text-[11px] text-[#3F7A2E] flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-[#3F7A2E]" /> En ligne</p>}
               </div>
-              <Button size="icon-sm" variant="outline" className="flex-shrink-0" onClick={() => setScheduleOpen(true)} title="Planifier un appel">
-                <Video className="w-4 h-4" />
-              </Button>
+              <button onClick={() => setScheduleOpen(true)} title="Planifier un appel" className="grid place-items-center w-9 h-9 rounded-full bg-[#F5F1EA] hover:bg-[#EFE8DF] text-[#C14E33]"><Phone className="w-[18px] h-[18px]" /></button>
+              <button onClick={() => setScheduleOpen(true)} title="Planifier une visio" className="grid place-items-center w-9 h-9 rounded-full bg-[#F5F1EA] hover:bg-[#EFE8DF] text-[#C14E33]"><Video className="w-[18px] h-[18px]" /></button>
             </div>
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 space-y-3 bg-gray-50/40">
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-2.5 bg-[#FBF9F6]">
               {selectedMessages.length === 0 ? (
                 <p className="text-center text-sm text-gray-400 py-8">Aucun message. Écris le premier !</p>
               ) : (
@@ -380,68 +418,87 @@ export default function MessagesView({ conversations, participants, employees, i
                   const mine = isMine(m)
                   return (
                     <div key={m.id} className={cn('flex', mine ? 'justify-end' : 'justify-start')}>
-                      <div className={cn('max-w-[75%] rounded-lg px-3.5 py-2', mine ? 'bg-primary text-primary-foreground' : 'bg-white border border-gray-100 text-gray-800')}>
-                        {selected.type === 'group' && !mine && (
-                          <p className="text-[11px] font-semibold mb-0.5" style={{ color: COLOR }}>{senderLabel(m)}</p>
-                        )}
+                      <div className={cn('max-w-[78%] px-3.5 py-2 shadow-sm', mine ? 'rounded-2xl rounded-br-md bg-gradient-to-br from-[#F09A80] to-[#D05C43] text-white' : 'rounded-2xl rounded-bl-md bg-white border border-[#EFE8DF] text-gray-800')}>
+                        {selected.type === 'group' && !mine && <p className="text-[11px] font-semibold mb-0.5" style={{ color: COLOR }}>{senderLabel(m)}</p>}
                         {m.audio_url ? (
-                          <div className="flex flex-col gap-1">
-                            <audio controls src={m.audio_url} className="h-9 max-w-[220px]" />
-                            {typeof m.duration_sec === 'number' && (
-                              <span className={cn('text-[10px]', mine ? 'text-white/70' : 'text-gray-400')}>
-                                {Math.floor(m.duration_sec / 60)}:{String(m.duration_sec % 60).padStart(2, '0')}
-                              </span>
-                            )}
-                          </div>
+                          <VoiceBubble src={m.audio_url} seconds={typeof m.duration_sec === 'number' ? m.duration_sec : undefined} mine={mine} />
                         ) : (
-                          <p className="text-sm whitespace-pre-wrap break-words">{m.body}</p>
+                          <p className="text-[14px] whitespace-pre-wrap break-words leading-snug">{m.body}</p>
                         )}
-                        <p className={cn('text-[10px] mt-1', mine ? 'text-white/70' : 'text-gray-400')}>{relativeTime(m.created_at)}</p>
+                        <p className={cn('text-[10px] mt-1 text-right', mine ? 'text-white/70' : 'text-gray-400')}>{relativeTime(m.created_at)}</p>
                       </div>
                     </div>
                   )
                 })
               )}
             </div>
-            {sendError && <p className="px-3.5 pt-2 text-xs text-red-600">{sendError}</p>}
-            <div className="p-3 border-t border-gray-100 flex items-center gap-2">
+            {sendError && <p className="px-4 pt-2 text-xs text-red-600">{sendError}</p>}
+            <div className="p-3 border-t border-[#F0EAE1]">
               {recording ? (
-                <>
-                  <div className="flex-1 h-10 rounded-md border border-red-200 bg-red-50 flex items-center gap-2 px-3 text-sm text-red-600">
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-11 rounded-full border border-red-200 bg-red-50 flex items-center gap-2 px-4 text-sm text-red-600">
                     <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
                     Enregistrement... {Math.floor(recSeconds / 60)}:{String(recSeconds % 60).padStart(2, '0')}
                   </div>
-                  <Button size="icon" variant="outline" onClick={cancelRecording} title="Annuler"><Trash2 className="w-4 h-4" /></Button>
-                  <Button size="icon" onClick={stopRecording} title="Arrêter l'enregistrement"><Square className="w-4 h-4" /></Button>
-                </>
+                  <button onClick={cancelRecording} title="Annuler" className="grid place-items-center w-11 h-11 rounded-full bg-[#F5F1EA] text-gray-500 hover:bg-[#EFE8DF]"><Trash2 className="w-5 h-5" /></button>
+                  <button onClick={stopRecording} title="Arrêter" className="grid place-items-center w-11 h-11 rounded-full text-white" style={{ background: 'linear-gradient(135deg,#F09A80,#D05C43)' }}><Square className="w-5 h-5" /></button>
+                </div>
               ) : previewUrl ? (
-                <>
-                  <audio controls src={previewUrl} className="flex-1 h-10 min-w-0" />
-                  <Button size="icon" variant="outline" onClick={discardRecordedVoice} disabled={sending} title="Supprimer"><Trash2 className="w-4 h-4" /></Button>
-                  <Button size="icon" onClick={confirmSendRecordedVoice} disabled={sending} title="Envoyer le message vocal"><Send className="w-4 h-4" /></Button>
-                </>
+                <div className="flex items-center gap-2">
+                  <audio controls src={previewUrl} className="flex-1 h-11 min-w-0" />
+                  <button onClick={discardRecordedVoice} disabled={sending} title="Supprimer" className="grid place-items-center w-11 h-11 rounded-full bg-[#F5F1EA] text-gray-500 hover:bg-[#EFE8DF] disabled:opacity-50"><Trash2 className="w-5 h-5" /></button>
+                  <button onClick={confirmSendRecordedVoice} disabled={sending} title="Envoyer" className="grid place-items-center w-11 h-11 rounded-full text-white disabled:opacity-50" style={{ background: 'linear-gradient(135deg,#F09A80,#D05C43)' }}><Send className="w-5 h-5" /></button>
+                </div>
               ) : (
-                <>
-                  <Input
-                    value={draft}
-                    onChange={e => setDraft(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
-                    placeholder="Écrire un message..."
-                    className="flex-1 h-10"
-                  />
+                <div className="flex items-center gap-2 bg-[#F5F1EA] rounded-full pl-4 pr-1.5 py-1.5">
+                  <input value={draft} onChange={e => setDraft(e.target.value)} onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }} placeholder="Écris ton message..." className="flex-1 bg-transparent text-sm outline-none h-8" />
                   {draft.trim() ? (
-                    <Button size="icon" onClick={handleSend} disabled={sending}><Send className="w-4 h-4" /></Button>
+                    <button onClick={handleSend} disabled={sending} className="grid place-items-center w-9 h-9 rounded-full text-white flex-shrink-0 disabled:opacity-50" style={{ background: 'linear-gradient(135deg,#F09A80,#D05C43)' }}><Send className="w-[18px] h-[18px]" /></button>
                   ) : (
-                    <Button size="icon" variant="outline" onClick={startRecording} disabled={sending} title="Message vocal"><Mic className="w-4 h-4" /></Button>
+                    <button onClick={startRecording} disabled={sending} title="Message vocal" className="grid place-items-center w-9 h-9 rounded-full bg-white text-[#C14E33] flex-shrink-0 shadow-sm disabled:opacity-50"><Mic className="w-[18px] h-[18px]" /></button>
                   )}
-                </>
+                </div>
               )}
             </div>
           </>
         )}
-      </Card>
+      </div>
 
-      <NewConversationDialog open={newConvOpen} onOpenChange={setNewConvOpen} roster={roster} onCreated={setSelectedId} viewer={viewer} />
+      {/* ── Panneau infos (desktop large) ── */}
+      <div className="hidden xl:flex w-[300px] flex-shrink-0 flex-col overflow-hidden rounded-2xl bg-white border border-[#EFE8DF] shadow-[var(--shadow-md)]">
+        {!selected ? (
+          <div className="flex-1 grid place-items-center text-center text-gray-400 p-6"><p className="text-xs">Sélectionne une conversation pour voir les détails.</p></div>
+        ) : (
+          <div className="flex-1 overflow-y-auto p-5">
+            <div className="flex flex-col items-center text-center">
+              <span className="grid place-items-center w-20 h-20 rounded-3xl text-white text-2xl font-bold shadow-[0_12px_26px_-8px_rgba(208,92,67,.5)]" style={{ backgroundColor: selected.type === 'group' ? COLOR : ((participantsByConv.get(selected.id) || [])[0]?.color || COLOR) }}>
+                {selected.type === 'group' ? <Users2 className="w-9 h-9" /> : employeeInitials(convName(selected))}
+              </span>
+              <p className="mt-3 text-base font-bold text-marine">{convName(selected)}</p>
+              <span className="mt-1 text-[11px] px-2 py-0.5 rounded-full bg-[#F4F0E9] text-gray-500">{selected.type === 'group' ? 'Groupe' : 'Conversation directe'}</span>
+            </div>
+            <div className="mt-5 grid grid-cols-2 gap-2">
+              <button onClick={() => setScheduleOpen(true)} className="flex flex-col items-center gap-1 py-3 rounded-xl bg-[#F5F1EA] hover:bg-[#EFE8DF] text-[#C14E33] transition-colors"><Phone className="w-5 h-5" /><span className="text-[11px] font-medium">Appeler</span></button>
+              <button onClick={() => setScheduleOpen(true)} className="flex flex-col items-center gap-1 py-3 rounded-xl bg-[#F5F1EA] hover:bg-[#EFE8DF] text-[#C14E33] transition-colors"><Video className="w-5 h-5" /><span className="text-[11px] font-medium">Visio</span></button>
+            </div>
+            <div className="mt-6">
+              <h4 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">Participants</h4>
+              <div className="space-y-1.5">
+                {(participantsByConv.get(selected.id) || []).length === 0 ? (
+                  <p className="text-xs text-gray-400">Direction</p>
+                ) : (participantsByConv.get(selected.id) || []).map(e => (
+                  <div key={e.id} className="flex items-center gap-2.5">
+                    <span className="grid place-items-center w-8 h-8 rounded-full text-white text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: e.color || COLOR }}>{employeeInitials(e.full_name)}</span>
+                    <span className="text-sm text-gray-700 truncate">{e.full_name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <NewConversationDialog open={newConvOpen} onOpenChange={setNewConvOpen} roster={roster} onCreated={(id) => { setSelectedId(id); setMobileThread(true) }} viewer={viewer} />
       {selected && (
         <ScheduleCallDialog open={scheduleOpen} onOpenChange={setScheduleOpen} conversationId={selected.id} viewer={viewer} />
       )}
