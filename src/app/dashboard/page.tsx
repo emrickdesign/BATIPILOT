@@ -177,13 +177,13 @@ async function getData(userId: string) {
   const bank = bankRes.data || []
 
   const isPaid = (s: string) => s === 'payee' || s === 'payée' || s === 'paye'
-  const isOpenInv = (s: string) => s === 'envoyee' || s === 'en_retard' || s === 'payee_partiellement'
 
   // ── 1. Chiffres vitaux ──────────────────────────────────────────────
   const encaisseMois = inv.filter(i => isPaid(i.status) && inThisMonth(i.issue_date)).reduce((s, i) => s + num(i.total_ttc), 0)
   const encaisseMoisPrec = inv.filter(i => isPaid(i.status) && inLastMonth(i.issue_date)).reduce((s, i) => s + num(i.total_ttc), 0)
   const factureMois = inv.filter(i => i.status !== 'brouillon' && inThisMonth(i.issue_date)).reduce((s, i) => s + num(i.total_ttc), 0)
-  const resteAEncaisser = inv.filter(i => isOpenInv(i.status)).reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
+  // Cohérence des 3 cartes du mois : reste = facturé (envoyé) ce mois − encaissé ce mois
+  const resteAEncaisser = Math.max(factureMois - encaisseMois, 0)
   const devisEnAttente = quotes.filter(q => q.status === 'envoye').reduce((s, q) => s + num(q.total_ttc), 0)
 
   // ── 2. À traiter aujourd'hui ────────────────────────────────────────
