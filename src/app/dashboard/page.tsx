@@ -83,18 +83,20 @@ function StatPro({ label, value, icon: Icon, tone, delta, gauge, note, spark }: 
         </div>
         <div className="text-[26px] font-bold text-marine leading-none tracking-tight tabular-nums">{value}</div>
         <div className="text-[12.5px] text-gray-600 mt-1.5 font-medium">{label}</div>
-        {/* sparkline : zone dédiée sous le libellé, ne chevauche plus le texte */}
+        {/* sparkline : zone dédiée sous le libellé, qui touche les bords de la carte */}
         {sp ? (
-          <svg className="w-full h-11 mt-3 block" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden>
-            <defs>
-              <linearGradient id={uid} x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0" stopColor={t.chipB} stopOpacity="0.28" />
-                <stop offset="1" stopColor={t.chipB} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path d={sp.area} fill={`url(#${uid})`} />
-            <path d={sp.line} fill="none" stroke={t.chipB} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
+          <div className="-mx-4 -mb-4 mt-3">
+            <svg className="w-full h-14 block" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden>
+              <defs>
+                <linearGradient id={uid} x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="0" stopColor={t.chipB} stopOpacity="0.28" />
+                  <stop offset="1" stopColor={t.chipB} stopOpacity="0" />
+                </linearGradient>
+              </defs>
+              <path d={sp.area} fill={`url(#${uid})`} />
+              <path d={sp.line} fill="none" stroke={t.chipB} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </div>
         ) : note ? (
           <div className="text-[11px] text-gray-500 mt-2 leading-tight">{note}</div>
         ) : null}
@@ -246,9 +248,9 @@ async function getData(userId: string) {
     const e = new Date(d); e.setDate(d.getDate() + 1)
     return { label: d.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', ''), value: sumBetween(d, e) }
   })
-  const sMois = Array.from({ length: 6 }, (_, k) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1)
-    const e = new Date(now.getFullYear(), now.getMonth() - (5 - k) + 1, 1)
+  const sMois = Array.from({ length: 12 }, (_, k) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (11 - k), 1)
+    const e = new Date(now.getFullYear(), now.getMonth() - (11 - k) + 1, 1)
     return { label: MONTHS[d.getMonth()], value: sumBetween(d, e) }
   })
   const curQ = Math.floor(now.getMonth() / 3)
@@ -292,6 +294,21 @@ async function getData(userId: string) {
     })
   const encaisseSeries = monthSeries(i => isPaid(i.status))
   const factureSeries = monthSeries(i => i.status !== 'brouillon')
+
+  // Cashflow mensuel (6 mois) : entrées (encaissé) vs dépenses, pour les barres
+  const depensesSeries = Array.from({ length: 6 }, (_, k) => {
+    const dM = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1)
+    const inM = (d?: string | null) => {
+      if (!d) return false
+      const x = new Date(d)
+      return x.getFullYear() === dM.getFullYear() && x.getMonth() === dM.getMonth()
+    }
+    return exp.filter(e => inM(e.expense_date || e.created_at)).reduce((s, e) => s + num(e.amount_ttc), 0)
+  })
+  const cashflow = Array.from({ length: 6 }, (_, k) => {
+    const dM = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1)
+    return { label: MONTHS[dM.getMonth()], entrees: encaisseSeries[k], depenses: depensesSeries[k] }
+  })
 
   // ── 5. Équipes & terrain (aujourd'hui) ──────────────────────────────
   const heuresJour = times.filter(t => t.date === today).reduce((s, t) => s + num(t.hours), 0)
@@ -351,7 +368,7 @@ async function getData(userId: string) {
     todos,
     chantiers, chantiersActifs,
     series: { '7j': s7, mois: sMois, trimestre: sTri, annee: sAnnee },
-    devisSeries,
+    devisSeries, cashflow,
     terrain, admin, activity,
   }
 }
@@ -389,6 +406,51 @@ function DevisBars({ data }: { data: { label: string; envoyes: number; acceptes:
             <div className="w-full flex items-end justify-center gap-1 flex-1">
               <div className="w-1/2 max-w-[14px] rounded-t bg-gray-200" style={{ height: `${Math.max((d.envoyes / max) * 100, d.envoyes > 0 ? 4 : 0)}%` }} title={`${d.envoyes} envoyés`} />
               <div className="w-1/2 max-w-[14px] rounded-t bg-primary" style={{ height: `${Math.max((d.acceptes / max) * 100, d.acceptes > 0 ? 4 : 0)}%` }} title={`${d.acceptes} acceptés`} />
+            </div>
+            <span className="text-[11px] text-gray-400">{d.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function CashflowBars({ data }: { data: { label: string; entrees: number; depenses: number }[] }) {
+  const max = Math.max(...data.flatMap(d => [d.entrees, d.depenses]), 1)
+  const totalEnt = data.reduce((s, d) => s + d.entrees, 0)
+  const totalDep = data.reduce((s, d) => s + d.depenses, 0)
+  return (
+    <div>
+      <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
+        <div>
+          <p className="text-sm text-gray-500 font-medium">Entrées vs dépenses (6 mois)</p>
+          <p className="text-[22px] font-bold leading-none mt-1 tabular-nums">
+            <span className="text-[#22A45A]">{formatCurrency(totalEnt)}</span>
+            <span className="text-gray-300 font-normal mx-2">/</span>
+            <span className="text-[#DC3B2E]">{formatCurrency(totalDep)}</span>
+          </p>
+        </div>
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#22A45A]" /> Entrées</span>
+          <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-[#DC3B2E]" /> Dépenses</span>
+        </div>
+      </div>
+      <div className="flex items-end justify-between gap-2 h-40">
+        {data.map((d, i) => (
+          <div key={i} className="flex-1 flex flex-col items-center gap-2 min-w-0">
+            <div className="relative w-full flex-1">
+              {/* dépenses : barre rouge large, en arrière-plan */}
+              <div
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[60%] max-w-[34px] rounded-t-md bg-gradient-to-t from-[#DC3B2E] to-[#EF7563]"
+                style={{ height: `${Math.max((d.depenses / max) * 100, d.depenses > 0 ? 3 : 0)}%` }}
+                title={`Dépenses ${formatCurrency(d.depenses)}`}
+              />
+              {/* entrées : barre verte étroite, au premier plan */}
+              <div
+                className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[30%] max-w-[17px] rounded-t-md bg-gradient-to-t from-[#22A45A] to-[#5CCB86] shadow-[0_-2px_6px_rgba(34,164,90,.25)]"
+                style={{ height: `${Math.max((d.entrees / max) * 100, d.entrees > 0 ? 3 : 0)}%` }}
+                title={`Entrées ${formatCurrency(d.entrees)}`}
+              />
             </div>
             <span className="text-[11px] text-gray-400">{d.label}</span>
           </div>
@@ -617,13 +679,20 @@ export default async function DashboardPage() {
           <Link href="/comptable" className="text-xs font-medium text-primary hover:underline">Voir la compta</Link>
         </div>
         <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 grid grid-cols-2 gap-3 content-start">
-            <MiniStat label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tile="bg-accent text-primary" accent />
-            <MiniStat label="Tickets scannés" value={d.admin.ticketsScannesMois} icon={ReceiptText} tile="bg-[#FCE7DE] text-[#C14E33]" />
-            <MiniStat label="Tickets à valider" value={d.admin.ticketsAVerifier} icon={CheckCircle2} tile="bg-amber-100 text-amber-600" />
-            <MiniStat label="Justif. à transmettre" value={d.admin.aTransmettre} icon={FileCheck2} tile="bg-[#F3E5D6] text-[#8A4B24]" />
-            <MiniStat label="Transmis comptable" value={d.admin.transmisComptable} icon={Send} tile="bg-emerald-100 text-emerald-600" />
-            <MiniStat label="Paiements à rapprocher" value={d.admin.paiementsARapprocher} icon={BadgeEuro} tile="bg-[#FCE7DE] text-[#C14E33]" />
+          <div className="lg:col-span-2 space-y-4">
+            <div className="grid grid-cols-2 gap-3.5">
+              <Link href="/depenses" className="block">
+                <StatPro label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tone="red" spark={d.cashflow.map(c => c.depenses)} />
+              </Link>
+              <Link href="/banque" className="block">
+                <StatPro label="Entrées du mois" value={formatCurrency(d.fin.encaisseMois)} icon={BadgeEuro} tone="green" spark={d.cashflow.map(c => c.entrees)} />
+              </Link>
+            </div>
+            <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
+              <CardContent className="p-5">
+                <CashflowBars data={d.cashflow} />
+              </CardContent>
+            </Card>
           </div>
           <div className="lg:col-span-1">
             <DonutMetricCard
