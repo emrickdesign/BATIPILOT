@@ -3,10 +3,12 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, FileText, HardHat, ArrowRight } from 'lucide-react'
+import { Plus, FileText, HardHat, ArrowRight, Clock, CheckCircle2, Percent } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
+import StatCard from '@/components/charts/StatCard'
 
+const num = (v: unknown) => Number(v) || 0
 const DAY = 86_400_000
 const daysSince = (d?: string | null) => (d ? Math.floor((Date.now() - new Date(d).getTime()) / DAY) : 0)
 
@@ -17,10 +19,10 @@ const statusLabels: Record<Disp, string> = {
   accepte: 'Accepté', refuse: 'Refusé', expire: 'Expiré', transforme: 'Facturé',
 }
 const statusColors: Record<Disp, string> = {
-  brouillon: 'bg-gray-100 text-gray-700', pret: 'bg-blue-100 text-blue-700',
-  envoye: 'bg-yellow-100 text-yellow-700', relance: 'bg-orange-100 text-orange-700',
-  accepte: 'bg-green-100 text-green-700', refuse: 'bg-red-100 text-red-700',
-  expire: 'bg-red-50 text-red-500', transforme: 'bg-purple-100 text-purple-700',
+  brouillon: 'bg-gray-100 text-gray-500', pret: 'bg-[#FCE7DE] text-[#C14E33]',
+  envoye: 'bg-[#FBEED6] text-[#8A5A08]', relance: 'bg-[#FBEED6] text-[#8A5A08]',
+  accepte: 'bg-[#E9F2DB] text-[#3F7A2E]', refuse: 'bg-[#FBE0DA] text-[#C0392B]',
+  expire: 'bg-[#FBE0DA] text-[#C0392B]', transforme: 'bg-[#F3E5D6] text-[#8A4B24]',
 }
 
 // Onglets de filtre (doc §7.1)
@@ -87,6 +89,15 @@ export default async function DevisPage({ searchParams }: { searchParams: Promis
   const countFor = (key: string) => all.filter(q => matchesFilter(displayStatus(q), key)).length
   const list = all.filter(q => matchesFilter(displayStatus(q), filter))
 
+  // KPI
+  const isSigned = (s: string) => s === 'accepte' || s === 'transforme'
+  const montantDevise = all.filter(q => q.status !== 'brouillon').reduce((s, q) => s + num(q.total_ttc), 0)
+  const montantEnAttente = all.filter(q => q.status === 'envoye').reduce((s, q) => s + num(q.total_ttc), 0)
+  const montantSigne = all.filter(q => isSigned(q.status)).reduce((s, q) => s + num(q.total_ttc), 0)
+  const nbSignes = all.filter(q => isSigned(q.status)).length
+  const nbRefus = all.filter(q => q.status === 'refuse').length
+  const taux = (nbSignes + nbRefus) > 0 ? Math.round((nbSignes / (nbSignes + nbRefus)) * 100) : 0
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -94,6 +105,13 @@ export default async function DevisPage({ searchParams }: { searchParams: Promis
         <Link href="/devis/nouveau">
           <Button className="h-10 gap-2"><Plus className="w-4 h-4" /> Créer un devis</Button>
         </Link>
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard label="Montant devisé" value={formatCurrency(montantDevise)} icon={FileText} tone="coral" note="hors brouillons" />
+        <StatCard label="En attente" value={formatCurrency(montantEnAttente)} icon={Clock} tone="amber" note="devis envoyés" />
+        <StatCard label="Signés" value={formatCurrency(montantSigne)} icon={CheckCircle2} tone="green" note={`${nbSignes} devis`} />
+        <StatCard label="Taux d'acceptation" value={`${taux} %`} icon={Percent} tone="terre" gauge={taux} />
       </div>
 
       {/* Filtres (§7.1) */}

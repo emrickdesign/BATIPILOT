@@ -3,9 +3,10 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Plus, User, Building2, Phone, Mail, MapPin, HardHat } from 'lucide-react'
+import { Plus, User, Building2, Phone, Mail, MapPin, HardHat, Users2, Banknote, Coins } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { clientDisplayName, clientStatusLabels, clientStatusColors } from '@/lib/clients'
+import StatCard from '@/components/charts/StatCard'
 import type { Client, ClientStatus } from '@/types'
 
 const num = (v: unknown) => Number(v) || 0
@@ -67,6 +68,10 @@ export default async function ClientsPage() {
     if (isOpen(i.status)) resteAEncaisser.set(i.client_id, (resteAEncaisser.get(i.client_id) || 0) + (num(i.amount_due) || num(i.total_ttc)))
   }
 
+  const caTotal = [...totalFacture.values()].reduce((s, v) => s + v, 0)
+  const resteTotal = [...resteAEncaisser.values()].reduce((s, v) => s + v, 0)
+  const chantiersTotal = [...nbChantiers.values()].reduce((s, v) => s + v, 0)
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
@@ -80,6 +85,15 @@ export default async function ClientsPage() {
           <Button className="h-10 gap-2 shadow-sm"><Plus className="w-4 h-4" /> Ajouter un client</Button>
         </Link>
       </div>
+
+      {list.length > 0 && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          <StatCard label="Clients" value={String(list.length)} icon={Users2} tone="coral" note="clients actifs" />
+          <StatCard label="Total facturé" value={formatCurrency(caTotal)} icon={Banknote} tone="green" />
+          <StatCard label="Reste à encaisser" value={formatCurrency(resteTotal)} icon={Coins} tone="amber" />
+          <StatCard label="Chantiers" value={String(chantiersTotal)} icon={HardHat} tone="terre" note="tous clients" />
+        </div>
+      )}
 
       {!list.length ? (
         <Card>

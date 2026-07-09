@@ -6,8 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, Receipt, Send, Coins, AlertTriangle, Banknote, HardHat } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
-import ColoredStatCard from '@/components/ui/colored-stat-card'
-import { statColors } from '@/lib/statColors'
+import StatCard, { type StatTone } from '@/components/charts/StatCard'
 
 const num = (v: unknown) => Number(v) || 0
 const today = new Date().toISOString().split('T')[0]
@@ -19,9 +18,9 @@ const statusLabels: Record<Disp, string> = {
   payee: 'Payée', en_retard: 'En retard', annulee: 'Annulée',
 }
 const statusColors: Record<Disp, string> = {
-  brouillon: 'bg-gray-100 text-gray-700', envoyee: 'bg-blue-100 text-blue-700',
-  payee_partiellement: 'bg-yellow-100 text-yellow-700', payee: 'bg-green-100 text-green-700',
-  en_retard: 'bg-red-100 text-red-700', annulee: 'bg-gray-100 text-gray-400',
+  brouillon: 'bg-gray-100 text-gray-500', envoyee: 'bg-[#FCE7DE] text-[#C14E33]',
+  payee_partiellement: 'bg-[#FBEED6] text-[#8A5A08]', payee: 'bg-[#E9F2DB] text-[#3F7A2E]',
+  en_retard: 'bg-[#FBE0DA] text-[#C0392B]', annulee: 'bg-gray-100 text-gray-400',
 }
 
 const FILTERS: { key: string; label: string }[] = [
@@ -70,11 +69,11 @@ export default async function FacturesPage({ searchParams }: { searchParams: Pro
 
   // Logique couleur (cf src/lib/statColors.ts) : bleu = information neutre, vert = déjà encaissé,
   // orange = reste à obtenir, rouge = urgent/en retard.
-  const cards = [
-    { label: 'Factures envoyées', value: formatCurrency(factEnvoyees), icon: Send, color: statColors.info },
-    { label: 'Encaissé', value: formatCurrency(encaisse), icon: Banknote, color: statColors.success },
-    { label: 'Reste à encaisser', value: formatCurrency(reste), icon: Coins, color: statColors.warning },
-    { label: 'En retard', value: formatCurrency(retardMontant), icon: AlertTriangle, color: statColors.danger, sub: `${enRetard.length} facture${enRetard.length > 1 ? 's' : ''}` },
+  const cards: { label: string; value: string; icon: typeof Send; tone: StatTone; note?: string }[] = [
+    { label: 'Factures envoyées', value: formatCurrency(factEnvoyees), icon: Send, tone: 'coral' },
+    { label: 'Encaissé', value: formatCurrency(encaisse), icon: Banknote, tone: 'green' },
+    { label: 'Reste à encaisser', value: formatCurrency(reste), icon: Coins, tone: 'amber' },
+    { label: 'En retard', value: formatCurrency(retardMontant), icon: AlertTriangle, tone: 'red', note: `${enRetard.length} facture${enRetard.length > 1 ? 's' : ''}` },
   ]
 
   const countFor = (key: string) => all.filter(i => matchesFilter(displayStatus(i), key)).length
@@ -92,7 +91,7 @@ export default async function FacturesPage({ searchParams }: { searchParams: Pro
       {/* Cartes (§8.2) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {cards.map(c => (
-          <ColoredStatCard key={c.label} label={c.label} value={c.value} color={c.color} icon={c.icon} subText={c.sub} />
+          <StatCard key={c.label} label={c.label} value={c.value} icon={c.icon} tone={c.tone} note={c.note} />
         ))}
       </div>
 
@@ -144,7 +143,7 @@ export default async function FacturesPage({ searchParams }: { searchParams: Pro
                         <p className="font-semibold text-gray-900 mt-1 truncate">{clientName}</p>
                         <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400 flex-wrap">
                           <span>{formatDate(inv.issue_date)}</span>
-                          {inv.due_date && <span className={overdue ? 'text-rose-600 font-medium' : ''}>Échéance {formatDate(inv.due_date)}</span>}
+                          {inv.due_date && <span className={overdue ? 'text-[#C0392B] font-medium' : ''}>Échéance {formatDate(inv.due_date)}</span>}
                           {chantier && <span className="flex items-center gap-1"><HardHat className="w-3 h-3" />{chantier}</span>}
                         </div>
                       </div>

@@ -9,7 +9,7 @@ import { clientDisplayName } from '@/lib/clients'
 import ClientStatusSelect from './ClientStatusSelect'
 import { formatCurrency } from '@/lib/utils'
 
-const PIPELINE_BLUE = '#1D4ED8'
+const PIPELINE_BLUE = '#D0562F'
 
 const num = (v: unknown) => Number(v) || 0
 
@@ -19,11 +19,11 @@ const BOARD_STATUSES: ClientStatus[] = ['nouveau', 'infos_a_recuperer', 'devis_a
 // Colonnes du Kanban (doc §5.2) — la carte/colonne "Infos à récupérer" est supprimée,
 // "Accepté" est un état de transition (Prospect → Client → Chantier à planifier).
 const COLUMNS: { key: ClientStatus; label: string; extra?: ClientStatus[]; dot: string }[] = [
-  { key: 'nouveau', label: 'Nouveau', extra: ['infos_a_recuperer'], dot: '#94A3B8' },
-  { key: 'devis_a_faire', label: 'Devis à faire', dot: '#EAB308' },
-  { key: 'devis_envoye', label: 'Devis envoyé', dot: '#3B82F6' },
-  { key: 'devis_accepte', label: 'Accepté', dot: '#22C55E' },
-  { key: 'devis_refuse', label: 'Refusé', dot: '#F43F5E' },
+  { key: 'nouveau', label: 'Nouveau', extra: ['infos_a_recuperer'], dot: '#94918A' },
+  { key: 'devis_a_faire', label: 'Devis à faire', dot: '#C77D0E' },
+  { key: 'devis_envoye', label: 'Devis envoyé', dot: '#E0674C' },
+  { key: 'devis_accepte', label: 'Accepté', dot: '#3F7A2E' },
+  { key: 'devis_refuse', label: 'Refusé', dot: '#C0392B' },
 ]
 
 function waLink(phone?: string | null) {
@@ -72,8 +72,8 @@ function ProspectCard({ p, pot, dot }: { p: Client; pot: number; dot: string }) 
 
         <div className="mt-3 flex items-center justify-between gap-2 min-h-[22px]">
           {pot > 0 ? (
-            <span className="inline-flex items-center text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-md px-2 py-1">
-              {formatCurrency(pot)}<span className="font-normal text-emerald-600/70 ml-1">potentiel</span>
+            <span className="inline-flex items-center text-xs font-semibold text-[#3F7A2E] bg-[#E9F2DB] rounded-md px-2 py-1">
+              {formatCurrency(pot)}<span className="font-normal text-[#3F7A2E]/70 ml-1">potentiel</span>
             </span>
           ) : <span />}
           <span className="flex items-center gap-1 text-[11px] text-gray-400 flex-shrink-0">

@@ -17,17 +17,17 @@ export const clientStatusLabels: Record<ClientStatus, string> = {
 }
 
 export const clientStatusColors: Record<ClientStatus, string> = {
-  nouveau: 'bg-gray-100 text-gray-700',
-  infos_a_recuperer: 'bg-cyan-100 text-cyan-700',
-  devis_a_faire: 'bg-yellow-100 text-yellow-700',
-  devis_envoye: 'bg-blue-100 text-blue-700',
-  devis_accepte: 'bg-green-100 text-green-700',
-  devis_refuse: 'bg-rose-100 text-rose-700',
-  chantier_a_planifier: 'bg-amber-100 text-amber-700',
-  chantier_en_cours: 'bg-orange-100 text-orange-700',
-  facture_a_envoyer: 'bg-purple-100 text-purple-700',
-  facture_envoyee: 'bg-violet-100 text-violet-700',
-  paye: 'bg-green-100 text-green-800',
+  nouveau: 'bg-gray-100 text-gray-500',
+  infos_a_recuperer: 'bg-[#FBEED6] text-[#8A5A08]',
+  devis_a_faire: 'bg-[#FBEED6] text-[#8A5A08]',
+  devis_envoye: 'bg-[#FCE7DE] text-[#C14E33]',
+  devis_accepte: 'bg-[#E9F2DB] text-[#3F7A2E]',
+  devis_refuse: 'bg-[#FBE0DA] text-[#C0392B]',
+  chantier_a_planifier: 'bg-[#FBEED6] text-[#8A5A08]',
+  chantier_en_cours: 'bg-[#FCE7DE] text-[#C14E33]',
+  facture_a_envoyer: 'bg-[#F3E5D6] text-[#8A4B24]',
+  facture_envoyee: 'bg-[#F3E5D6] text-[#8A4B24]',
+  paye: 'bg-[#E9F2DB] text-[#3F7A2E]',
   termine: 'bg-gray-100 text-gray-500',
   archive: 'bg-gray-100 text-gray-400',
 }
