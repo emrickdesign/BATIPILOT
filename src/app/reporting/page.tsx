@@ -6,12 +6,16 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import StatCard, { type StatTone } from '@/components/charts/StatCard'
+import DonutMetricCard from '@/components/charts/DonutMetricCard'
 import { formatCurrency } from '@/lib/utils'
 import { projectStatusLabels } from '@/lib/chantiers'
 import { prospectStatuses, clientDisplayName } from '@/lib/clients'
 import type { ProjectStatus, ClientStatus } from '@/types'
 
-const BRAND = '#FF6A00'
+const BRAND = '#E0674C'
+const RCOLORS = ['#D05C43', '#C77D0E', '#8A4B24', '#3F7A2E', '#2F7DE0', '#0E9F8E', '#B8860B', '#94918A']
+const kEur = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1).replace('.', ',')} k€` : `${Math.round(v)} €`)
 const MONTHS = ['Janv', 'Févr', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc']
 const CLOSED: ProjectStatus[] = ['termine', 'facture', 'paye', 'archive']
 const num = (v: unknown) => Number(v) || 0
@@ -215,19 +219,8 @@ async function getData(userId: string, periode: Periode) {
   }
 }
 
-function Kpi({ label, value, icon: Icon, tile, sub }: { label: string; value: string; icon: LucideIcon; tile: string; sub?: string }) {
-  return (
-    <Card className="border border-gray-200/80 bg-white h-full">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-500 font-medium">{label}</span>
-          <span className={`grid place-items-center w-8 h-8 rounded-lg ${tile}`}><Icon className="w-4 h-4" /></span>
-        </div>
-        <div className="text-[22px] font-bold text-marine mt-2 leading-none">{value}</div>
-        {sub && <div className="text-xs text-gray-400 mt-1">{sub}</div>}
-      </CardContent>
-    </Card>
-  )
+function Kpi({ label, value, icon, tone, note }: { label: string; value: string; icon: LucideIcon; tone: StatTone; note?: string }) {
+  return <StatCard label={label} value={value} icon={icon} tone={tone} note={note} />
 }
 
 function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
@@ -334,7 +327,7 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
           <h1 className="text-2xl md:text-[28px] font-heading font-bold text-marine">Reporting dirigeant</h1>
           <p className="text-gray-500 mt-1 text-sm">Comment évolue l&apos;entreprise — financier, commercial, chantiers, équipe, prévision.</p>
         </div>
-        <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100">
+        <div className="flex items-center gap-1 p-1 rounded-xl bg-[#F4F0E9]">
           {PERIODES.map(p => (
             <Link
               key={p.key}
@@ -352,11 +345,11 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
       {/* §4.1 Financière */}
       <Section title="Vue financière">
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-          <Kpi label="Encaissé" value={fmtEur(d.fin.encaisse)} icon={Banknote} tile="bg-emerald-100 text-emerald-600" />
-          <Kpi label="Facturé" value={fmtEur(d.fin.facture)} icon={Send} tile="bg-blue-100 text-blue-600" sub="hors brouillons" />
-          <Kpi label="Reste à encaisser" value={fmtEur(d.fin.resteAEncaisser)} icon={Coins} tile="bg-amber-100 text-amber-600" sub="toutes périodes" />
-          <Kpi label="Dépenses" value={fmtEur(d.fin.depensesTotal)} icon={Wallet} tile="bg-rose-100 text-rose-600" />
-          <Kpi label="Marge estimée" value={fmtEur(d.fin.margeGlobale)} icon={TrendingUp} tile="bg-accent text-primary" sub={`sur ${fmtEur(d.fin.revGlobal)} signés`} />
+          <Kpi label="Encaissé" value={fmtEur(d.fin.encaisse)} icon={Banknote} tone="green" />
+          <Kpi label="Facturé" value={fmtEur(d.fin.facture)} icon={Send} tone="blue" note="hors brouillons" />
+          <Kpi label="Reste à encaisser" value={fmtEur(d.fin.resteAEncaisser)} icon={Coins} tone="amber" note="toutes périodes" />
+          <Kpi label="Dépenses" value={fmtEur(d.fin.depensesTotal)} icon={Wallet} tone="red" />
+          <Kpi label="Marge estimée" value={fmtEur(d.fin.margeGlobale)} icon={TrendingUp} tone="coral" note={`sur ${fmtEur(d.fin.revGlobal)} signés`} />
         </div>
         <div className="grid lg:grid-cols-2 gap-4 mt-4">
           <Card className="border border-gray-200/80 bg-white">
@@ -366,28 +359,38 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
               <PairBars data={d.fin.finMensuel} aLabel="Facturé" bLabel="Encaissé" />
             </CardContent>
           </Card>
-          <Panel title="Dépenses par catégorie">
-            {d.fin.depCats.length === 0 ? <Empty>Aucune dépense sur la période.</Empty> : <HBars data={d.fin.depCats} fmt={fmtEur} color="#F43F5E" />}
-          </Panel>
+          <DonutMetricCard
+            title="Dépenses par catégorie"
+            subtitle="Sur la période"
+            total={fmtEur(d.fin.depensesTotal)}
+            segments={d.fin.depCats.map((c, i) => ({ label: c.label, value: c.value, color: RCOLORS[i % RCOLORS.length] }))}
+            format={kEur}
+            emptyMessage="Aucune dépense sur la période."
+          />
         </div>
-        <div className="mt-4">
-          <Panel title="Reste à encaisser par client">
-            {d.fin.resteClients.length === 0 ? <Empty>Aucune facture en attente de paiement. 🎉</Empty> : <HBars data={d.fin.resteClients} fmt={fmtEur} color="#F59E0B" />}
-          </Panel>
+        <div className="grid lg:grid-cols-2 gap-4 mt-4">
+          <DonutMetricCard
+            title="Reste à encaisser par client"
+            subtitle="Factures en attente de paiement"
+            total={fmtEur(d.fin.resteAEncaisser)}
+            segments={d.fin.resteClients.map((c, i) => ({ label: c.label, value: c.value, color: RCOLORS[i % RCOLORS.length] }))}
+            format={kEur}
+            emptyMessage="Aucune facture en attente. 🎉"
+          />
         </div>
       </Section>
 
       {/* §4.2 Commerciale */}
       <Section title="Vue commerciale">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Kpi label="Prospects" value={String(d.com.prospectsActuels)} icon={UserPlus} tile="bg-blue-100 text-blue-600" sub={`${d.com.nouveauxProspects} nouveau${d.com.nouveauxProspects > 1 ? 'x' : ''} sur la période`} />
-          <Kpi label="Devis créés" value={String(d.com.devisCrees)} icon={FileText} tile="bg-violet-100 text-violet-600" sub={`${d.com.devisEnvoyes} envoyés`} />
-          <Kpi label="Devis acceptés" value={String(d.com.devisAcceptes)} icon={CheckCircle2} tile="bg-emerald-100 text-emerald-600" sub={`${d.com.devisRefuses} refusé${d.com.devisRefuses > 1 ? 's' : ''}`} />
-          <Kpi label="Taux d'acceptation" value={`${d.com.tauxAccept} %`} icon={Percent} tile="bg-accent text-primary" sub={`${d.com.devisEnAttente} en attente`} />
-          <Kpi label="Montant devisé" value={fmtEur(d.com.montantDevise)} icon={Target} tile="bg-blue-100 text-blue-600" sub="TTC, hors brouillons" />
-          <Kpi label="Montant signé" value={fmtEur(d.com.montantSigne)} icon={CheckCircle2} tile="bg-emerald-100 text-emerald-600" />
-          <Kpi label="Devis moyen" value={fmtEur(d.com.montantMoyenDevis)} icon={FileText} tile="bg-violet-100 text-violet-600" sub="par devis envoyé" />
-          <Kpi label="Relances effectuées" value={String(d.com.relancesEffectuees)} icon={BellRing} tile="bg-amber-100 text-amber-600" />
+          <Kpi label="Prospects" value={String(d.com.prospectsActuels)} icon={UserPlus} tone="blue" note={`${d.com.nouveauxProspects} nouveau${d.com.nouveauxProspects > 1 ? 'x' : ''} sur la période`} />
+          <Kpi label="Devis créés" value={String(d.com.devisCrees)} icon={FileText} tone="terre" note={`${d.com.devisEnvoyes} envoyés`} />
+          <Kpi label="Devis acceptés" value={String(d.com.devisAcceptes)} icon={CheckCircle2} tone="green" note={`${d.com.devisRefuses} refusé${d.com.devisRefuses > 1 ? 's' : ''}`} />
+          <Kpi label="Taux d'acceptation" value={`${d.com.tauxAccept} %`} icon={Percent} tone="coral" note={`${d.com.devisEnAttente} en attente`} />
+          <Kpi label="Montant devisé" value={fmtEur(d.com.montantDevise)} icon={Target} tone="blue" note="TTC, hors brouillons" />
+          <Kpi label="Montant signé" value={fmtEur(d.com.montantSigne)} icon={CheckCircle2} tone="green" />
+          <Kpi label="Devis moyen" value={fmtEur(d.com.montantMoyenDevis)} icon={FileText} tone="terre" note="par devis envoyé" />
+          <Kpi label="Relances effectuées" value={String(d.com.relancesEffectuees)} icon={BellRing} tone="amber" />
         </div>
         <div className="mt-4">
           <Card className="border border-gray-200/80 bg-white">
@@ -406,12 +409,12 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="space-y-3">
             <div className="grid grid-cols-3 gap-3">
-              <Kpi label="En cours" value={String(d.cha.chantiersEnCours)} icon={HardHat} tile="bg-accent text-primary" />
-              <Kpi label="Terminés" value={String(d.cha.chantiersTermines)} icon={CheckCircle2} tile="bg-emerald-100 text-emerald-600" />
-              <Kpi label="En retard" value={String(d.cha.chantiersEnRetard)} icon={XCircle} tile="bg-rose-100 text-rose-600" />
+              <Kpi label="En cours" value={String(d.cha.chantiersEnCours)} icon={HardHat} tone="coral" />
+              <Kpi label="Terminés" value={String(d.cha.chantiersTermines)} icon={CheckCircle2} tone="green" />
+              <Kpi label="En retard" value={String(d.cha.chantiersEnRetard)} icon={XCircle} tone="red" />
             </div>
             <Panel title="Heures par chantier">
-              {d.cha.heuresParChantier.length === 0 ? <Empty>Aucune heure rattachée à un chantier.</Empty> : <HBars data={d.cha.heuresParChantier} fmt={fmtH} color="#3B82F6" />}
+              {d.cha.heuresParChantier.length === 0 ? <Empty>Aucune heure rattachée à un chantier.</Empty> : <HBars data={d.cha.heuresParChantier} fmt={fmtH} color="#2F7DE0" />}
             </Panel>
           </div>
 
@@ -456,33 +459,27 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
       <Section title="Vue équipe" hint="Outil d'organisation, pas de surveillance">
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="grid grid-cols-1 gap-3">
-            <Kpi label="Heures déclarées" value={fmtH(d.equ.heuresDeclarees)} icon={Clock} tile="bg-blue-100 text-blue-600" sub={`${d.equ.heuresValidees} h validées`} />
-            <Kpi label="Masse salariale" value={fmtEur(d.equ.masseSalariale)} icon={Wallet} tile="bg-accent text-primary" sub="coût main-d'œuvre déclaré" />
+            <Kpi label="Heures déclarées" value={fmtH(d.equ.heuresDeclarees)} icon={Clock} tone="blue" note={`${d.equ.heuresValidees} h validées`} />
+            <Kpi label="Masse salariale" value={fmtEur(d.equ.masseSalariale)} icon={Wallet} tone="coral" note="coût main-d'œuvre déclaré" />
           </div>
-          <Panel title="Heures par salarié">
-            {d.equ.repartition.length === 0 ? <Empty>Aucune heure déclarée sur la période.</Empty> : (
-              <div className="space-y-2.5">
-                {d.equ.repartition.map((r, i) => {
-                  const maxH = Math.max(...d.equ.repartition.map(x => x.hours), 1)
-                  return (
-                    <div key={i} className="flex items-center gap-3">
-                      <span className="text-sm text-gray-700 w-32 truncate flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
-                        {r.name}
-                      </span>
-                      <div className="flex-1 h-2.5 rounded-full bg-gray-100 overflow-hidden">
-                        <div className="h-full rounded-full" style={{ width: `${(r.hours / maxH) * 100}%`, backgroundColor: r.color }} />
-                      </div>
-                      <span className="text-sm font-semibold text-marine tabular-nums w-14 text-right">{r.hours} h</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </Panel>
-          <Panel title="Temps par type de chantier">
-            {d.equ.tempsParType.length === 0 ? <Empty>Aucune heure déclarée.</Empty> : <HBars data={d.equ.tempsParType} fmt={fmtH} color="#8B5CF6" />}
-          </Panel>
+          <DonutMetricCard
+            title="Heures par salarié"
+            subtitle="Sur la période"
+            total={`${d.equ.heuresDeclarees} h`}
+            centerLabel="Heures"
+            segments={d.equ.repartition.map((r, i) => ({ label: r.name, value: r.hours, color: r.color || RCOLORS[i % RCOLORS.length] }))}
+            format={v => `${v} h`}
+            emptyMessage="Aucune heure déclarée sur la période."
+          />
+          <DonutMetricCard
+            title="Temps par type de chantier"
+            subtitle="Sur la période"
+            total={`${d.equ.heuresDeclarees} h`}
+            centerLabel="Heures"
+            segments={d.equ.tempsParType.map((c, i) => ({ label: c.label, value: c.value, color: RCOLORS[i % RCOLORS.length] }))}
+            format={v => `${v} h`}
+            emptyMessage="Aucune heure déclarée."
+          />
         </div>
         <p className="text-[11px] text-gray-400 mt-2">Absences et pointages manquants : suivi non disponible (pas encore de gestion des absences).</p>
       </Section>
@@ -490,10 +487,10 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
       {/* §4.5 Prévision */}
       <Section title="Vue prévision" hint="Ce qui arrive">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <Kpi label="Acceptés non facturés" value={String(d.prev.nbSignesNonFactures)} icon={FileText} tile="bg-amber-100 text-amber-600" sub={fmtEur(d.prev.montantSignesNonFactures)} />
-          <Kpi label="Chantiers à venir" value={String(d.prev.chantiersAVenir)} icon={CalendarClock} tile="bg-blue-100 text-blue-600" />
-          <Kpi label="Encaissements prévus" value={fmtEur(d.prev.encaissementsPrevus)} icon={Banknote} tile="bg-emerald-100 text-emerald-600" sub="reste dû + signés à facturer" />
-          <Kpi label="Capacité équipe / sem." value={`${d.prev.capacite} j`} icon={Users2} tile="bg-violet-100 text-violet-600" sub="jours-homme dispo" />
+          <Kpi label="Acceptés non facturés" value={String(d.prev.nbSignesNonFactures)} icon={FileText} tone="amber" note={fmtEur(d.prev.montantSignesNonFactures)} />
+          <Kpi label="Chantiers à venir" value={String(d.prev.chantiersAVenir)} icon={CalendarClock} tone="blue" />
+          <Kpi label="Encaissements prévus" value={fmtEur(d.prev.encaissementsPrevus)} icon={Banknote} tone="green" note="reste dû + signés à facturer" />
+          <Kpi label="Capacité équipe / sem." value={`${d.prev.capacite} j`} icon={Users2} tone="terre" note="jours-homme dispo" />
         </div>
         <div className="grid lg:grid-cols-2 gap-4 mt-4">
           <Panel title="Charge des 4 prochaines semaines">
@@ -501,7 +498,7 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
               <div className="space-y-2.5">
                 {d.prev.charge.map((w, i) => {
                   const ratio = Math.min(w.jours / Math.max(d.prev.capacite, 1), 1.2)
-                  const col = w.etat === 'surcharge' ? '#F43F5E' : w.etat === 'creuse' ? '#F59E0B' : '#10B981'
+                  const col = w.etat === 'surcharge' ? '#DC3B2E' : w.etat === 'creuse' ? '#C77D0E' : '#3F7A2E'
                   const tag = w.etat === 'surcharge' ? 'Surcharge' : w.etat === 'creuse' ? 'Creux' : 'OK'
                   return (
                     <div key={i} className="flex items-center gap-3">
@@ -522,7 +519,7 @@ export default async function ReportingPage({ searchParams }: { searchParams: Pr
                 {d.prev.listChantiersAVenir.map(c => (
                   <Link key={c.id} href={`/chantiers/${c.id}`}>
                     <div className="flex items-center gap-3 py-2 hover:bg-gray-50 rounded-xl px-2 -mx-2 transition-colors">
-                      <span className="grid place-items-center w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex-shrink-0"><HardHat className="w-4 h-4" /></span>
+                      <span className="grid place-items-center w-8 h-8 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><HardHat className="w-4 h-4" /></span>
                       <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{c.title}</span>
                       <span className="text-xs text-gray-400 flex-shrink-0">
                         {c.start_date ? new Date(c.start_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : projectStatusLabels[c.status as ProjectStatus]}
