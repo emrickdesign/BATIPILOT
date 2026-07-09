@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
@@ -156,8 +157,8 @@ async function getData(userId: string) {
     return x.getFullYear() === lastMonth.getFullYear() && x.getMonth() === lastMonth.getMonth()
   }
 
-  const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes] = await Promise.all([
-    supabase.from('quotes').select('id, quote_number, status, total_ttc, issue_date, reminded_at, created_at').eq('user_id', userId),
+  const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes, absRes] = await Promise.all([
+    supabase.from('quotes').select('id, quote_number, status, total_ttc, issue_date, reminded_at, client_id, created_at').eq('user_id', userId),
     supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due, issue_date, due_date, client_id, created_at').eq('user_id', userId),
     supabase.from('projects').select('id, title, status, end_date, progress, created_at').eq('user_id', userId).neq('status', 'archive'),
     supabase.from('expenses').select('amount_ttc, status, source, category, expense_date, created_at').eq('user_id', userId),
@@ -169,7 +170,8 @@ async function getData(userId: string) {
     supabase.from('bank_transactions').select('id, amount, status').eq('user_id', userId),
     supabase.from('vehicles').select('id').eq('user_id', userId).eq('active', true),
     supabase.from('vehicle_logs').select('project_id, date, hours_present').eq('user_id', userId),
-    supabase.from('clients').select('id, first_name, last_name, company_name, created_at').eq('user_id', userId),
+    supabase.from('clients').select('id, first_name, last_name, company_name, type, status, request_type, created_at').eq('user_id', userId),
+    supabase.from('absences').select('id, employee_id, start_date, end_date, type, reason, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
   ])
 
   const quotes = quotesRes.data || []
@@ -388,14 +390,32 @@ async function getData(userId: string) {
     parClientEntrees,
   }
 
-  // ── 7. Activité récente ─────────────────────────────────────────────
+  // ── 7. Derniers éléments (plusieurs flux) ───────────────────────────
   const cl = clientsRes.data || []
-  const activity = [
-    ...quotes.map(x => ({ type: 'devis', label: `Devis ${x.quote_number}`, amount: num(x.total_ttc), date: x.created_at })),
-    ...inv.map(x => ({ type: 'facture', label: `Facture ${x.invoice_number}`, amount: num(x.total_ttc), date: x.created_at })),
-    ...cl.map(x => ({ type: 'client', label: `Client ${x.company_name || `${x.first_name || ''} ${x.last_name || ''}`.trim()}`, amount: 0, date: x.created_at })),
-    ...pr.map(x => ({ type: 'chantier', label: `Chantier ${x.title}`, amount: 0, date: x.created_at })),
-  ].filter(a => a.date).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 6)
+  const clientById = new Map(cl.map(c => [c.id, c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Client']))
+  const empById = new Map((empRes.data || []).map(e => [e.id, e.full_name]))
+  const byDateDesc = <T extends { created_at?: string | null }>(a: T, b: T) =>
+    new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+
+  const feeds = {
+    factures: [...inv].sort(byDateDesc).slice(0, 5).map(x => ({
+      id: x.id, title: x.invoice_number, sub: clientById.get(x.client_id) || '—',
+      amount: num(x.total_ttc), status: x.status || '', date: x.created_at,
+    })),
+    devis: [...quotes].sort(byDateDesc).slice(0, 5).map(x => ({
+      id: x.id, title: x.quote_number, sub: clientById.get(x.client_id) || '—',
+      amount: num(x.total_ttc), status: x.status || '', date: x.created_at,
+    })),
+    demandes: [...cl].sort(byDateDesc).slice(0, 5).map(x => ({
+      id: x.id, title: x.company_name || `${x.first_name || ''} ${x.last_name || ''}`.trim() || 'Client',
+      sub: x.request_type || (x.type === 'professionnel' ? 'Professionnel' : 'Particulier'),
+      status: x.status || 'nouveau', date: x.created_at,
+    })),
+    absences: (absRes.data || []).map(x => ({
+      id: x.id, title: empById.get(x.employee_id) || 'Salarié', status: x.type || '',
+      start: x.start_date, end: x.end_date, date: x.created_at,
+    })),
+  }
 
   return {
     fin: { encaisseMois, encaisseMoisPrec, factureMois, resteAEncaisser, devisEnAttente },
@@ -404,7 +424,7 @@ async function getData(userId: string) {
     chantiers, chantiersActifs,
     series: { '7j': s7, mois: sMois, trimestre: sTri, annee: sAnnee },
     devisSeries, cashflow,
-    terrain, admin, activity,
+    terrain, admin, feeds,
   }
 }
 
@@ -496,8 +516,52 @@ function CashflowBars({ data }: { data: { label: string; entrees: number; depens
   )
 }
 
-const actIcon: Record<string, LucideIcon> = { devis: FileText, facture: Receipt, client: Users, chantier: HardHat }
-const actTile: Record<string, string> = { devis: 'bg-accent text-primary', facture: 'bg-[#F3E5D6] text-[#8A4B24]', client: 'bg-emerald-100 text-emerald-600', chantier: 'bg-[#FCE7DE] text-[#C14E33]' }
+// Libellés + styles de badges de statut, communs aux flux "derniers éléments"
+const STATUS_BADGE: Record<string, { label: string; cls: string }> = {
+  brouillon: { label: 'Brouillon', cls: 'bg-gray-100 text-gray-500' },
+  envoyee: { label: 'Envoyée', cls: 'bg-[#FCE7DE] text-[#C14E33]' },
+  en_retard: { label: 'En retard', cls: 'bg-[#FBE0DA] text-[#C0392B]' },
+  payee: { label: 'Payée', cls: 'bg-[#E9F2DB] text-[#3F7A2E]' },
+  payee_partiellement: { label: 'Partielle', cls: 'bg-[#FBEED6] text-[#8A5A08]' },
+  pret: { label: 'Prêt', cls: 'bg-[#FCE7DE] text-[#C14E33]' },
+  envoye: { label: 'Envoyé', cls: 'bg-[#FCE7DE] text-[#C14E33]' },
+  accepte: { label: 'Accepté', cls: 'bg-[#E9F2DB] text-[#3F7A2E]' },
+  transforme: { label: 'Transformé', cls: 'bg-[#E9F2DB] text-[#3F7A2E]' },
+  refuse: { label: 'Refusé', cls: 'bg-[#FBE0DA] text-[#C0392B]' },
+  nouveau: { label: 'Nouveau', cls: 'bg-[#FBEED6] text-[#8A5A08]' },
+  devis_a_faire: { label: 'Devis à faire', cls: 'bg-[#FBEED6] text-[#8A5A08]' },
+  devis_envoye: { label: 'Devis envoyé', cls: 'bg-[#FCE7DE] text-[#C14E33]' },
+  devis_accepte: { label: 'Devis accepté', cls: 'bg-[#E9F2DB] text-[#3F7A2E]' },
+  chantier_a_planifier: { label: 'À planifier', cls: 'bg-[#FBEED6] text-[#8A5A08]' },
+  chantier_en_cours: { label: 'En cours', cls: 'bg-[#E9F2DB] text-[#3F7A2E]' },
+  termine: { label: 'Terminé', cls: 'bg-gray-100 text-gray-500' },
+  conges: { label: 'Congés', cls: 'bg-[#E9F2DB] text-[#3F7A2E]' },
+  maladie: { label: 'Maladie', cls: 'bg-[#FBE0DA] text-[#C0392B]' },
+  rtt: { label: 'RTT', cls: 'bg-[#FCE7DE] text-[#C14E33]' },
+}
+function StatusBadge({ status }: { status: string }) {
+  const s = STATUS_BADGE[status] || { label: status || '—', cls: 'bg-gray-100 text-gray-500' }
+  return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap ${s.cls}`}>{s.label}</span>
+}
+
+function FeedCard({ title, icon: Icon, chip, href, empty, children }: {
+  title: string; icon: LucideIcon; chip: string; href: string; empty: boolean; children: ReactNode
+}) {
+  return (
+    <Card className="h-full border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
+      <CardContent className="p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`grid place-items-center w-7 h-7 rounded-lg flex-shrink-0 ${chip}`}><Icon className="w-4 h-4" /></span>
+            <h3 className="text-[13px] font-semibold text-marine truncate">{title}</h3>
+          </div>
+          <Link href={href} className="text-[11px] font-medium text-primary hover:underline flex-shrink-0">Tout voir</Link>
+        </div>
+        {empty ? <p className="text-xs text-gray-400 py-5 text-center">Rien de récent.</p> : <div className="space-y-0.5">{children}</div>}
+      </CardContent>
+    </Card>
+  )
+}
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -742,30 +806,75 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* 7. Activité récente */}
+      {/* 7. Derniers éléments de l'entreprise */}
       <div className="animate-fade-up" style={{ animationDelay: '270ms' }}>
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Activité récente</h2>
-        <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
-          <CardContent className="p-5">
-            {d.activity.length === 0 ? (
-              <p className="text-sm text-gray-400 py-8 text-center">Votre activité apparaîtra ici.</p>
-            ) : (
-              <div className="space-y-1">
-                {d.activity.map((a, i) => {
-                  const Icon = actIcon[a.type] || FileText
-                  return (
-                    <div key={i} className="flex items-center gap-3 py-2">
-                      <span className={`grid place-items-center w-8 h-8 rounded-lg flex-shrink-0 ${actTile[a.type] || 'bg-gray-100 text-gray-500'}`}><Icon className="w-4 h-4" /></span>
-                      <span className="text-sm text-gray-700 flex-1 min-w-0 truncate">{a.label}</span>
-                      {a.amount > 0 && <span className="text-sm font-semibold text-marine tabular-nums">{formatCurrency(a.amount)}</span>}
-                      <span className="text-xs text-gray-400 w-14 text-right flex-shrink-0">{ago(a.date)}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Derniers éléments</h2>
+        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {/* Dernières factures */}
+          <FeedCard title="Dernières factures" icon={Receipt} chip="bg-[#FCE7DE] text-[#C14E33]" href="/factures" empty={d.feeds.factures.length === 0}>
+            {d.feeds.factures.map(x => (
+              <Link key={x.id} href={`/factures/${x.id}`} className="flex items-center gap-2 py-1.5 px-1.5 -mx-1.5 rounded-lg hover:bg-black/[0.03] transition-colors">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-medium text-gray-700 truncate">{x.title}</div>
+                  <div className="text-[11px] text-gray-400 truncate">{x.sub}</div>
+                </div>
+                <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                  <span className="text-[13px] font-semibold text-marine tabular-nums">{formatCurrency(x.amount)}</span>
+                  <StatusBadge status={x.status} />
+                </div>
+              </Link>
+            ))}
+          </FeedCard>
+
+          {/* Derniers devis */}
+          <FeedCard title="Derniers devis" icon={FileText} chip="bg-[#F3E5D6] text-[#8A4B24]" href="/devis" empty={d.feeds.devis.length === 0}>
+            {d.feeds.devis.map(x => (
+              <Link key={x.id} href={`/devis/${x.id}`} className="flex items-center gap-2 py-1.5 px-1.5 -mx-1.5 rounded-lg hover:bg-black/[0.03] transition-colors">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-medium text-gray-700 truncate">{x.title}</div>
+                  <div className="text-[11px] text-gray-400 truncate">{x.sub}</div>
+                </div>
+                <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                  <span className="text-[13px] font-semibold text-marine tabular-nums">{formatCurrency(x.amount)}</span>
+                  <StatusBadge status={x.status} />
+                </div>
+              </Link>
+            ))}
+          </FeedCard>
+
+          {/* Dernières demandes (clients / prospects) */}
+          <FeedCard title="Dernières demandes" icon={Users} chip="bg-[#E9F2DB] text-[#3F7A2E]" href="/clients" empty={d.feeds.demandes.length === 0}>
+            {d.feeds.demandes.map(x => (
+              <Link key={x.id} href={`/clients/${x.id}`} className="flex items-center gap-2 py-1.5 px-1.5 -mx-1.5 rounded-lg hover:bg-black/[0.03] transition-colors">
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-medium text-gray-700 truncate">{x.title}</div>
+                  <div className="text-[11px] text-gray-400 truncate">{x.sub}</div>
+                </div>
+                <div className="flex flex-col items-end gap-0.5 flex-shrink-0">
+                  <StatusBadge status={x.status} />
+                  <span className="text-[10px] text-gray-400">{x.date ? ago(x.date) : ''}</span>
+                </div>
+              </Link>
+            ))}
+          </FeedCard>
+
+          {/* Dernières absences */}
+          <FeedCard title="Dernières absences" icon={CalendarDays} chip="bg-[#FBE0DA] text-[#C0392B]" href="/equipe" empty={d.feeds.absences.length === 0}>
+            {d.feeds.absences.map(x => {
+              const fmtD = (s?: string | null) => (s ? new Date(s).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' }) : '')
+              const range = x.end && x.end !== x.start ? `${fmtD(x.start)} → ${fmtD(x.end)}` : fmtD(x.start)
+              return (
+                <div key={x.id} className="flex items-center gap-2 py-1.5 px-1.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[13px] font-medium text-gray-700 truncate">{x.title}</div>
+                    <div className="text-[11px] text-gray-400 truncate">{range}</div>
+                  </div>
+                  <StatusBadge status={x.status} />
+                </div>
+              )
+            })}
+          </FeedCard>
+        </div>
       </div>
     </div>
   )
