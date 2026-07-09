@@ -94,7 +94,7 @@ function StatPro({ label, value, icon: Icon, tone, delta, gauge, note, spark }: 
                 </linearGradient>
               </defs>
               <path d={sp.area} fill={`url(#${uid})`} />
-              <path d={sp.line} fill="none" stroke={t.chipB} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d={sp.line} fill="none" stroke={t.chipB} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             </svg>
           </div>
         ) : note ? (
@@ -293,7 +293,6 @@ async function getData(userId: string) {
       return inv.filter(i => pred(i) && inM(i.issue_date)).reduce((s, i) => s + num(i.total_ttc), 0)
     })
   const encaisseSeries = monthSeries(i => isPaid(i.status))
-  const factureSeries = monthSeries(i => i.status !== 'brouillon')
 
   // Cashflow mensuel (6 mois) : entrées (encaissé) vs dépenses, pour les barres
   const depensesSeries = Array.from({ length: 6 }, (_, k) => {
@@ -309,6 +308,22 @@ async function getData(userId: string) {
     const dM = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1)
     return { label: MONTHS[dM.getMonth()], entrees: encaisseSeries[k], depenses: depensesSeries[k] }
   })
+
+  // Séries journalières CUMULÉES du mois en cours (vraies courbes des sparklines KPI,
+  // construites à partir des vraies dates de factures / dépenses jour par jour)
+  const dayOfMonth = now.getDate()
+  const onDay = (d: string | null | undefined, day: number) => {
+    if (!d) return false
+    const x = new Date(d)
+    return x.getFullYear() === now.getFullYear() && x.getMonth() === now.getMonth() && x.getDate() === day
+  }
+  const dailyCumul = (amountForDay: (day: number) => number) => {
+    let acc = 0
+    return Array.from({ length: Math.max(dayOfMonth, 2) }, (_, i) => Math.round((acc += amountForDay(i + 1))))
+  }
+  const encaisseDaily = dailyCumul(day => inv.filter(i => isPaid(i.status) && onDay(i.issue_date, day)).reduce((s, i) => s + num(i.total_ttc), 0))
+  const factureDaily = dailyCumul(day => inv.filter(i => i.status !== 'brouillon' && onDay(i.issue_date, day)).reduce((s, i) => s + num(i.total_ttc), 0))
+  const depensesDaily = dailyCumul(day => exp.filter(e => onDay(e.expense_date || e.created_at, day)).reduce((s, e) => s + num(e.amount_ttc), 0))
 
   // ── 5. Équipes & terrain (aujourd'hui) ──────────────────────────────
   const heuresJour = times.filter(t => t.date === today).reduce((s, t) => s + num(t.hours), 0)
@@ -364,7 +379,7 @@ async function getData(userId: string) {
 
   return {
     fin: { encaisseMois, encaisseMoisPrec, factureMois, resteAEncaisser, devisEnAttente },
-    kpiSparks: { encaisse: encaisseSeries, facture: factureSeries },
+    kpiSparks: { encaisse: encaisseDaily, facture: factureDaily, depenses: depensesDaily },
     todos,
     chantiers, chantiersActifs,
     series: { '7j': s7, mois: sMois, trimestre: sTri, annee: sAnnee },
@@ -673,10 +688,10 @@ export default async function DashboardPage() {
           <div className="lg:col-span-2 space-y-4">
             <div className="grid grid-cols-2 gap-3.5">
               <Link href="/depenses" className="block">
-                <StatPro label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tone="red" spark={d.cashflow.map(c => c.depenses)} />
+                <StatPro label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tone="red" spark={d.kpiSparks.depenses} />
               </Link>
               <Link href="/banque" className="block">
-                <StatPro label="Entrées du mois" value={formatCurrency(d.fin.encaisseMois)} icon={BadgeEuro} tone="green" spark={d.cashflow.map(c => c.entrees)} />
+                <StatPro label="Entrées du mois" value={formatCurrency(d.fin.encaisseMois)} icon={BadgeEuro} tone="green" spark={d.kpiSparks.encaisse} />
               </Link>
             </div>
             <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
