@@ -159,12 +159,12 @@ export default async function ProspectsPage() {
             </CardContent>
           </Card>
 
-          {/* §5.2 Vue Kanban */}
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 animate-fade-up">
+          {/* §5.2 Vue Kanban — grille responsive (s'adapte à la largeur / au repli de la sidebar) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 animate-fade-up">
             {COLUMNS.map(c => {
               const items = list.filter(p => inColumn(p, c))
               return (
-                <div key={c.key} className="flex-shrink-0 w-[260px] flex flex-col">
+                <div key={c.key} className="flex flex-col min-w-0">
                   <div className="flex items-center justify-between px-1 mb-2">
                     <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                       <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: c.dot }} />

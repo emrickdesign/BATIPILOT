@@ -47,6 +47,11 @@ export const prospectPipelineStatuses: ClientStatus[] = [
   'nouveau', 'infos_a_recuperer', 'devis_a_faire', 'devis_envoye', 'devis_accepte', 'devis_refuse', 'archive',
 ]
 
+// Statuts d'un client converti (phase chantier → facturation), pour le Kanban Clients
+export const clientPhaseStatuses: ClientStatus[] = [
+  'devis_accepte', 'chantier_a_planifier', 'chantier_en_cours', 'facture_a_envoyer', 'facture_envoyee', 'paye', 'termine', 'archive',
+]
+
 export function isProspect(status: ClientStatus): boolean {
   return prospectStatuses.includes(status)
 }
