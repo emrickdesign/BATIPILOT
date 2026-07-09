@@ -704,23 +704,12 @@ export default async function DashboardPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Administratif &amp; comptable — ce mois</h2>
           <Link href="/comptable" className="text-xs font-medium text-primary hover:underline">Voir la compta</Link>
         </div>
-        <div className="grid lg:grid-cols-2 gap-4">
+        <div className="grid lg:grid-cols-3 gap-4 items-start">
+          {/* Colonne dépenses : carte + répartition */}
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3.5">
-              <Link href="/depenses" className="block">
-                <StatPro label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tone="red" spark={d.kpiSparks.depenses} />
-              </Link>
-              <Link href="/banque" className="block">
-                <StatPro label="Entrées du mois" value={formatCurrency(d.fin.encaisseMois)} icon={BadgeEuro} tone="green" spark={d.kpiSparks.encaisse} />
-              </Link>
-            </div>
-            <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
-              <CardContent className="p-5">
-                <CashflowBars data={d.cashflow} />
-              </CardContent>
-            </Card>
-          </div>
-          <div className="grid sm:grid-cols-2 gap-4 content-start">
+            <Link href="/depenses" className="block">
+              <StatPro label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tone="red" spark={d.kpiSparks.depenses} />
+            </Link>
             <DonutMetricCard
               title="Répartition des dépenses"
               subtitle="Ce mois-ci, par catégorie"
@@ -729,6 +718,12 @@ export default async function DashboardPage() {
               format={v => (v >= 1000 ? `${(v / 1000).toFixed(1).replace('.', ',')} k€` : `${Math.round(v)} €`)}
               emptyMessage="Aucune dépense enregistrée ce mois-ci."
             />
+          </div>
+          {/* Colonne entrées : carte + répartition */}
+          <div className="space-y-4">
+            <Link href="/banque" className="block">
+              <StatPro label="Entrées du mois" value={formatCurrency(d.fin.encaisseMois)} icon={BadgeEuro} tone="green" spark={d.kpiSparks.encaisse} />
+            </Link>
             <DonutMetricCard
               title="Répartition des entrées"
               subtitle="Ce mois-ci, par client"
@@ -738,6 +733,12 @@ export default async function DashboardPage() {
               emptyMessage="Aucune entrée encaissée ce mois-ci."
             />
           </div>
+          {/* Barres 6 mois à droite */}
+          <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
+            <CardContent className="p-5">
+              <CashflowBars data={d.cashflow} />
+            </CardContent>
+          </Card>
         </div>
       </div>
 
