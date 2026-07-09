@@ -97,11 +97,22 @@ export default function DonutMetricCard({
                 ))}
               </svg>
 
-              {/* centre */}
+              {/* centre — la police rétrécit quand le total s'allonge (ne touche plus l'anneau) */}
               <div className="absolute inset-0 grid place-items-center text-center pointer-events-none">
-                <div>
+                <div className="max-w-[58%]">
                   <p className="text-[10px] uppercase tracking-wider text-gray-400">{centerLabel}</p>
-                  <p className="text-2xl font-bold text-marine leading-tight mt-0.5 tabular-nums">{total}</p>
+                  <p
+                    className="font-bold text-marine leading-tight mt-0.5 tabular-nums whitespace-nowrap"
+                    style={{
+                      fontSize:
+                        total.length <= 4 ? 26
+                          : total.length <= 7 ? 22
+                            : total.length <= 10 ? 18
+                              : total.length <= 13 ? 15 : 13,
+                    }}
+                  >
+                    {total}
+                  </p>
                 </div>
               </div>
 
