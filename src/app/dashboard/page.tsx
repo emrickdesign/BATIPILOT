@@ -16,6 +16,7 @@ import DonutMetricCard from '@/components/charts/DonutMetricCard'
 import GaugeRing from '@/components/charts/GaugeRing'
 
 const DONUT_COLORS = ['#D05C43', '#C77D0E', '#8A4B24', '#3F7A2E', '#94918A']
+const ENTREE_COLORS = ['#22A45A', '#2F7DE0', '#0E9F8E', '#5CCB86', '#94918A']
 
 // Tons sémantiques chauds — cartes KPI dégradées + glow coloré
 const TONES = {
@@ -157,7 +158,7 @@ async function getData(userId: string) {
 
   const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes] = await Promise.all([
     supabase.from('quotes').select('id, quote_number, status, total_ttc, issue_date, reminded_at, created_at').eq('user_id', userId),
-    supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due, issue_date, due_date, created_at').eq('user_id', userId),
+    supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due, issue_date, due_date, client_id, created_at').eq('user_id', userId),
     supabase.from('projects').select('id, title, status, end_date, progress, created_at').eq('user_id', userId).neq('status', 'archive'),
     supabase.from('expenses').select('amount_ttc, status, source, category, expense_date, created_at').eq('user_id', userId),
     supabase.from('employees').select('id, full_name, color, active').eq('user_id', userId).eq('active', true),
@@ -358,6 +359,24 @@ async function getData(userId: string) {
     ...(catAutres > 0 ? [{ label: 'Autres', value: catAutres }] : []),
   ]
 
+  // Répartition des entrées (encaissé ce mois) par client
+  const clientLabel = new Map((clientsRes.data || []).map(c => [
+    c.id, c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Client',
+  ]))
+  const entTotals = new Map<string, number>()
+  for (const i of inv) {
+    if (isPaid(i.status) && inThisMonth(i.issue_date)) {
+      const label = clientLabel.get(i.client_id) || 'Autre'
+      entTotals.set(label, (entTotals.get(label) || 0) + num(i.total_ttc))
+    }
+  }
+  const entSorted = [...entTotals.entries()].sort((a, b) => b[1] - a[1])
+  const entAutres = entSorted.slice(4).reduce((s, [, v]) => s + v, 0)
+  const parClientEntrees = [
+    ...entSorted.slice(0, 4).map(([label, value]) => ({ label, value })),
+    ...(entAutres > 0 ? [{ label: 'Autres', value: entAutres }] : []),
+  ]
+
   const admin = {
     ticketsScannesMois: exp.filter(e => e.source === 'ticket' && inThisMonth(e.created_at)).length,
     ticketsAVerifier: ticketsAValider,
@@ -366,6 +385,7 @@ async function getData(userId: string) {
     paiementsARapprocher: aRapprocher,
     aTransmettre,
     parCategorie,
+    parClientEntrees,
   }
 
   // ── 7. Activité récente ─────────────────────────────────────────────
@@ -684,8 +704,8 @@ export default async function DashboardPage() {
           <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Administratif &amp; comptable — ce mois</h2>
           <Link href="/comptable" className="text-xs font-medium text-primary hover:underline">Voir la compta</Link>
         </div>
-        <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 space-y-4">
+        <div className="grid lg:grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3.5">
               <Link href="/depenses" className="block">
                 <StatPro label="Dépenses du mois" value={formatCurrency(d.admin.depensesMois)} icon={Wallet} tone="red" spark={d.kpiSparks.depenses} />
@@ -700,7 +720,7 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           </div>
-          <div className="lg:col-span-1">
+          <div className="grid sm:grid-cols-2 gap-4 content-start">
             <DonutMetricCard
               title="Répartition des dépenses"
               subtitle="Ce mois-ci, par catégorie"
@@ -708,6 +728,14 @@ export default async function DashboardPage() {
               segments={d.admin.parCategorie.map((c, i) => ({ label: c.label, value: c.value, color: DONUT_COLORS[i % DONUT_COLORS.length] }))}
               format={v => (v >= 1000 ? `${(v / 1000).toFixed(1).replace('.', ',')} k€` : `${Math.round(v)} €`)}
               emptyMessage="Aucune dépense enregistrée ce mois-ci."
+            />
+            <DonutMetricCard
+              title="Répartition des entrées"
+              subtitle="Ce mois-ci, par client"
+              total={formatCurrency(d.fin.encaisseMois)}
+              segments={d.admin.parClientEntrees.map((c, i) => ({ label: c.label, value: c.value, color: ENTREE_COLORS[i % ENTREE_COLORS.length] }))}
+              format={v => (v >= 1000 ? `${(v / 1000).toFixed(1).replace('.', ',')} k€` : `${Math.round(v)} €`)}
+              emptyMessage="Aucune entrée encaissée ce mois-ci."
             />
           </div>
         </div>
