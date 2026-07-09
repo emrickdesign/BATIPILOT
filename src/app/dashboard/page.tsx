@@ -441,10 +441,6 @@ export default async function DashboardPage() {
   const initials = (profile?.full_name || user.email || 'BP').split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase()
   const dateLabel = new Date().toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })
 
-  // Variation de l'encaissé vs mois dernier (carte la plus importante — doc §3.1)
-  const encVarPct = d.fin.encaisseMoisPrec > 0
-    ? Math.round(((d.fin.encaisseMois - d.fin.encaisseMoisPrec) / d.fin.encaisseMoisPrec) * 100)
-    : null
   const encaissePct = d.fin.factureMois > 0 ? Math.round((d.fin.encaisseMois / d.fin.factureMois) * 100) : 0
 
   // Taux d'acceptation des devis (6 mois) — affiché en badge sur la carte "Devis en attente"
@@ -460,12 +456,11 @@ export default async function DashboardPage() {
   }[] = [
     {
       label: 'Factures encaissées ce mois', value: formatCurrency(d.fin.encaisseMois), icon: Wallet, tone: 'green', href: '/banque',
-      spark: d.kpiSparks.encaisse,
-      delta: encVarPct !== null ? { text: `${encVarPct >= 0 ? '+' : ''}${encVarPct}%`, dir: encVarPct >= 0 ? 'up' : 'down' } : undefined,
+      spark: d.kpiSparks.encaisse, gauge: encaissePct,
     },
     { label: 'Factures envoyées ce mois', value: formatCurrency(d.fin.factureMois), icon: Send, tone: 'coral', href: '/factures', spark: d.kpiSparks.facture },
-    { label: 'Reste à encaisser', value: formatCurrency(d.fin.resteAEncaisser), icon: Coins, tone: 'amber', href: '/relances', gauge: encaissePct, note: `${encaissePct}% du facturé déjà encaissé` },
-    { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, tone: 'terre', href: '/devis?statut=envoye', note: 'Pipeline commercial en cours', delta: { text: `${tauxAccept}% acceptés`, dir: 'up' } },
+    { label: 'Reste à encaisser', value: formatCurrency(d.fin.resteAEncaisser), icon: Coins, tone: 'amber', href: '/relances', note: 'Sur les factures envoyées ce mois' },
+    { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, tone: 'terre', href: '/devis?statut=envoye', note: 'Pipeline commercial en cours', gauge: tauxAccept },
   ]
 
   return (
