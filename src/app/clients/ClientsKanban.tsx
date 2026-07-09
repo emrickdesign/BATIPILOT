@@ -7,31 +7,10 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Building2, User, MapPin, HardHat } from 'lucide-react'
-import DndKanban, { type KanbanColumn } from '@/components/kanban/DndKanban'
+import DndKanban from '@/components/kanban/DndKanban'
 import ClientPhaseSelect from './ClientPhaseSelect'
+import { CLIENT_COLUMNS, type ClientCard } from './kanban-config'
 import type { ClientStatus } from '@/types'
-
-// Colonnes du Kanban Clients (phase chantier → facturation). La clé = statut cible au dépôt.
-export const CLIENT_COLUMNS: (KanbanColumn & { key: ClientStatus; extra?: ClientStatus[] })[] = [
-  { key: 'chantier_a_planifier', label: 'À planifier', extra: ['devis_accepte'], dot: '#C77D0E' },
-  { key: 'chantier_en_cours', label: 'En cours', dot: '#E0674C' },
-  { key: 'facture_a_envoyer', label: 'À facturer', dot: '#8A4B24' },
-  { key: 'facture_envoyee', label: 'Facturé', dot: '#2F7DE0' },
-  { key: 'paye', label: 'Payé / terminé', extra: ['termine'], dot: '#3F7A2E' },
-]
-
-export type ClientCard = {
-  id: string
-  col: ClientStatus
-  status: ClientStatus
-  isPro: boolean
-  name: string
-  ville: string
-  facture: string
-  reste: string | null
-  chantiers: number
-  contact: string
-}
 
 const dotOf = (col: string) => CLIENT_COLUMNS.find(c => c.key === col)?.dot || '#94918A'
 

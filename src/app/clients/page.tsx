@@ -6,7 +6,8 @@ import { Plus, User, HardHat, Users2, Banknote, Coins } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
 import StatCard from '@/components/charts/StatCard'
-import ClientsKanban, { CLIENT_COLUMNS, type ClientCard } from './ClientsKanban'
+import ClientsKanban from './ClientsKanban'
+import { CLIENT_COLUMNS, type ClientCard } from './kanban-config'
 import type { Client, ClientStatus } from '@/types'
 
 const num = (v: unknown) => Number(v) || 0

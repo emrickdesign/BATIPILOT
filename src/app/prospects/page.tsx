@@ -6,7 +6,8 @@ import { FluidTexture } from '@/components/ui/fluid-texture'
 import { Plus, UserPlus } from 'lucide-react'
 import type { Client, ClientStatus } from '@/types'
 import { clientDisplayName } from '@/lib/clients'
-import ProspectsKanban, { PROSPECT_COLUMNS, type ProspectCardData } from './ProspectsKanban'
+import ProspectsKanban from './ProspectsKanban'
+import { PROSPECT_COLUMNS, type ProspectCardData } from './kanban-config'
 
 const PIPELINE_BLUE = '#D0562F'
 

@@ -9,31 +9,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Phone, Mail, Building2, User, MessageCircle, FileText, Calendar } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { isProspect } from '@/lib/clients'
-import DndKanban, { type KanbanColumn } from '@/components/kanban/DndKanban'
+import DndKanban from '@/components/kanban/DndKanban'
 import ClientStatusSelect from './ClientStatusSelect'
+import { PROSPECT_COLUMNS, type ProspectCardData } from './kanban-config'
 import type { ClientStatus } from '@/types'
-
-// Colonnes du pipeline commercial. La clé = statut cible au dépôt.
-export const PROSPECT_COLUMNS: (KanbanColumn & { key: ClientStatus; extra?: ClientStatus[] })[] = [
-  { key: 'nouveau', label: 'Nouveau', extra: ['infos_a_recuperer'], dot: '#94918A' },
-  { key: 'devis_a_faire', label: 'Devis à faire', dot: '#C77D0E' },
-  { key: 'devis_envoye', label: 'Devis envoyé', dot: '#E0674C' },
-  { key: 'devis_accepte', label: 'Accepté', dot: '#3F7A2E' },
-  { key: 'devis_refuse', label: 'Refusé', dot: '#C0392B' },
-]
-
-export type ProspectCardData = {
-  id: string
-  col: ClientStatus
-  status: ClientStatus
-  isPro: boolean
-  name: string
-  phone: string | null
-  email: string | null
-  waHref: string | null
-  pot: number
-  createdAt: string
-}
 
 const dotOf = (col: string) => PROSPECT_COLUMNS.find(c => c.key === col)?.dot || '#94918A'
 
