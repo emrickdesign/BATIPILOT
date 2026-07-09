@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, Mail, FileText, Receipt,
-  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BarChart3, BellRing, Calculator, CreditCard, Truck, Sparkles, ChevronLeft, ChevronRight, MessageSquare
+  Users, Tag, Settings, LogOut, Menu, X, HardHat, ScanLine, FolderOpen, ReceiptText, Wallet, UserPlus, Users2, CalendarDays, Clock, ChevronDown, BellRing, Calculator, CreditCard, Truck, Sparkles, ChevronLeft, ChevronRight, MessageSquare
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { isPole } from '@/lib/roles'
@@ -66,9 +66,8 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
   },
 ]
 
-// Accès direct, épinglé en bas (Reporting + Paramètres)
+// Accès direct, épinglé en bas
 const bottomNav: NavLink[] = [
-  { href: '/reporting', label: 'Reporting', icon: BarChart3 },
   { href: '/parametres', label: 'Paramètres', icon: Settings },
 ]
 

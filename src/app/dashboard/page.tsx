@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
   Wallet, Send, Coins, FileText, Clock, ReceiptText, Landmark, HardHat,
-  AlertTriangle, CheckCircle2,
+  AlertTriangle, CheckCircle2, TrendingUp, Banknote,
   Bell, CalendarDays, ArrowRight, Receipt, Users, FileCheck2, BadgeEuro,
   type LucideIcon,
 } from 'lucide-react'
@@ -70,11 +70,11 @@ async function getData(userId: string) {
   }
 
   const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes, absRes, vehAsgRes] = await Promise.all([
-    supabase.from('quotes').select('id, quote_number, status, total_ttc, issue_date, reminded_at, client_id, created_at').eq('user_id', userId),
-    supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due, issue_date, due_date, client_id, created_at').eq('user_id', userId),
-    supabase.from('projects').select('id, title, status, end_date, progress, created_at').eq('user_id', userId).neq('status', 'archive'),
-    supabase.from('expenses').select('amount_ttc, status, source, category, expense_date, created_at').eq('user_id', userId),
-    supabase.from('employees').select('id, full_name, color, active').eq('user_id', userId).eq('active', true),
+    supabase.from('quotes').select('id, quote_number, status, total_ttc, subtotal_ht, issue_date, reminded_at, client_id, project_id, created_at').eq('user_id', userId),
+    supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due, issue_date, due_date, client_id, quote_id, created_at').eq('user_id', userId),
+    supabase.from('projects').select('id, title, status, start_date, end_date, progress, created_at').eq('user_id', userId).neq('status', 'archive'),
+    supabase.from('expenses').select('amount_ttc, amount_ht, status, source, category, expense_date, project_id, created_at').eq('user_id', userId),
+    supabase.from('employees').select('id, full_name, color, hourly_cost, active').eq('user_id', userId).eq('active', true),
     supabase.from('time_entries').select('employee_id, project_id, hours, date').eq('user_id', userId),
     supabase.from('presence_events').select('employee_id').eq('user_id', userId).gte('occurred_at', isoDay),
     supabase.from('assignments').select('employee_id, project_id').eq('user_id', userId).eq('date', today),
@@ -356,8 +356,37 @@ async function getData(userId: string) {
     })),
   }
 
+  // ── Pilotage (fusion Reporting) : rentabilité par chantier + prévision ──
+  const empCost = new Map((empRes.data || []).map(e => [e.id, num(e.hourly_cost)]))
+  const projTitleP = new Map(pr.map(p => [p.id, p.title]))
+  const isSigned = (s: string) => s === 'accepte' || s === 'transforme'
+  const isOpenInv = (s: string) => s === 'envoyee' || s === 'en_retard' || s === 'payee_partiellement'
+  const laborByProject = new Map<string, number>()
+  for (const t of times) { if (!t.project_id) continue; laborByProject.set(t.project_id, (laborByProject.get(t.project_id) || 0) + num(t.hours) * (empCost.get(t.employee_id) || 0)) }
+  const expByProject = new Map<string, number>()
+  for (const e of exp) { if (!e.project_id) continue; expByProject.set(e.project_id, (expByProject.get(e.project_id) || 0) + num(e.amount_ht || e.amount_ttc)) }
+  const revByProject = new Map<string, number>()
+  for (const x of quotes) { if (x.project_id && isSigned(x.status)) revByProject.set(x.project_id, (revByProject.get(x.project_id) || 0) + num(x.subtotal_ht)) }
+  const pids = new Set<string>([...revByProject.keys(), ...expByProject.keys(), ...laborByProject.keys()])
+  const margesAll = [...pids].map(id => {
+    const rev = revByProject.get(id) || 0
+    const cost = (expByProject.get(id) || 0) + (laborByProject.get(id) || 0)
+    return { id, title: projTitleP.get(id) || 'Chantier', rev, cost, marge: rev - cost }
+  }).sort((a, b) => b.rev - a.rev)
+  const margeGlobale = margesAll.reduce((s, m) => s + m.marge, 0)
+  const revGlobal = margesAll.reduce((s, m) => s + m.rev, 0)
+  const openInvReal = inv.filter(i => isOpenInv(i.status))
+  const resteReel = openInvReal.reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
+  const invoicedQuoteIds = new Set(inv.map(i => i.quote_id).filter(Boolean))
+  const signesNonFactures = quotes.filter(x => isSigned(x.status) && !invoicedQuoteIds.has(x.id))
+  const montantSignesNonFactures = signesNonFactures.reduce((s, x) => s + num(x.total_ttc), 0)
+  const encaissementsPrevus = resteReel + montantSignesNonFactures
+  const chantiersAVenir = pr.filter(p => !CLOSED.includes(p.status) && ((p.status === 'a_planifier' || p.status === 'planifie') || (p.start_date && p.start_date > today))).length
+  const pilotage = { marges: margesAll.slice(0, 6), margeGlobale, revGlobal, encaissementsPrevus, nbSignesNonFactures: signesNonFactures.length, montantSignesNonFactures, chantiersAVenir }
+
   return {
     fin: { encaisseMois, encaisseMoisPrec, factureMois, resteAEncaisser, devisEnAttente },
+    pilotage,
     kpiSparks: { encaisse: encaisseDaily, facture: factureDaily, depenses: depensesDaily },
     todos,
     chantiers, chantiersActifs,
@@ -717,6 +746,48 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* Pilotage : rentabilité & prévision (fusion Reporting) */}
+      <div className="animate-fade-up" style={{ animationDelay: '255ms' }}>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Rentabilité &amp; prévision</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 mb-4">
+          <StatCard label="Marge estimée" value={formatCurrency(d.pilotage.margeGlobale)} icon={TrendingUp} tone={d.pilotage.margeGlobale >= 0 ? 'green' : 'red'} note={`sur ${formatCurrency(d.pilotage.revGlobal)} signés`} />
+          <StatCard label="Encaissements prévus" value={formatCurrency(d.pilotage.encaissementsPrevus)} icon={Banknote} tone="coral" note="reste dû + signés à facturer" />
+          <StatCard label="Acceptés non facturés" value={String(d.pilotage.nbSignesNonFactures)} icon={FileText} tone="amber" note={formatCurrency(d.pilotage.montantSignesNonFactures)} />
+          <StatCard label="Chantiers à venir" value={String(d.pilotage.chantiersAVenir)} icon={CalendarDays} tone="blue" note="planifiés / à démarrer" />
+        </div>
+        <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
+          <CardContent className="p-5">
+            <h3 className="text-sm font-semibold text-gray-500 mb-3">Rentabilité par chantier <span className="font-normal text-gray-400">(marge estimée)</span></h3>
+            {d.pilotage.marges.length === 0 ? (
+              <p className="text-sm text-gray-400 py-6 text-center">Rattachez devis, dépenses et heures à vos chantiers pour voir la marge.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
+                      <th className="pb-2 font-semibold">Chantier</th>
+                      <th className="pb-2 font-semibold text-right">Signé HT</th>
+                      <th className="pb-2 font-semibold text-right">Coûts</th>
+                      <th className="pb-2 font-semibold text-right">Marge</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {d.pilotage.marges.map(m => (
+                      <tr key={m.id} className="border-b border-gray-50 last:border-0">
+                        <td className="py-2.5"><Link href={`/chantiers/${m.id}`} className="text-marine hover:text-primary font-medium truncate block max-w-[200px]">{m.title}</Link></td>
+                        <td className="py-2.5 text-right tabular-nums text-gray-600">{formatCurrency(m.rev)}</td>
+                        <td className="py-2.5 text-right tabular-nums text-gray-600">{formatCurrency(m.cost)}</td>
+                        <td className={`py-2.5 text-right tabular-nums font-semibold ${m.marge >= 0 ? 'text-[#3F7A2E]' : 'text-[#C0392B]'}`}>{formatCurrency(m.marge)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* 7. Derniers éléments de l'entreprise */}
