@@ -2,21 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Plus, User, Building2, MapPin, HardHat, Users2, Banknote, Coins } from 'lucide-react'
+import { Plus, User, HardHat, Users2, Banknote, Coins } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
 import StatCard from '@/components/charts/StatCard'
-import ClientPhaseSelect from './ClientPhaseSelect'
+import ClientsKanban, { CLIENT_COLUMNS, type ClientCard } from './ClientsKanban'
 import type { Client, ClientStatus } from '@/types'
-
-// Colonnes du Kanban Clients (phase chantier → facturation)
-const CLIENT_COLUMNS: { key: ClientStatus; label: string; extra?: ClientStatus[]; dot: string }[] = [
-  { key: 'chantier_a_planifier', label: 'À planifier', extra: ['devis_accepte'], dot: '#C77D0E' },
-  { key: 'chantier_en_cours', label: 'En cours', dot: '#E0674C' },
-  { key: 'facture_a_envoyer', label: 'À facturer', dot: '#8A4B24' },
-  { key: 'facture_envoyee', label: 'Facturé', dot: '#2F7DE0' },
-  { key: 'paye', label: 'Payé / terminé', extra: ['termine'], dot: '#3F7A2E' },
-]
 
 const num = (v: unknown) => Number(v) || 0
 const PROSPECT_OR_ARCHIVE = '(nouveau,infos_a_recuperer,devis_a_faire,devis_envoye,devis_refuse,archive)'
@@ -81,6 +72,27 @@ export default async function ClientsPage() {
   const resteTotal = [...resteAEncaisser.values()].reduce((s, v) => s + v, 0)
   const chantiersTotal = [...nbChantiers.values()].reduce((s, v) => s + v, 0)
 
+  // Données du Kanban (sérialisables) — chaque client est rangé dans sa colonne de phase.
+  const colOf = (status: string): ClientStatus | null =>
+    CLIENT_COLUMNS.find(c => c.key === status || (c.extra?.includes(status as ClientStatus) ?? false))?.key ?? null
+  const kanbanItems: ClientCard[] = list.flatMap(client => {
+    const col = colOf(client.status)
+    if (!col) return []
+    const reste = resteAEncaisser.get(client.id) || 0
+    return [{
+      id: client.id,
+      col,
+      status: client.status as ClientStatus,
+      isPro: client.type === 'professionnel',
+      name: clientDisplayName(client),
+      ville: cityOf(client.billing_address || client.site_address),
+      facture: formatCurrency(totalFacture.get(client.id) || 0),
+      reste: reste > 0 ? formatCurrency(reste) : null,
+      chantiers: nbChantiers.get(client.id) || 0,
+      contact: lastContact(lastDate.get(client.id)),
+    }]
+  })
+
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-4">
@@ -114,71 +126,7 @@ export default async function ClientsPage() {
           </CardContent>
         </Card>
       ) : (
-        <>
-          {/* Kanban par phase — grille responsive (s'adapte au repli de la sidebar) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
-            {CLIENT_COLUMNS.map(col => {
-              const items = list.filter(c => c.status === col.key || (col.extra?.includes(c.status as ClientStatus) ?? false))
-              return (
-                <div key={col.key} className="flex flex-col min-w-0">
-                  <div className="flex items-center justify-between px-1 mb-2">
-                    <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: col.dot }} />
-                      {col.label}
-                    </span>
-                    <span className="text-xs font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">{items.length}</span>
-                  </div>
-                  <div className="space-y-2.5 rounded-2xl bg-gray-50/60 p-2 min-h-[80px] flex-1">
-                    {items.length === 0 ? (
-                      <p className="text-xs text-gray-400 text-center py-6">—</p>
-                    ) : (
-                      items.map(client => {
-                        const ville = cityOf(client.billing_address || client.site_address)
-                        const facture = totalFacture.get(client.id) || 0
-                        const reste = resteAEncaisser.get(client.id) || 0
-                        return (
-                          <Card key={client.id} className="card-interactive border-0 shadow-[var(--shadow-sm)] overflow-hidden" style={{ backgroundColor: `${col.dot}0A` }}>
-                            <div className="h-[3px]" style={{ backgroundColor: col.dot }} />
-                            <CardContent className="p-3">
-                              <div className="flex items-center gap-2.5">
-                                <div className="w-9 h-9 rounded-full bg-white grid place-items-center flex-shrink-0" style={{ boxShadow: `0 0 0 2px ${col.dot}55` }}>
-                                  {client.type === 'professionnel' ? <Building2 className="w-4 h-4" style={{ color: col.dot }} /> : <User className="w-4 h-4" style={{ color: col.dot }} />}
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <Link href={`/clients/${client.id}`} className="font-semibold text-sm text-gray-900 hover:text-primary truncate block leading-tight">
-                                    {clientDisplayName(client)}
-                                  </Link>
-                                  {ville && <div className="text-[11px] text-gray-400 truncate flex items-center gap-1"><MapPin className="w-3 h-3 flex-shrink-0" />{ville}</div>}
-                                </div>
-                              </div>
-
-                              <div className="mt-2.5 flex items-center justify-between gap-2 text-xs">
-                                <span className="text-gray-500">Facturé <b className="text-marine tabular-nums">{formatCurrency(facture)}</b></span>
-                                {reste > 0 && <span className="text-[#8A5A08] font-medium tabular-nums flex-shrink-0">Reste {formatCurrency(reste)}</span>}
-                              </div>
-
-                              <div className="mt-2.5 flex items-center gap-2 text-[11px] text-gray-400">
-                                <span className="flex items-center gap-1"><HardHat className="w-3 h-3" />{nbChantiers.get(client.id) || 0}</span>
-                                <span className="text-gray-300">·</span>
-                                <span className="truncate">{lastContact(lastDate.get(client.id))}</span>
-                              </div>
-
-                              <div className="mt-2.5">
-                                <ClientPhaseSelect clientId={client.id} current={client.status as ClientStatus} />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        )
-                      })
-                    )}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          <p className="text-[11px] text-gray-400">Astuce : changez le statut sur une carte pour la déplacer de colonne.</p>
-        </>
+        <ClientsKanban initialItems={kanbanItems} />
       )}
     </div>
   )
