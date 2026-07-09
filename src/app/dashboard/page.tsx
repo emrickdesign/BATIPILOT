@@ -27,14 +27,21 @@ const TONES = {
 } as const
 type Tone = keyof typeof TONES
 
-// Génère les tracés d'un mini-sparkline (ligne + aire) à partir d'une série
-function sparkPath(vals: number[], w = 120, h = 34, pad = 4) {
+// Courbe lissée (Catmull-Rom → Bézier) pour un mini-sparkline arrondi
+function sparkPath(vals: number[], w = 120, h = 40, pad = 5) {
   if (vals.length < 2) return null
   const max = Math.max(...vals), min = Math.min(...vals)
   const rng = max - min || 1
   const step = w / (vals.length - 1)
-  const pts = vals.map((v, i) => [+(i * step).toFixed(1), +(h - pad - ((v - min) / rng) * (h - 2 * pad)).toFixed(1)])
-  const line = 'M' + pts.map(p => p.join(',')).join(' L')
+  const pts = vals.map((v, i) => [+(i * step).toFixed(1), +(h - pad - ((v - min) / rng) * (h - 2 * pad)).toFixed(1)] as const)
+  let line = `M${pts[0][0]},${pts[0][1]}`
+  for (let i = 1; i < pts.length; i++) {
+    const p0 = pts[i - 2] || pts[i - 1], p1 = pts[i - 1], p = pts[i], p3 = pts[i + 1] || p
+    const t = 0.2
+    const c1x = (p1[0] + (p[0] - p0[0]) * t).toFixed(1), c1y = (p1[1] + (p[1] - p0[1]) * t).toFixed(1)
+    const c2x = (p[0] - (p3[0] - p1[0]) * t).toFixed(1), c2y = (p[1] - (p3[1] - p1[1]) * t).toFixed(1)
+    line += ` C${c1x},${c1y} ${c2x},${c2y} ${p[0]},${p[1]}`
+  }
   return { line, area: `${line} L${w},${h} L0,${h} Z` }
 }
 
@@ -44,7 +51,7 @@ function StatPro({ label, value, icon: Icon, tone, delta, gauge, note, spark }: 
   gauge?: number; note?: string; spark?: number[]
 }) {
   const t = TONES[tone]
-  const sp = spark ? sparkPath(spark, 120, 44, 4) : null
+  const sp = spark ? sparkPath(spark, 120, 40, 5) : null
   const uid = `sp-${label.replace(/\W/g, '')}`
   const deltaCls = delta?.dir === 'up' ? 'bg-[#E9F2DB] text-[#3F7A2E]'
     : delta?.dir === 'down' ? 'bg-[#FBE0DA] text-[#C0392B]' : 'bg-white/70 text-gray-500'
@@ -60,19 +67,6 @@ function StatPro({ label, value, icon: Icon, tone, delta, gauge, note, spark }: 
       {/* halo coloré */}
       <div aria-hidden className="absolute -top-10 -right-8 w-36 h-36 rounded-full pointer-events-none opacity-90"
         style={{ background: `radial-gradient(circle, ${t.glow}, transparent 70%)` }} />
-      {/* sparkline plein-largeur en fond bas */}
-      {sp && (
-        <svg className="absolute inset-x-0 bottom-0 w-full h-16" viewBox="0 0 120 44" preserveAspectRatio="none" aria-hidden>
-          <defs>
-            <linearGradient id={uid} x1="0" x2="0" y1="0" y2="1">
-              <stop offset="0" stopColor={t.chipB} stopOpacity="0.30" />
-              <stop offset="1" stopColor={t.chipB} stopOpacity="0" />
-            </linearGradient>
-          </defs>
-          <path d={sp.area} fill={`url(#${uid})`} />
-          <path d={sp.line} fill="none" stroke={t.chipB} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )}
       <div className="relative">
         <div className="flex items-start justify-between mb-3">
           <span className="grid place-items-center w-9 h-9 rounded-lg text-white shadow-[0_4px_10px_-3px_rgba(40,25,10,.35)] flex-shrink-0"
@@ -89,7 +83,21 @@ function StatPro({ label, value, icon: Icon, tone, delta, gauge, note, spark }: 
         </div>
         <div className="text-[26px] font-bold text-marine leading-none tracking-tight tabular-nums">{value}</div>
         <div className="text-[12.5px] text-gray-600 mt-1.5 font-medium">{label}</div>
-        {!sp && note ? <div className="text-[11px] text-gray-500 mt-2 leading-tight">{note}</div> : null}
+        {/* sparkline : zone dédiée sous le libellé, ne chevauche plus le texte */}
+        {sp ? (
+          <svg className="w-full h-11 mt-3 block" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden>
+            <defs>
+              <linearGradient id={uid} x1="0" x2="0" y1="0" y2="1">
+                <stop offset="0" stopColor={t.chipB} stopOpacity="0.28" />
+                <stop offset="1" stopColor={t.chipB} stopOpacity="0" />
+              </linearGradient>
+            </defs>
+            <path d={sp.area} fill={`url(#${uid})`} />
+            <path d={sp.line} fill="none" stroke={t.chipB} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        ) : note ? (
+          <div className="text-[11px] text-gray-500 mt-2 leading-tight">{note}</div>
+        ) : null}
       </div>
     </div>
   )
