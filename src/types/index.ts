@@ -383,3 +383,89 @@ export interface Message {
   /** URL signée générée côté serveur à la lecture, jamais stockée en base. */
   audio_url?: string | null
 }
+
+// ── Sous-traitants ─────────────────────────────────────────────────────────
+export type SubcontractorStatus = 'actif' | 'inactif' | 'liste_noire'
+
+export type SubDocType =
+  | 'attestation_vigilance' | 'urssaf' | 'kbis' | 'assurance_decennale' | 'rc_pro'
+  | 'liste_salaries' | 'rib' | 'contrat' | 'devis' | 'autre'
+
+export type SubContractStatus =
+  | 'en_preparation' | 'signe' | 'en_cours' | 'termine' | 'annule'
+
+export type SubInvoiceStatus = 'a_valider' | 'validee' | 'payee' | 'litige'
+
+export interface Subcontractor {
+  id: string
+  user_id: string
+  company_name: string
+  trade?: string | null
+  contact_name?: string | null
+  phone?: string | null
+  email?: string | null
+  address?: string | null
+  siret?: string | null
+  vat_number?: string | null
+  iban?: string | null
+  insurance_decennale?: string | null
+  insurance_expiry?: string | null
+  hourly_rate?: number | null
+  rating?: number | null
+  notes?: string | null
+  status: SubcontractorStatus
+  created_at: string
+}
+
+export interface SubcontractorDocument {
+  id: string
+  user_id: string
+  subcontractor_id: string
+  type: SubDocType
+  name: string
+  storage_path?: string | null
+  expiry_date?: string | null
+  created_at: string
+}
+
+export interface SubcontractorContract {
+  id: string
+  user_id: string
+  subcontractor_id: string
+  project_id?: string | null
+  title: string
+  description?: string | null
+  amount_ht?: number | null
+  retention_pct: number
+  start_date?: string | null
+  end_date?: string | null
+  progress: number
+  status: SubContractStatus
+  created_at: string
+}
+
+export interface SubcontractorInvoice {
+  id: string
+  user_id: string
+  subcontractor_id: string
+  contract_id?: string | null
+  project_id?: string | null
+  number?: string | null
+  amount_ht?: number | null
+  amount_ttc?: number | null
+  issue_date?: string | null
+  due_date?: string | null
+  storage_path?: string | null
+  status: SubInvoiceStatus
+  paid_at?: string | null
+  created_at: string
+}
+
+export interface SubcontractorMessage {
+  id: string
+  user_id: string
+  subcontractor_id: string
+  body: string
+  direction: 'sortant' | 'entrant'
+  created_at: string
+}
