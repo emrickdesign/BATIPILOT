@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { ProjectStatus } from '@/types'
-import { projectStatusLabels, projectStatusOrder, projectStatusColors } from '@/lib/chantiers'
+import { projectStatusLabels, projectStatusOrder, projectStatusColors, projectToClientPhase } from '@/lib/chantiers'
+import { phasesBefore } from '@/lib/clients'
 
 export default function StatusSelect({
-  projectId, current,
-}: { projectId: string; current: ProjectStatus }) {
+  projectId, current, clientId,
+}: { projectId: string; current: ProjectStatus; clientId?: string | null }) {
   const router = useRouter()
   const [status, setStatus] = useState<ProjectStatus>(current)
   const [saving, setSaving] = useState(false)
@@ -20,6 +21,11 @@ export default function StatusSelect({
     setSaving(true)
     const supabase = createClient()
     const { error } = await supabase.from('projects').update({ status: next }).eq('id', projectId)
+    // Fait avancer la carte du client sur le board Clients (jamais en arrière).
+    const phase = projectToClientPhase[next]
+    if (!error && clientId && phase) {
+      await supabase.from('clients').update({ status: phase }).eq('id', clientId).in('status', phasesBefore(phase))
+    }
     setSaving(false)
     if (error) {
       setStatus(previous)

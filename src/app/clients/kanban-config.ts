@@ -18,6 +18,9 @@ export type ClientCard = {
   isPro: boolean
   name: string
   ville: string
+  phone: string | null
+  email: string | null
+  waHref: string | null
   facture: string
   reste: string | null
   chantiers: number

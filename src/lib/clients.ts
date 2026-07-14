@@ -56,6 +56,20 @@ export function isProspect(status: ClientStatus): boolean {
   return prospectStatuses.includes(status)
 }
 
+// Ordre linéaire des phases d'un client sur le board Clients (À planifier → Payé).
+// Sert à ne faire AVANCER une carte que vers l'avant quand une action se produit
+// ailleurs (statut chantier, facture envoyée/payée…), jamais à la reculer.
+export const clientPhaseOrder: ClientStatus[] = [
+  'devis_accepte', 'chantier_a_planifier', 'chantier_en_cours', 'facture_a_envoyer', 'facture_envoyee', 'paye',
+]
+
+// Statuts « en amont » d'une phase cible : à utiliser dans un `.in('status', …)`
+// pour n'appliquer la mise à jour que si le client est à une phase antérieure.
+export function phasesBefore(target: ClientStatus): ClientStatus[] {
+  const i = clientPhaseOrder.indexOf(target)
+  return i <= 0 ? [] : clientPhaseOrder.slice(0, i)
+}
+
 export function clientDisplayName(c?: {
   type?: string; first_name?: string | null; last_name?: string | null; company_name?: string | null
 } | null): string {

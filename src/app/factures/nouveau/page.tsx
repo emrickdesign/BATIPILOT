@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { phasesBefore } from '@/lib/clients'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -19,8 +20,9 @@ const UNITS = { m2: 'm²', ml: 'ml', u: 'unité', forfait: 'forfait', h: 'heure'
 
 export default function NouvelleFacturePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [clients, setClients] = useState<Client[]>([])
-  const [clientId, setClientId] = useState('')
+  const [clientId, setClientId] = useState(searchParams.get('client') || '')
   const [lines, setLines] = useState<Line[]>([])
   const [saving, setSaving] = useState(false)
   const [dueDays, setDueDays] = useState('30')
@@ -91,6 +93,10 @@ export default function NouvelleFacturePage() {
         sort_order: i,
       }))
     )
+
+    // Fait avancer la carte du client sur le board Clients → « À facturer ».
+    await supabase.from('clients').update({ status: 'facture_a_envoyer' })
+      .eq('id', clientId).in('status', phasesBefore('facture_a_envoyer'))
 
     toast.success('Facture créée !')
     router.push(`/factures/${invoice.id}`)

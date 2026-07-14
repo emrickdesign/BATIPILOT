@@ -1,4 +1,16 @@
-import type { ProjectStatus } from '@/types'
+import type { ProjectStatus, ClientStatus } from '@/types'
+
+// Quand un chantier change de statut, on fait avancer la carte du client sur le
+// board Clients vers la phase correspondante (via phasesBefore, jamais en arrière).
+export const projectToClientPhase: Partial<Record<ProjectStatus, ClientStatus>> = {
+  planifie: 'chantier_en_cours',
+  en_cours: 'chantier_en_cours',
+  en_pause: 'chantier_en_cours',
+  termine: 'facture_a_envoyer',
+  a_facturer: 'facture_a_envoyer',
+  facture: 'facture_envoyee',
+  paye: 'paye',
+}
 
 export const projectStatusLabels: Record<ProjectStatus, string> = {
   demande_recue: 'Demande reçue',

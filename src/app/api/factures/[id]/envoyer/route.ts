@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { getValidGmailToken } from '@/lib/gmail-token'
 import { sendGmailHtml } from '@/lib/gmail-send'
+import { phasesBefore } from '@/lib/clients'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -97,6 +98,13 @@ ${company?.iban ? `<div class="iban"><strong>Coordonnées bancaires :</strong><b
     }
 
     await supabase.from('invoices').update({ status: 'envoyee' }).eq('id', id)
+
+    // Fait avancer la carte du client sur le board Clients → « Facturé ».
+    if (client?.id) {
+      await supabase.from('clients').update({ status: 'facture_envoyee' })
+        .eq('id', client.id).in('status', phasesBefore('facture_envoyee'))
+    }
+
     return NextResponse.json({ success: true, signUrl })
   } catch (err: any) {
     console.error('Envoyer facture error:', err)

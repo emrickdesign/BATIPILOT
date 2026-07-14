@@ -83,6 +83,7 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
         invoiceId={id}
         status={invoice.status}
         invoiceNumber={invoice.invoice_number}
+        clientId={client?.id}
         clientEmail={client?.email}
         clientPhone={client?.phone}
         clientName={clientName}

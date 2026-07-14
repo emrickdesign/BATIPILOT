@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Download, CheckCircle, Send, Mail, MessageCircle, Loader2, FileSpreadsheet, Landmark, Calculator, Ban } from 'lucide-react'
+import { phasesBefore } from '@/lib/clients'
 
 function formatWhatsApp(phone: string) {
   let p = phone.replace(/[\s\-.()]/g, '')
@@ -15,12 +16,13 @@ function formatWhatsApp(phone: string) {
 }
 
 export default function InvoiceActions({
-  invoiceId, status, invoiceNumber, clientEmail, clientPhone, clientName, companyName,
+  invoiceId, status, invoiceNumber, clientId, clientEmail, clientPhone, clientName, companyName,
   issueDate, subtotalHt, totalVat, totalTtc, amountDue,
 }: {
   invoiceId: string
   status: string
   invoiceNumber: string
+  clientId?: string
   clientEmail?: string
   clientPhone?: string
   clientName?: string
@@ -38,6 +40,13 @@ export default function InvoiceActions({
     setLoading(newStatus)
     const supabase = createClient()
     await supabase.from('invoices').update({ status: newStatus }).eq('id', invoiceId)
+    // Fait avancer la carte du client sur le board Clients (jamais en arrière).
+    if (clientId) {
+      const phase = newStatus === 'payee' ? 'paye' : newStatus === 'envoyee' ? 'facture_envoyee' : null
+      if (phase) {
+        await supabase.from('clients').update({ status: phase }).eq('id', clientId).in('status', phasesBefore(phase))
+      }
+    }
     toast.success(
       newStatus === 'payee' ? 'Facture marquée comme payée !' :
       newStatus === 'annulee' ? 'Facture annulée' :

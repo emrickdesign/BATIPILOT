@@ -13,6 +13,13 @@ import type { Client, ClientStatus } from '@/types'
 const num = (v: unknown) => Number(v) || 0
 const PROSPECT_OR_ARCHIVE = '(nouveau,infos_a_recuperer,devis_a_faire,devis_envoye,devis_refuse,archive)'
 
+function waLink(phone?: string | null) {
+  if (!phone) return null
+  let p = phone.replace(/\D/g, '')
+  if (p.startsWith('0')) p = '33' + p.slice(1)
+  return p.length >= 8 ? `https://wa.me/${p}` : null
+}
+
 function cityOf(addr?: string | null): string {
   if (!addr) return ''
   const m = addr.match(/\b\d{5}\s+([A-Za-zÀ-ÿ'’\- ]+)/)
@@ -87,6 +94,9 @@ export default async function ClientsPage() {
       isPro: client.type === 'professionnel',
       name: clientDisplayName(client),
       ville: cityOf(client.billing_address || client.site_address),
+      phone: client.phone ?? null,
+      email: client.email ?? null,
+      waHref: waLink(client.phone),
       facture: formatCurrency(totalFacture.get(client.id) || 0),
       reste: reste > 0 ? formatCurrency(reste) : null,
       chantiers: nbChantiers.get(client.id) || 0,

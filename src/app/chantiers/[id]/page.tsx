@@ -111,7 +111,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           <Link href="/chantiers"><Button variant="ghost" size="sm" className="gap-1"><ArrowLeft className="w-4 h-4" /> Retour</Button></Link>
           <h1 className="text-2xl font-bold text-gray-900 truncate">{p.title}</h1>
         </div>
-        <StatusSelect projectId={id} current={p.status as ProjectStatus} />
+        <StatusSelect projectId={id} current={p.status as ProjectStatus} clientId={p.client_id} />
       </div>
 
       {/* Actions (§10.3) */}
