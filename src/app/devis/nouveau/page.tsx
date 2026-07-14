@@ -208,6 +208,10 @@ function DevisForm() {
       }))
     )
 
+    // Fait avancer le prospect dans le pipeline : nouveau/infos → « Devis à faire »
+    await supabase.from('clients').update({ status: 'devis_a_faire' })
+      .eq('id', selectedClientId).in('status', ['nouveau', 'infos_a_recuperer'])
+
     toast.success('Devis créé !')
     router.push(`/devis/${quote.id}`)
   }

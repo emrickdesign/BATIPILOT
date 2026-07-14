@@ -7,8 +7,6 @@ import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Download, Send, CheckCircle, XCircle, FileText, Loader2, Mail, MessageCircle, HardHat } from 'lucide-react'
-import { isProspect } from '@/lib/clients'
-import type { ClientStatus } from '@/types'
 
 function formatWhatsApp(phone: string) {
   let p = phone.replace(/[\s\-.()]/g, '')
@@ -17,7 +15,7 @@ function formatWhatsApp(phone: string) {
 }
 
 export default function QuoteActions({
-  quoteId, status, clientId, clientStatus, clientEmail, clientPhone, projectId, quoteNumber, quoteTitle, companyName,
+  quoteId, status, clientId, clientEmail, clientPhone, projectId, quoteNumber, quoteTitle, companyName,
 }: {
   quoteId: string
   status: string
@@ -37,9 +35,15 @@ export default function QuoteActions({
     setLoading(newStatus)
     const supabase = createClient()
     await supabase.from('quotes').update({ status: newStatus }).eq('id', quoteId)
-    // §7.4 — convertir le prospect en client dès l'acceptation
-    if (newStatus === 'accepte' && clientId && clientStatus && isProspect(clientStatus as ClientStatus)) {
-      await supabase.from('clients').update({ status: 'chantier_a_planifier' }).eq('id', clientId)
+    // Fait avancer le prospect dans le pipeline (board Prospects) en fonction du devis.
+    if (clientId) {
+      if (newStatus === 'envoye') {
+        await supabase.from('clients').update({ status: 'devis_envoye' })
+          .eq('id', clientId).in('status', ['nouveau', 'infos_a_recuperer', 'devis_a_faire'])
+      } else if (newStatus === 'accepte') {
+        await supabase.from('clients').update({ status: 'devis_accepte' })
+          .eq('id', clientId).in('status', ['nouveau', 'infos_a_recuperer', 'devis_a_faire', 'devis_envoye', 'devis_refuse'])
+      }
     }
     toast.success(
       newStatus === 'accepte' ? 'Devis accepté !' :

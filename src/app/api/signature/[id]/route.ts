@@ -93,9 +93,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     if (quote) {
       await service.from('quotes').update({ status: 'accepte' }).eq('id', sig.quote_id).eq('user_id', sig.user_id)
-      // Même effet de bord que l'acceptation manuelle (QuoteActions §7.4) : convertir le prospect en client
+      // Même effet que l'acceptation manuelle (QuoteActions) : le prospect atterrit dans « Accepté ».
       if (clientRow?.id && clientRow?.status && isProspect(clientRow.status as ClientStatus)) {
-        await service.from('clients').update({ status: 'chantier_a_planifier' }).eq('id', clientRow.id)
+        await service.from('clients').update({ status: 'devis_accepte' }).eq('id', clientRow.id)
       }
     }
 

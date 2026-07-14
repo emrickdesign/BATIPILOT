@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -34,6 +34,7 @@ function ctaFor(p: ProspectCardData): { label: string; href: string; Icon: typeo
 
 export default function ProspectsKanban({ initialItems }: { initialItems: ProspectCardData[] }) {
   const router = useRouter()
+  const [supabase] = useState(() => createClient())
   const [items, setItems] = useState<ProspectCardData[]>(initialItems)
 
   // Resynchronise avec le serveur après router.refresh() (pattern React, sans effet).
@@ -42,6 +43,27 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
     setSyncedFrom(initialItems)
     setItems(initialItems)
   }
+
+  // Temps réel : le board se met à jour tout seul quand un client ou un devis change
+  // ailleurs dans l'app (création de devis, envoi, acceptation…).
+  useEffect(() => {
+    let active = true
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const bump = () => { clearTimeout(timer); timer = setTimeout(() => router.refresh(), 250) }
+
+    supabase.auth.getUser().then(({ data }) => {
+      const uid = data.user?.id
+      if (!uid || !active) return
+      channel = supabase
+        .channel('prospects-board')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'clients', filter: `user_id=eq.${uid}` }, bump)
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'quotes', filter: `user_id=eq.${uid}` }, bump)
+        .subscribe()
+    })
+
+    return () => { active = false; clearTimeout(timer); if (channel) supabase.removeChannel(channel) }
+  }, [supabase, router])
 
   async function move(id: string, toCol: string) {
     const next = toCol as ClientStatus
