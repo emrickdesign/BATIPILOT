@@ -15,7 +15,7 @@ import type { ClientStatus } from '@/types'
 
 const dotOf = (col: string) => PROSPECT_COLUMNS.find(c => c.key === col)?.dot || '#94918A'
 
-function ActionBtn({ href, label, children, external }: { href: string; label: string; children: React.ReactNode; external?: boolean }) {
+function ActionBtn({ href, label, children, external, color, bg }: { href: string; label: string; children: React.ReactNode; external?: boolean; color: string; bg: string }) {
   return (
     <a
       href={href}
@@ -23,7 +23,8 @@ function ActionBtn({ href, label, children, external }: { href: string; label: s
       aria-label={label}
       onClick={e => e.stopPropagation()}
       {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-      className="grid place-items-center w-8 h-8 rounded-lg bg-gray-50 text-gray-500 hover:bg-accent hover:text-primary transition-colors"
+      className="grid place-items-center w-9 h-9 rounded-full transition-transform hover:scale-110 active:scale-95"
+      style={{ color, backgroundColor: bg }}
     >
       {children}
     </a>
@@ -68,9 +69,6 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
             <div className="h-[3px]" style={{ backgroundColor: dot }} />
             <CardContent className="p-4 pt-3.5">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0" style={{ boxShadow: `0 0 0 2px ${dot}55` }}>
-                  {p.isPro ? <Building2 className="w-[18px] h-[18px]" style={{ color: dot }} /> : <User className="w-[18px] h-[18px]" style={{ color: dot }} />}
-                </div>
                 <div className="min-w-0 flex-1">
                   <Link href={`/clients/${p.id}`} className="font-semibold text-[15px] text-gray-900 hover:text-primary truncate block leading-tight">
                     {p.name}
@@ -79,6 +77,9 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
                     {p.phone && <div className="flex items-center gap-1.5 truncate"><Phone className="w-3 h-3 flex-shrink-0 text-gray-400" />{p.phone}</div>}
                     {p.email && <div className="flex items-center gap-1.5 truncate"><Mail className="w-3 h-3 flex-shrink-0 text-gray-400" />{p.email}</div>}
                   </div>
+                </div>
+                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0" style={{ boxShadow: `0 0 0 2px ${dot}55` }}>
+                  {p.isPro ? <Building2 className="w-[18px] h-[18px]" style={{ color: dot }} /> : <User className="w-[18px] h-[18px]" style={{ color: dot }} />}
                 </div>
               </div>
 
@@ -93,11 +94,11 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
                 </span>
               </div>
 
-              <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap items-center gap-1.5">
-                {p.phone && <ActionBtn href={`tel:${p.phone}`} label="Appeler"><Phone className="w-3.5 h-3.5" /></ActionBtn>}
-                {p.waHref && <ActionBtn href={p.waHref} label="WhatsApp" external><MessageCircle className="w-3.5 h-3.5" /></ActionBtn>}
-                {p.email && <ActionBtn href={`mailto:${p.email}`} label="Envoyer un email"><Mail className="w-3.5 h-3.5" /></ActionBtn>}
-                <ActionBtn href={`/devis/nouveau?client=${p.id}`} label="Créer un devis"><FileText className="w-3.5 h-3.5" /></ActionBtn>
+              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-center gap-2.5">
+                {p.phone && <ActionBtn href={`tel:${p.phone}`} label="Appeler" color="#2563EB" bg="#E5EDFF"><Phone className="w-3.5 h-3.5" /></ActionBtn>}
+                {p.waHref && <ActionBtn href={p.waHref} label="WhatsApp" external color="#128C4B" bg="#DCF6E4"><MessageCircle className="w-3.5 h-3.5" /></ActionBtn>}
+                {p.email && <ActionBtn href={`mailto:${p.email}`} label="Envoyer un email" color="#D9542B" bg="#FCE8DF"><Mail className="w-3.5 h-3.5" /></ActionBtn>}
+                <ActionBtn href={`/devis/nouveau?client=${p.id}`} label="Créer un devis" color="#7C3AED" bg="#EFE6FC"><FileText className="w-3.5 h-3.5" /></ActionBtn>
               </div>
             </CardContent>
           </Card>
