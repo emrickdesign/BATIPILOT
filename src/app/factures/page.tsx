@@ -131,7 +131,7 @@ export default async function FacturesPage({ searchParams }: { searchParams: Pro
             const chantier = inv.project_id ? projTitle.get(inv.project_id) : null
             const overdue = disp === 'en_retard'
             return (
-              <Link key={inv.id} href={`/factures/${inv.id}`}>
+              <Link key={inv.id} href={`/factures/${inv.id}`} className="block">
                 <Card className="card-interactive border border-gray-200/80">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between gap-3">

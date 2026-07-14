@@ -149,7 +149,7 @@ export default async function DevisPage({ searchParams }: { searchParams: Promis
             const clientName = quote.clients ? clientDisplayName(quote.clients) : 'Sans client'
             const chantier = quote.project_id ? projTitle.get(quote.project_id) : null
             return (
-              <Link key={quote.id} href={`/devis/${quote.id}`}>
+              <Link key={quote.id} href={`/devis/${quote.id}`} className="block">
                 <Card className="card-interactive border border-gray-200/80">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between gap-3">
