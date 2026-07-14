@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
-import { Phone, Mail, Building2, User, MessageCircle, FileText, Calendar } from 'lucide-react'
+import { Phone, Mail, Building2, User, FileText, Calendar, Send, Receipt, RotateCcw } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { isProspect } from '@/lib/clients'
 import DndKanban from '@/components/kanban/DndKanban'
@@ -15,20 +15,21 @@ import type { ClientStatus } from '@/types'
 
 const dotOf = (col: string) => PROSPECT_COLUMNS.find(c => c.key === col)?.dot || '#94918A'
 
-function ActionBtn({ href, label, children, external, color, bg }: { href: string; label: string; children: React.ReactNode; external?: boolean; color: string; bg: string }) {
-  return (
-    <a
-      href={href}
-      title={label}
-      aria-label={label}
-      onClick={e => e.stopPropagation()}
-      {...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-      className="grid place-items-center w-9 h-9 rounded-full transition-transform hover:scale-110 active:scale-95"
-      style={{ color, backgroundColor: bg }}
-    >
-      {children}
-    </a>
-  )
+// CTA principal adapté à la colonne où se trouve la carte.
+function ctaFor(p: ProspectCardData): { label: string; href: string; Icon: typeof FileText; external: boolean } {
+  const devis = { label: 'Créer un devis', href: `/devis/nouveau?client=${p.id}`, Icon: FileText, external: false }
+  switch (p.col) {
+    case 'devis_envoye': {
+      const href = p.waHref || (p.email ? `mailto:${p.email}` : p.phone ? `tel:${p.phone}` : `/clients/${p.id}`)
+      return { label: 'Relancer le client', href, Icon: Send, external: !!p.waHref }
+    }
+    case 'devis_accepte':
+      return { label: 'Créer la facture', href: `/factures/nouveau?client=${p.id}`, Icon: Receipt, external: false }
+    case 'devis_refuse':
+      return { label: 'Nouveau devis', href: `/devis/nouveau?client=${p.id}`, Icon: RotateCcw, external: false }
+    default:
+      return devis
+  }
 }
 
 export default function ProspectsKanban({ initialItems }: { initialItems: ProspectCardData[] }) {
@@ -74,8 +75,8 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
                     {p.name}
                   </Link>
                   <div className="mt-1.5 space-y-1 text-xs text-gray-500">
-                    {p.phone && <div className="flex items-center gap-1.5 truncate"><Phone className="w-3 h-3 flex-shrink-0 text-gray-400" />{p.phone}</div>}
-                    {p.email && <div className="flex items-center gap-1.5 truncate"><Mail className="w-3 h-3 flex-shrink-0 text-gray-400" />{p.email}</div>}
+                    {p.phone && <a href={`tel:${p.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 truncate hover:text-primary hover:underline"><Phone className="w-3 h-3 flex-shrink-0 text-gray-400" />{p.phone}</a>}
+                    {p.email && <a href={`mailto:${p.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 truncate hover:text-primary hover:underline"><Mail className="w-3 h-3 flex-shrink-0 text-gray-400" />{p.email}</a>}
                   </div>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0" style={{ boxShadow: `0 0 0 2px ${dot}55` }}>
@@ -94,12 +95,23 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
                 </span>
               </div>
 
-              <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-center gap-2.5">
-                {p.phone && <ActionBtn href={`tel:${p.phone}`} label="Appeler" color="#fff" bg="#2563EB"><Phone className="w-3.5 h-3.5" /></ActionBtn>}
-                {p.waHref && <ActionBtn href={p.waHref} label="WhatsApp" external color="#fff" bg="#25D366"><MessageCircle className="w-3.5 h-3.5" /></ActionBtn>}
-                {p.email && <ActionBtn href={`mailto:${p.email}`} label="Envoyer un email" color="#fff" bg="#E0521F"><Mail className="w-3.5 h-3.5" /></ActionBtn>}
-                <ActionBtn href={`/devis/nouveau?client=${p.id}`} label="Créer un devis" color="#fff" bg="#7C3AED"><FileText className="w-3.5 h-3.5" /></ActionBtn>
-              </div>
+              {(() => {
+                const cta = ctaFor(p)
+                return (
+                  <a
+                    href={cta.href}
+                    onClick={e => e.stopPropagation()}
+                    {...(cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                    className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-center gap-2 text-[13px] font-semibold hover:opacity-80 transition-opacity"
+                    style={{ color: dot }}
+                  >
+                    <span className="grid place-items-center w-7 h-7 rounded-full" style={{ backgroundColor: `${dot}1A` }}>
+                      <cta.Icon className="w-4 h-4" />
+                    </span>
+                    {cta.label}
+                  </a>
+                )
+              })()}
             </CardContent>
           </Card>
         )
