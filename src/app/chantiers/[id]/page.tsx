@@ -12,17 +12,18 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Project, ProjectStatus } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
 import StatusSelect from '../StatusSelect'
+import StoresNearby from './StoresNearby'
 
 const num = (v: unknown) => Number(v) || 0
 
-// Magasins / fournisseurs suggérés selon le métier (doc §10.3 — bloc magasins autour)
-const SUPPLIERS: { test: RegExp; label: string; query: string }[] = [
-  { test: /plomb|sanitaire|chauff|salle de bain/i, label: 'Fournisseurs plomberie', query: 'fournisseur plomberie sanitaire' },
-  { test: /électr|elec/i, label: 'Matériel électrique', query: 'fournisseur matériel électrique' },
-  { test: /peint/i, label: 'Magasins de peinture', query: 'magasin de peinture' },
-  { test: /menuis|bois|parquet/i, label: 'Bois & quincaillerie', query: 'fournisseur bois quincaillerie' },
-  { test: /carrel|sol|fa[iï]ence/i, label: 'Carrelage & revêtements', query: 'magasin carrelage revêtement' },
-  { test: /ma[çc]on|gros[\s-]?œuvre|béton|placo|plaqu/i, label: 'Matériaux de construction', query: 'matériaux de construction' },
+// Types de magasin à mettre en avant selon le métier (bloc « Magasins utiles autour »).
+const STORE_HINTS: { test: RegExp; label: string }[] = [
+  { test: /plomb|sanitaire|chauff|salle de bain/i, label: 'Plomberie' },
+  { test: /électr|elec/i, label: 'Électricité' },
+  { test: /peint/i, label: 'Peinture' },
+  { test: /menuis|bois|parquet/i, label: 'Bois / Menuiserie' },
+  { test: /carrel|sol|fa[iï]ence/i, label: 'Carrelage' },
+  { test: /ma[çc]on|gros[\s-]?œuvre|béton|placo|plaqu|cuisine/i, label: 'Matériaux' },
 ]
 
 export default async function ChantierPage({ params }: { params: Promise<{ id: string }> }) {
@@ -91,20 +92,15 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
   const itineraire = `https://www.google.com/maps/dir/?api=1&destination=${enc}`
   const applePlans = `https://maps.apple.com/?q=${enc}`
 
-  // Magasins autour (selon métier)
+  // Types de magasin mis en avant selon le métier du chantier.
   const metier = `${p.project_type || ''} ${p.title || ''}`
-  const stores = addr
-    ? [
-        ...SUPPLIERS.filter(s => s.test.test(metier)),
-        { label: 'Bricolage & matériaux', query: 'magasin de bricolage matériaux de construction' },
-      ].map(s => ({ label: s.label, href: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${s.query} près de ${addr}`)}` }))
-    : []
+  const suggestedStores = STORE_HINTS.filter(s => s.test.test(metier)).map(s => s.label)
 
   const devisLink = `/devis/nouveau?project=${id}${p.client_id ? `&client=${p.client_id}` : ''}`
   const factureLink = p.client_id ? `/factures/nouveau?client=${p.client_id}` : '/factures/nouveau'
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4">
       {/* En-tête */}
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0">
@@ -125,6 +121,9 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         <Link href={`/chantiers/${id}/modifier`}><Button variant="outline" size="sm" className="gap-1"><Edit className="w-4 h-4" /> Modifier</Button></Link>
       </div>
 
+      {/* Deux colonnes : détails du chantier (principal) + carte & magasins (latéral) */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+      <div className="lg:col-span-2 space-y-4">
       {/* Infos */}
       <Card>
         <CardContent className="p-4 space-y-3">
@@ -193,7 +192,10 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           </div>
         </CardContent>
       </Card>
+      </div>
 
+      {/* Colonne latérale : localisation + magasins + notes */}
+      <div className="space-y-4">
       {/* Bloc localisation */}
       {addr && (
         <Card>
@@ -211,18 +213,11 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       )}
 
       {/* Bloc magasins autour */}
-      {stores.length > 0 && (
+      {addr && (
         <Card>
           <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><Store className="w-4 h-4 text-gray-400" /> Magasins utiles autour</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
-            <div className="flex flex-wrap gap-2">
-              {stores.map(s => (
-                <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer">
-                  <Button variant="outline" size="sm" className="gap-1"><Store className="w-3.5 h-3.5" /> {s.label}</Button>
-                </a>
-              ))}
-            </div>
-            <p className="text-[11px] text-gray-400 mt-2">Recherche les fournisseurs adaptés au métier, près de l&apos;adresse du chantier.</p>
+            <StoresNearby address={addr} suggested={suggestedStores} />
           </CardContent>
         </Card>
       )}
@@ -234,7 +229,11 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           <CardContent className="px-4 pb-4"><p className="text-sm text-gray-600 whitespace-pre-line">{p.notes}</p></CardContent>
         </Card>
       )}
+      </div>
+      </div>
 
+      {/* Ligne de 4 : Devis · Factures · Dépenses · Documents */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
       {/* Devis liés */}
       <Card>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
@@ -259,7 +258,10 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
 
       {/* Factures liées */}
       <Card>
-        <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><Receipt className="w-4 h-4 text-gray-400" /> Factures ({invoices?.length || 0})</CardTitle></CardHeader>
+        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2"><Receipt className="w-4 h-4 text-gray-400" /> Factures ({invoices?.length || 0})</CardTitle>
+          <Link href={factureLink}><Button variant="outline" size="sm">+ Facture</Button></Link>
+        </CardHeader>
         <CardContent className="px-4 pb-4">
           {!invoices?.length ? <p className="text-sm text-gray-400 py-2">Aucune facture rattachée</p> : (
             <div className="space-y-2">
@@ -323,6 +325,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           )}
         </CardContent>
       </Card>
+      </div>
 
       {/* Plans liés */}
       {!!plans?.length && (
