@@ -88,7 +88,7 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
       renderCard={(p) => {
         const dot = dotOf(p.col)
         return (
-          <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden cursor-grab active:cursor-grabbing" style={{ backgroundColor: `${dot}0A` }}>
+          <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden cursor-grab active:cursor-grabbing bg-white">
             <div className="h-[3px]" style={{ backgroundColor: dot }} />
             <CardContent className="p-4 pt-3.5">
               <div className="flex items-start gap-3">

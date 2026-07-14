@@ -33,13 +33,15 @@ function DroppableColumn({ col, count, children }: { col: KanbanColumn; count: n
           <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: col.dot }} />
           {col.label}
         </span>
-        <span className="text-xs font-medium text-gray-400 bg-gray-100 rounded-full px-2 py-0.5">{count}</span>
+        <span className="text-xs font-semibold rounded-full px-2 py-0.5" style={{ backgroundColor: `${col.dot}26`, color: col.dot }}>{count}</span>
       </div>
       <div
         ref={setNodeRef}
-        className={`space-y-2.5 rounded-2xl p-2 min-h-[80px] flex-1 transition-colors ${
-          isOver ? 'bg-primary/10 ring-2 ring-primary/40' : 'bg-gray-50/60'
-        }`}
+        className="space-y-3 rounded-2xl p-2.5 min-h-[80px] flex-1 transition-all"
+        style={{
+          backgroundColor: isOver ? `${col.dot}33` : `${col.dot}1A`,
+          boxShadow: isOver ? `inset 0 0 0 2px ${col.dot}` : 'none',
+        }}
       >
         {count === 0 ? <p className="text-xs text-gray-400 text-center py-6">—</p> : children}
       </div>
