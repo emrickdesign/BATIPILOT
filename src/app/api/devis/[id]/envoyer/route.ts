@@ -102,6 +102,13 @@ ${quote.notes ? `<div class="note"><strong>Modalités de paiement :</strong><br>
       reminder_count: 0,
       reminded_at: null,
     }).eq('id', id)
+
+    // Fait avancer le prospect dans le pipeline (board Prospects) → « Devis envoyé ».
+    if (client?.id) {
+      await supabase.from('clients').update({ status: 'devis_envoye' })
+        .eq('id', client.id).in('status', ['nouveau', 'infos_a_recuperer', 'devis_a_faire'])
+    }
+
     return NextResponse.json({ success: true, signUrl })
   } catch (err: any) {
     console.error('Envoyer devis error:', err)
