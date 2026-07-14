@@ -95,10 +95,10 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
               </div>
 
               <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-center gap-2.5">
-                {p.phone && <ActionBtn href={`tel:${p.phone}`} label="Appeler" color="#2563EB" bg="#E5EDFF"><Phone className="w-3.5 h-3.5" /></ActionBtn>}
-                {p.waHref && <ActionBtn href={p.waHref} label="WhatsApp" external color="#128C4B" bg="#DCF6E4"><MessageCircle className="w-3.5 h-3.5" /></ActionBtn>}
-                {p.email && <ActionBtn href={`mailto:${p.email}`} label="Envoyer un email" color="#D9542B" bg="#FCE8DF"><Mail className="w-3.5 h-3.5" /></ActionBtn>}
-                <ActionBtn href={`/devis/nouveau?client=${p.id}`} label="Créer un devis" color="#7C3AED" bg="#EFE6FC"><FileText className="w-3.5 h-3.5" /></ActionBtn>
+                {p.phone && <ActionBtn href={`tel:${p.phone}`} label="Appeler" color="#fff" bg="#2563EB"><Phone className="w-3.5 h-3.5" /></ActionBtn>}
+                {p.waHref && <ActionBtn href={p.waHref} label="WhatsApp" external color="#fff" bg="#25D366"><MessageCircle className="w-3.5 h-3.5" /></ActionBtn>}
+                {p.email && <ActionBtn href={`mailto:${p.email}`} label="Envoyer un email" color="#fff" bg="#E0521F"><Mail className="w-3.5 h-3.5" /></ActionBtn>}
+                <ActionBtn href={`/devis/nouveau?client=${p.id}`} label="Créer un devis" color="#fff" bg="#7C3AED"><FileText className="w-3.5 h-3.5" /></ActionBtn>
               </div>
             </CardContent>
           </Card>
