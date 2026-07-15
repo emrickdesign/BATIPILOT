@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
-  Landmark, Plus, Trash2, Search, HardHat, ReceiptText, Wallet, Download, TrendingDown,
+  Landmark, Plus, Trash2, Search, HardHat, ReceiptText, Wallet, Download, TrendingDown, Camera, Loader2,
 } from 'lucide-react'
 import type { Expense } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -21,6 +21,16 @@ import {
 
 type Exp = Expense & { projects?: { title?: string } | null }
 type ProjectOption = { id: string; title: string }
+
+type ScanDraft = {
+  storage_path: string; signedUrl?: string
+  supplier: string; date: string
+  amount_ttc: string; amount_ht: string; vat_amount: string; vat_rate: string
+  category: string; payment_method: string; ticket_number: string
+  project_id: string; notes: string
+}
+
+const str = (v: unknown) => (v === null || v === undefined ? '' : String(v))
 
 const selectClass =
   'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
@@ -47,6 +57,62 @@ export default function DepensesLedger({
   const [category, setCategory] = useState('')
   const [payment, setPayment] = useState('')
   const [projectId, setProjectId] = useState('')
+
+  // Scan de ticket (OCR) → crée une dépense source=ticket
+  const scanRef = useRef<HTMLInputElement>(null)
+  const [scanning, setScanning] = useState(false)
+  const [draft, setDraft] = useState<ScanDraft | null>(null)
+  const setDraftField = (k: keyof ScanDraft, v: string) => setDraft(d => (d ? { ...d, [k]: v } : d))
+
+  async function handleScan(file: File) {
+    setScanning(true)
+    try {
+      const fd = new FormData(); fd.append('file', file)
+      const res = await fetch('/api/tickets/scan', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok && !json.storage_path) { toast.error(json.error || 'Lecture du ticket impossible'); return }
+      const d = json.data || {}
+      let signedUrl: string | undefined
+      if (json.storage_path) {
+        const { data } = await createClient().storage.from('documents').createSignedUrl(json.storage_path, 3600)
+        signedUrl = data?.signedUrl
+      }
+      setDraft({
+        storage_path: json.storage_path || '', signedUrl,
+        supplier: str(d.supplier), date: str(d.date),
+        amount_ttc: str(d.amount_ttc), amount_ht: str(d.amount_ht),
+        vat_amount: str(d.vat_amount), vat_rate: str(d.vat_rate),
+        category: expenseCategoryOptions.includes(d.category) ? d.category : '',
+        payment_method: paymentMethodOptions.includes(d.payment_method) ? d.payment_method : '',
+        ticket_number: str(d.ticket_number), project_id: '', notes: '',
+      })
+      if (json.error) toast.warning('Ticket enregistré, lecture partielle — vérifiez les champs')
+      else toast.success('Ticket lu — vérifiez puis enregistrez')
+    } catch { toast.error('Erreur réseau pendant le scan') }
+    finally { setScanning(false); if (scanRef.current) scanRef.current.value = '' }
+  }
+
+  async function saveDraft() {
+    if (!draft) return
+    if (!draft.amount_ttc) { toast.error('Indiquez au moins le montant TTC'); return }
+    setSaving(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSaving(false); return }
+    const num = (v: string) => (v === '' ? null : Number(v.replace(',', '.')))
+    const { error } = await supabase.from('expenses').insert({
+      user_id: user.id, source: 'ticket', status: 'a_verifier',
+      project_id: draft.project_id || null, supplier: draft.supplier || null, expense_date: draft.date || null,
+      amount_ttc: num(draft.amount_ttc) ?? 0, amount_ht: num(draft.amount_ht) ?? 0,
+      vat_amount: num(draft.vat_amount) ?? 0, vat_rate: num(draft.vat_rate),
+      category: draft.category || null, payment_method: draft.payment_method || null,
+      ticket_number: draft.ticket_number || null, storage_path: draft.storage_path || null, notes: draft.notes || null,
+    })
+    setSaving(false)
+    if (error) { toast.error('Erreur lors de l\'enregistrement'); return }
+    toast.success('Ticket enregistré !')
+    setDraft(null); router.refresh()
+  }
 
   const filtered = useMemo(() => expenses.filter(e => {
     if (sourceFilter !== 'tous' && e.source !== sourceFilter) return false
@@ -131,15 +197,78 @@ export default function DepensesLedger({
           <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Dépenses</h1>
           <p className="text-gray-500 mt-1 text-sm">Toutes vos sorties d&apos;argent au même endroit : tickets, banque et saisies.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Button variant="info" className="h-10 gap-2" onClick={handleExport}>
             <Download className="w-4 h-4" /> Exporter
+          </Button>
+          <input ref={scanRef} type="file" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(f) }} />
+          <Button variant="outline" className="h-10 gap-2" disabled={scanning} onClick={() => scanRef.current?.click()}>
+            {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+            {scanning ? 'Lecture…' : 'Scanner un ticket'}
           </Button>
           <Button className="h-10 gap-2 shadow-sm" onClick={() => setShowAdd(v => !v)}>
             <Plus className="w-4 h-4" /> Ajouter une dépense
           </Button>
         </div>
       </div>
+
+      {/* Validation du ticket scanné */}
+      {draft && (
+        <Card className="border-2 border-primary/30">
+          <CardContent className="p-4 space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium text-primary">
+              <Camera className="w-4 h-4" /> Vérifiez les informations lues, puis enregistrez
+            </div>
+            <div className="grid md:grid-cols-[1fr_220px] gap-4">
+              <div className="space-y-3">
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <Field label="Fournisseur"><Input value={draft.supplier} onChange={e => setDraftField('supplier', e.target.value)} placeholder="Ex: Leroy Merlin" /></Field>
+                  <Field label="Date"><Input type="date" value={draft.date} onChange={e => setDraftField('date', e.target.value)} /></Field>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <Field label="TTC (€)"><Input type="number" step="0.01" value={draft.amount_ttc} onChange={e => setDraftField('amount_ttc', e.target.value)} /></Field>
+                  <Field label="HT (€)"><Input type="number" step="0.01" value={draft.amount_ht} onChange={e => setDraftField('amount_ht', e.target.value)} /></Field>
+                  <Field label="TVA (€)"><Input type="number" step="0.01" value={draft.vat_amount} onChange={e => setDraftField('vat_amount', e.target.value)} /></Field>
+                  <Field label="Taux %"><Input type="number" step="0.5" value={draft.vat_rate} onChange={e => setDraftField('vat_rate', e.target.value)} /></Field>
+                </div>
+                <div className="grid sm:grid-cols-3 gap-3">
+                  <Field label="Catégorie">
+                    <select value={draft.category} onChange={e => setDraftField('category', e.target.value)} className={selectClass}>
+                      <option value="">— À classer —</option>
+                      {expenseCategoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Paiement">
+                    <select value={draft.payment_method} onChange={e => setDraftField('payment_method', e.target.value)} className={selectClass}>
+                      <option value="">—</option>
+                      {paymentMethodOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Chantier">
+                    <select value={draft.project_id} onChange={e => setDraftField('project_id', e.target.value)} className={selectClass}>
+                      <option value="">— Aucun —</option>
+                      {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                    </select>
+                  </Field>
+                </div>
+                <Field label="Note (optionnel)"><Input value={draft.notes} onChange={e => setDraftField('notes', e.target.value)} placeholder="Précision éventuelle" /></Field>
+              </div>
+              {draft.signedUrl && (
+                <a href={draft.signedUrl} target="_blank" rel="noopener noreferrer"
+                  className="block rounded-lg border border-gray-200 overflow-hidden bg-gray-50 hover:border-primary transition-colors">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={draft.signedUrl} alt="Ticket" className="w-full h-[220px] object-contain" />
+                </a>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="destructive-outline" onClick={() => setDraft(null)} disabled={saving}>Annuler</Button>
+              <Button onClick={saveDraft} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer le ticket'}</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Connexion bancaire (à venir) */}
       <Card className="border border-[#F3D9CF] bg-[#FBEDE7]/50">
@@ -161,7 +290,7 @@ export default function DepensesLedger({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <Stat label={`Total${sourceFilter !== 'tous' ? ` (${expenseSourceLabels[sourceFilter]})` : ''}`} value={formatCurrency(total)} tile="bg-rose-100 text-rose-600" icon={<TrendingDown className="w-4 h-4" />} />
             <Stat label="Ce mois" value={formatCurrency(thisMonth)} tile="bg-accent text-primary" icon={<Wallet className="w-4 h-4" />} />
-            <Link href="/tickets"><Stat label="Tickets à valider" value={String(aValider)} tile="bg-amber-100 text-amber-600" icon={<ReceiptText className="w-4 h-4" />} interactive /></Link>
+            <button type="button" onClick={() => setSourceFilter('ticket')} className="text-left"><Stat label="Tickets à valider" value={String(aValider)} tile="bg-amber-100 text-amber-600" icon={<ReceiptText className="w-4 h-4" />} interactive /></button>
             <Stat label="Sans justificatif" value={String(sansJustif)} tile="bg-gray-100 text-gray-500" icon={<Search className="w-4 h-4" />} />
           </div>
           <div className="grid md:grid-cols-3 gap-3">
@@ -273,6 +402,10 @@ export default function DepensesLedger({
       )}
     </div>
   )
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return <div className="space-y-1"><Label className="text-xs text-gray-500">{label}</Label>{children}</div>
 }
 
 function Stat({ label, value, tile, icon, interactive }: { label: string; value: string; tile: string; icon: React.ReactNode; interactive?: boolean }) {
