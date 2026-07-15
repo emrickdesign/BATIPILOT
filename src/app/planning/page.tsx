@@ -45,7 +45,7 @@ export default async function PlanningPage({
   const [{ data: projects }, { data: employees }, { data: assignments }] = await Promise.all([
     supabase.from('projects').select('id,title,status,address').eq('user_id', user.id).not('status', 'in', `(${closed.join(',')})`).order('created_at', { ascending: false }),
     supabase.from('employees').select('id,full_name,color').eq('user_id', user.id).eq('active', true).order('full_name'),
-    supabase.from('assignments').select('id,employee_id,project_id,date').eq('user_id', user.id).gte('date', days[0]).lte('date', days[days.length - 1]),
+    supabase.from('assignments').select('id,employee_id,project_id,date,start_hour,end_hour').eq('user_id', user.id).gte('date', days[0]).lte('date', days[days.length - 1]),
   ])
 
   return (

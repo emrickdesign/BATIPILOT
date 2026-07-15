@@ -1,27 +1,87 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, CalendarDays, HardHat, Users2, X, AlertTriangle, UserCheck } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, HardHat, Users2, X, AlertTriangle, UserCheck, ArrowRight } from 'lucide-react'
 import { employeeInitials } from '@/lib/equipe'
 
 export type PlanningViewMode = 'jour' | 'semaine' | 'mois'
 type ProjectRow = { id: string; title: string; status: string; address?: string | null }
 type EmployeeRow = { id: string; full_name: string; color: string }
-type AssignmentRow = { id: string; employee_id: string; project_id: string; date: string }
+type AssignmentRow = { id: string; employee_id: string; project_id: string; date: string; start_hour: number; end_hour: number }
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']
+
+// Frise horaire de la vue jour (heures affichées + affectation par défaut = journée complète).
+const DAY_START = 6
+const DAY_END = 20
+const TOTAL_H = DAY_END - DAY_START
+const DEFAULT_START = 8
+const DEFAULT_END = 17
+const AXIS = [6, 8, 10, 12, 14, 16, 18, 20]
 
 const fmtShort = (iso: string) => { const [, m, d] = iso.split('-'); return `${d}/${m}` }
 const fmtLong = (iso: string) => {
   const dt = new Date(iso + 'T00:00:00')
   return `${['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'][dt.getDay()]} ${dt.getDate()} ${MONTHS[dt.getMonth()]}`
+}
+
+// Barre d'un salarié sur la frise du jour : étirable (poignées gauche/droite) et déplaçable.
+function EmployeeBar({ emp, a, busy, onChange, onRemove }: {
+  emp: EmployeeRow; a: AssignmentRow; busy: boolean
+  onChange: (s: number, e: number) => void; onRemove: () => void
+}) {
+  const [range, setRange] = useState({ s: a.start_hour, e: a.end_hour })
+  useEffect(() => { setRange({ s: a.start_hour, e: a.end_hour }) }, [a.start_hour, a.end_hour])
+  const drag = useRef<{ mode: 'move' | 'start' | 'end'; x0: number; s0: number; e0: number; w: number; last: { s: number; e: number } } | null>(null)
+
+  function begin(mode: 'move' | 'start' | 'end', ev: React.PointerEvent) {
+    ev.preventDefault(); ev.stopPropagation()
+    const track = (ev.currentTarget as HTMLElement).closest('[data-track]') as HTMLElement | null
+    if (!track) return
+    drag.current = { mode, x0: ev.clientX, s0: range.s, e0: range.e, w: track.getBoundingClientRect().width, last: { s: range.s, e: range.e } }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', end)
+  }
+  function move(ev: PointerEvent) {
+    const d = drag.current; if (!d) return
+    const dh = Math.round((ev.clientX - d.x0) / d.w * TOTAL_H)
+    let s = d.s0, e = d.e0
+    if (d.mode === 'move') { const len = d.e0 - d.s0; s = Math.min(Math.max(d.s0 + dh, DAY_START), DAY_END - len); e = s + len }
+    else if (d.mode === 'start') { s = Math.min(Math.max(d.s0 + dh, DAY_START), d.e0 - 1) }
+    else { e = Math.max(Math.min(d.e0 + dh, DAY_END), d.s0 + 1) }
+    d.last = { s, e }
+    setRange({ s, e })
+  }
+  function end() {
+    window.removeEventListener('pointermove', move)
+    window.removeEventListener('pointerup', end)
+    const d = drag.current; drag.current = null
+    if (d && (d.last.s !== a.start_hour || d.last.e !== a.end_hour)) onChange(d.last.s, d.last.e)
+  }
+
+  const left = (range.s - DAY_START) / TOTAL_H * 100
+  const width = (range.e - range.s) / TOTAL_H * 100
+  return (
+    <div
+      className="absolute top-1 bottom-1 rounded-lg flex items-center text-white text-[11px] font-semibold shadow-sm select-none touch-none"
+      style={{ left: `${left}%`, width: `${width}%`, backgroundColor: emp.color }}
+    >
+      <span onPointerDown={e => begin('start', e)} className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize rounded-l-lg hover:bg-black/20" title="Étirer le début" />
+      <span onPointerDown={e => begin('move', e)} className="flex-1 min-w-0 h-full flex items-center gap-1 pl-3 pr-1 cursor-grab active:cursor-grabbing">
+        <span className="truncate">{emp.full_name.split(' ')[0]}</span>
+        <span className="opacity-80 whitespace-nowrap hidden sm:inline">· {range.s}h–{range.e}h</span>
+      </span>
+      <button onPointerDown={e => e.stopPropagation()} onClick={onRemove} disabled={busy} className="px-1 mr-1.5 opacity-70 hover:opacity-100" title="Retirer"><X className="w-3 h-3" /></button>
+      <span onPointerDown={e => begin('end', e)} className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize rounded-r-lg hover:bg-black/20" title="Étirer la fin" />
+    </div>
+  )
 }
 
 export default function PlanningView({
@@ -33,6 +93,11 @@ export default function PlanningView({
   const router = useRouter()
   const [items, setItems] = useState<AssignmentRow[]>(assignments)
   const [busy, setBusy] = useState(false)
+  const [selDay, setSelDay] = useState<string | null>(null)
+
+  // Resync après router.refresh()
+  const [syncedFrom, setSyncedFrom] = useState(assignments)
+  if (syncedFrom !== assignments) { setSyncedFrom(assignments); setItems(assignments) }
 
   const empById = useMemo(() => new Map(employees.map(e => [e.id, e])), [employees])
   const cellMap = useMemo(() => {
@@ -54,7 +119,6 @@ export default function PlanningView({
   const todayIso = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` })()
   const daySet = useMemo(() => new Set(days), [days])
 
-  // Indicateurs (§11.2)
   const nbConflits = useMemo(() => [...conflictByDay].filter(([k, n]) => n > 1 && daySet.has(k.split('|')[1])).length, [conflictByDay, daySet])
   const sansEquipe = useMemo(() => projects.filter(p => !days.some(d => (cellMap.get(`${p.id}|${d}`) || []).length > 0)), [projects, days, cellMap])
 
@@ -65,8 +129,8 @@ export default function PlanningView({
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setBusy(false); return }
     const { data, error } = await supabase.from('assignments')
-      .insert({ user_id: user.id, project_id: projectId, date, employee_id: employeeId })
-      .select('id,employee_id,project_id,date').single()
+      .insert({ user_id: user.id, project_id: projectId, date, employee_id: employeeId, start_hour: DEFAULT_START, end_hour: DEFAULT_END })
+      .select('id,employee_id,project_id,date,start_hour,end_hour').single()
     setBusy(false)
     if (error || !data) { toast.error('Erreur lors de l\'affectation'); return }
     setItems(prev => [...prev, data])
@@ -81,8 +145,14 @@ export default function PlanningView({
     setItems(prev => prev.filter(x => x.id !== a.id))
     router.refresh()
   }
+  // Étirement/déplacement d'un créneau (vue jour) — optimiste, sans refresh pour rester fluide.
+  async function updateHours(a: AssignmentRow, s: number, e: number) {
+    setItems(prev => prev.map(x => (x.id === a.id ? { ...x, start_hour: s, end_hour: e } : x)))
+    const { error } = await createClient().from('assignments').update({ start_hour: s, end_hour: e }).eq('id', a.id)
+    if (error) toast.error('Erreur horaire')
+  }
 
-  // Chip salarié affecté
+  // Chip salarié affecté (semaine / mois)
   const Chip = ({ a, date }: { a: AssignmentRow; date: string }) => {
     const e = empById.get(a.employee_id)
     if (!e) return null
@@ -101,7 +171,7 @@ export default function PlanningView({
     const available = employees.filter(e => !assignedIds.has(e.id))
     if (!available.length) return null
     return (
-      <div className="group relative mt-1.5 inline-flex">
+      <div className="group relative inline-flex">
         <span className="pointer-events-none inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-dashed border-gray-300 text-[11px] font-medium text-gray-400 group-hover:border-primary group-hover:text-primary transition-colors">
           <span className="text-sm leading-none">+</span> Affecter
         </span>
@@ -132,7 +202,6 @@ export default function PlanningView({
     )
   }
 
-  // Disponibilités (vue jour) : salariés sans affectation ce jour
   const dispoJour = view === 'jour' ? employees.filter(e => !items.some(a => a.date === days[0] && a.employee_id === e.id)) : []
 
   return (
@@ -199,7 +268,7 @@ export default function PlanningView({
                       <div className="flex flex-wrap gap-1.5">
                         {(cellMap.get(`${p.id}|${d}`) || []).map(a => <Chip key={a.id} a={a} date={d} />)}
                       </div>
-                      <AffectSelect projectId={p.id} date={d} />
+                      <div className="mt-1.5"><AffectSelect projectId={p.id} date={d} /></div>
                     </div>
                   ))}
                 </div>
@@ -208,24 +277,60 @@ export default function PlanningView({
           </div>
         </Card>
       ) : view === 'jour' ? (
-        /* ───────── Vue jour ───────── */
+        /* ───────── Vue jour : frise horaire draggable ───────── */
         <div className="space-y-4">
           <div className="grid gap-3">
-            {projects.map(p => (
-              <Card key={p.id} className="card-interactive border-0 shadow-[var(--shadow-sm)]">
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><HardHat className="w-4 h-4" /></span>
-                    <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate">{p.title}</Link>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {(cellMap.get(`${p.id}|${days[0]}`) || []).map(a => <Chip key={a.id} a={a} date={days[0]} />)}
-                  </div>
-                  <div className="max-w-[220px]"><AffectSelect projectId={p.id} date={days[0]} /></div>
-                </CardContent>
-              </Card>
-            ))}
+            {projects.map(p => {
+              const rows = cellMap.get(`${p.id}|${days[0]}`) || []
+              return (
+                <Card key={p.id} className="border-0 shadow-[var(--shadow-sm)]">
+                  <CardContent className="p-4">
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><HardHat className="w-4 h-4" /></span>
+                      <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate">{p.title}</Link>
+                      <span className="text-xs text-gray-400 ml-auto">{rows.length} affecté{rows.length > 1 ? 's' : ''}</span>
+                    </div>
+
+                    {/* Axe des heures */}
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 flex-shrink-0" />
+                      <div className="relative flex-1 h-4">
+                        {AXIS.map(h => (
+                          <span key={h} className="absolute -translate-x-1/2 text-[10px] text-gray-400 tabular-nums" style={{ left: `${(h - DAY_START) / TOTAL_H * 100}%` }}>{h}h</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Une frise par salarié affecté */}
+                    <div className="space-y-1.5 mt-1">
+                      {rows.length === 0 && <p className="text-sm text-gray-400 py-1">Personne d&apos;affecté sur ce chantier.</p>}
+                      {rows.map(a => {
+                        const emp = empById.get(a.employee_id)
+                        if (!emp) return null
+                        return (
+                          <div key={a.id} className="flex items-center gap-2">
+                            <div className="w-24 flex-shrink-0 flex items-center gap-1.5 min-w-0">
+                              <span className="grid place-items-center w-5 h-5 rounded-full text-white text-[9px] flex-shrink-0" style={{ backgroundColor: emp.color }}>{employeeInitials(emp.full_name)}</span>
+                              <span className="text-xs text-gray-700 truncate">{emp.full_name.split(' ')[0]}</span>
+                            </div>
+                            <div data-track className="relative flex-1 h-9 rounded-lg bg-gray-100">
+                              {AXIS.slice(1, -1).map(h => (
+                                <div key={h} className="absolute top-0 bottom-0 w-px bg-gray-200/80" style={{ left: `${(h - DAY_START) / TOTAL_H * 100}%` }} />
+                              ))}
+                              <EmployeeBar emp={emp} a={a} busy={busy} onChange={(s, e) => updateHours(a, s, e)} onRemove={() => removeAssignment(a)} />
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    <div className="mt-3"><AffectSelect projectId={p.id} date={days[0]} /></div>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </div>
+
           {/* Disponibilités (§11.1) */}
           <Card className="border-0 bg-[#F1F6E9]/60 shadow-[var(--shadow-sm)]">
             <CardContent className="p-4">
@@ -242,38 +347,70 @@ export default function PlanningView({
               )}
             </CardContent>
           </Card>
+
+          <p className="text-xs text-gray-400">Glissez le bord d&apos;un créneau pour ajuster ses heures, ou déplacez-le. Par défaut : journée complète ({DEFAULT_START}h–{DEFAULT_END}h).</p>
         </div>
       ) : (
         /* ───────── Vue mois ───────── */
-        <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden">
-          <div className="grid grid-cols-7 text-center border-b border-gray-100 bg-gray-50/60">
-            {DAY_LABELS.map(l => <div key={l} className="p-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{l}</div>)}
-          </div>
-          <div className="grid grid-cols-7">
-            {Array.from({ length: (new Date(days[0] + 'T00:00:00').getDay() + 6) % 7 }).map((_, i) => <div key={`b${i}`} className="min-h-[84px] border-b border-l border-gray-50 bg-gray-50/30" />)}
-            {days.map(d => {
-              const n = countByDate.get(d) || 0
-              const isToday = d === todayIso
-              return (
-                <Link key={d} href={`/planning?view=jour&date=${d}`} className="min-h-[84px] border-b border-l border-gray-50 p-2 hover:bg-gray-50 transition-colors">
-                  <span className={`inline-grid place-items-center w-6 h-6 rounded-full text-[13px] font-bold ${isToday ? 'bg-primary text-white' : 'text-gray-600'}`}>
-                    {Number(d.split('-')[2])}
-                  </span>
-                  {n > 0 && (
-                    <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FCE7DE] text-[#B0472F] text-[11px] font-semibold">
-                      <Users2 className="w-3 h-3" />{n}
+        <>
+          <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden">
+            <div className="grid grid-cols-7 text-center border-b border-gray-100 bg-gray-50/60">
+              {DAY_LABELS.map(l => <div key={l} className="p-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{l}</div>)}
+            </div>
+            <div className="grid grid-cols-7">
+              {Array.from({ length: (new Date(days[0] + 'T00:00:00').getDay() + 6) % 7 }).map((_, i) => <div key={`b${i}`} className="min-h-[84px] border-b border-l border-gray-50 bg-gray-50/30" />)}
+              {days.map(d => {
+                const n = countByDate.get(d) || 0
+                const isToday = d === todayIso
+                const isSel = d === selDay
+                return (
+                  <button key={d} onClick={() => setSelDay(d)} className={`text-left min-h-[84px] border-b border-l border-gray-50 p-2 hover:bg-gray-50 transition-colors ${isSel ? 'bg-primary/[0.06] ring-2 ring-inset ring-primary/50' : ''}`}>
+                    <span className={`inline-grid place-items-center w-6 h-6 rounded-full text-[13px] font-bold ${isToday ? 'bg-primary text-white' : 'text-gray-600'}`}>
+                      {Number(d.split('-')[2])}
+                    </span>
+                    {n > 0 && (
+                      <div className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FCE7DE] text-[#B0472F] text-[11px] font-semibold">
+                        <Users2 className="w-3 h-3" />{n}
+                      </div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </Card>
+
+          {/* Panneau d'affectation du jour sélectionné (comme en semaine) */}
+          {selDay && daySet.has(selDay) && (
+            <Card className="border-0 shadow-[var(--shadow-sm)]">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <h3 className="text-sm font-semibold text-marine capitalize flex items-center gap-2"><CalendarDays className="w-4 h-4 text-gray-400" /> {fmtLong(selDay)}</h3>
+                  <Link href={`/planning?view=jour&date=${selDay}`}>
+                    <Button variant="outline" size="sm" className="gap-1">Ouvrir la journée <ArrowRight className="w-3.5 h-3.5" /></Button>
+                  </Link>
+                </div>
+                <div className="divide-y divide-gray-100">
+                  {projects.map(p => (
+                    <div key={p.id} className="flex items-start justify-between gap-3 py-2.5">
+                      <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate pt-1 min-w-0">{p.title}</Link>
+                      <div className="flex flex-wrap items-center justify-end gap-1.5 flex-1">
+                        {(cellMap.get(`${p.id}|${selDay}`) || []).map(a => <Chip key={a.id} a={a} date={selDay} />)}
+                        <AffectSelect projectId={p.id} date={selDay} />
+                      </div>
                     </div>
-                  )}
-                </Link>
-              )
-            })}
-          </div>
-        </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
 
-      <p className="text-xs text-gray-400">
-        Un salarié encadré en rouge est sur plusieurs chantiers le même jour. Affectation des véhicules, absences et envoi du planning aux salariés : à venir.
-      </p>
+      {view !== 'jour' && (
+        <p className="text-xs text-gray-400">
+          Un salarié encadré en rouge est sur plusieurs chantiers le même jour.{view === 'mois' ? ' Cliquez un jour pour affecter directement.' : ''}
+        </p>
+      )}
     </Wrapper>
   )
 }

@@ -106,6 +106,8 @@ export interface Assignment {
   employee_id: string
   project_id: string
   date: string
+  start_hour: number
+  end_hour: number
   note?: string
   created_at: string
 }
