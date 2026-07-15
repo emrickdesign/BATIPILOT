@@ -19,6 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!contract) return NextResponse.json({ error: 'Contrat introuvable' }, { status: 404 })
     const sub = contract.subcontractors as { company_name?: string; email?: string } | null
     if (!sub?.email) return NextResponse.json({ error: "Ce sous-traitant n'a pas d'adresse email" }, { status: 400 })
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(sub.email)) return NextResponse.json({ error: `Adresse email invalide (« ${sub.email} ») — corrigez-la dans l'onglet Infos du sous-traitant` }, { status: 400 })
     if (!gmailToken) return NextResponse.json({ error: 'Gmail non connecté' }, { status: 400 })
 
     const signerName = sub.company_name || 'Sous-traitant'
