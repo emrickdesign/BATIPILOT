@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  Sun, HardHat, MapPin, Navigation, Camera, ReceiptText, Clock, User, Users2, LogIn, ArrowRight, ChevronLeft, MessageSquare,
+  Sun, HardHat, MapPin, Navigation, Camera, ReceiptText, Clock, User, Users2, LogIn, ArrowRight, ChevronLeft, MessageSquare, Building2,
 } from 'lucide-react'
 import { employeeInitials } from '@/lib/equipe'
 
@@ -22,7 +22,10 @@ export default async function TerrainPage({ searchParams }: { searchParams: Prom
   if (!me) {
     return (
       <div className="min-h-screen bg-[#0F172A] text-white p-5">
-        <div className="max-w-md mx-auto pt-8 space-y-6">
+        <div className="max-w-md mx-auto pt-4 space-y-6">
+          <div className="flex justify-end">
+            <Link href="/dashboard" className="inline-flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/20 px-3 py-1.5 text-xs font-medium text-white transition-colors"><Building2 className="w-4 h-4" /> Vue admin</Link>
+          </div>
           <div className="text-center">
             <span className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] mb-3"><HardHat className="w-7 h-7 text-white" /></span>
             <h1 className="text-xl font-bold">BatiPilot <span className="text-primary">Terrain</span></h1>
@@ -75,9 +78,12 @@ export default async function TerrainPage({ searchParams }: { searchParams: Prom
       {/* Header salarié */}
       <header className="bg-[#0F172A] text-white px-4 pt-4 pb-5">
         <div className="max-w-md mx-auto">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <Link href="/terrain" className="flex items-center gap-1 text-slate-400 text-xs hover:text-white"><ChevronLeft className="w-4 h-4" /> Changer</Link>
-            <span className="text-xs text-slate-400 capitalize">{dateLabel}</span>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 capitalize">{dateLabel}</span>
+              <Link href="/dashboard" className="inline-flex items-center gap-1 rounded-full bg-white/10 hover:bg-white/20 px-2.5 py-1 text-[11px] font-medium text-white transition-colors"><Building2 className="w-3.5 h-3.5" /> Vue admin</Link>
+            </div>
           </div>
           <div className="flex items-center gap-3 mt-3">
             <span className="grid place-items-center w-11 h-11 rounded-full text-white font-bold" style={{ backgroundColor: me.color }}>{employeeInitials(me.full_name)}</span>

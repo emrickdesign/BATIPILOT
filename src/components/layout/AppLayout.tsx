@@ -199,7 +199,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           ))}
         </div>
       </nav>
-      <div className="p-3 border-t border-white/10">
+      <div className="px-3 pt-3">
+        <Link
+          href="/terrain"
+          onClick={mobile ? () => setMenuOpen(false) : undefined}
+          title="Basculer en vue salarié (terrain)"
+          className={cn('flex items-center gap-2 rounded-xl bg-white/12 hover:bg-white/25 text-white font-medium transition-colors', rail ? 'justify-center h-9' : 'px-3 h-9')}
+        >
+          <HardHat className="w-4 h-4 flex-shrink-0" />
+          {!rail && <span className="text-sm">Vue salarié</span>}
+        </Link>
+      </div>
+      <div className="p-3 border-t border-white/10 mt-0">
         <div className={cn('flex items-center gap-2.5 rounded-xl px-2.5 py-2 hover:bg-white/15 transition-colors', rail && 'justify-center px-0')}>
           <span className="grid place-items-center w-9 h-9 rounded-full bg-white/20 text-white text-xs font-bold flex-shrink-0" title={rail ? profile.name : undefined}>
             {profile.initials}
