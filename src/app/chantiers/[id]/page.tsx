@@ -33,7 +33,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
   const [
     { data: quotes }, { data: invoices }, { data: plans }, { data: documents },
     { data: expenses }, { data: timeEntries }, { data: employees },
-    { data: assignments }, { data: vehicleLogs }, { data: vehicles },
+    { data: assignments }, { data: vehicleLogs }, { data: vehicles }, { data: subInvoices },
   ] = await Promise.all([
     supabase.from('quotes').select('id,quote_number,status,total_ttc,subtotal_ht,issue_date').eq('project_id', id).order('created_at', { ascending: false }),
     supabase.from('invoices').select('id,invoice_number,status,total_ttc,amount_due,issue_date').eq('project_id', id).order('created_at', { ascending: false }),
@@ -45,6 +45,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     supabase.from('assignments').select('employee_id').eq('project_id', id),
     supabase.from('vehicle_logs').select('vehicle_id').eq('project_id', id),
     supabase.from('vehicles').select('id,name,plate').eq('user_id', user.id),
+    supabase.from('subcontractor_invoices').select('amount_ht,amount_ttc,status').eq('project_id', id).eq('user_id', user.id),
   ])
 
   const isSigned = (s: string) => s === 'accepte' || s === 'transforme'
@@ -64,7 +65,9 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
   const reste = (invoices || []).filter(i => isOpen(i.status)).reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
   const coutDepensesHt = (expenses || []).reduce((s, e) => s + (num(e.amount_ht) || num(e.amount_ttc)), 0)
   const coutMainOeuvre = (timeEntries || []).reduce((s, t) => s + num(t.hours) * (empCost.get(t.employee_id) || 0), 0)
-  const marge = revenuSigne - coutDepensesHt - coutMainOeuvre
+  // Coût sous-traitance HT (les factures ST rattachées au chantier — comptent dans la marge)
+  const coutSousTraitance = (subInvoices || []).reduce((s, i) => s + (num(i.amount_ht) || num(i.amount_ttc) / 1.2), 0)
+  const marge = revenuSigne - coutDepensesHt - coutMainOeuvre - coutSousTraitance
   const margePct = revenuSigne > 0 ? Math.round((marge / revenuSigne) * 100) : null
 
   // Bloc équipe
@@ -141,10 +144,11 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
             <Fin label="Encaissé" value={encaisse} tone="emerald" />
             <Fin label="Reste à encaisser" value={reste} tone={reste > 0 ? 'amber' : undefined} />
             <Fin label="Dépenses" value={totalDepenses} tone="rose" />
+            {coutSousTraitance > 0 && <Fin label="Sous-traitance" value={coutSousTraitance} tone="rose" />}
             <Fin label="Marge estimée" value={marge} tone={marge >= 0 ? 'emerald' : 'rose'} />
           </div>
           <p className="text-[11px] text-gray-400 mt-2.5 leading-snug">
-            Marge = signé HT ({formatCurrency(revenuSigne)}) − dépenses HT ({formatCurrency(coutDepensesHt)}) − main-d&apos;œuvre ({formatCurrency(coutMainOeuvre)}). {totalHeures > 0 && `${totalHeures.toFixed(1).replace('.0', '')} h déclarées.`}
+            Marge = signé HT ({formatCurrency(revenuSigne)}) − dépenses HT ({formatCurrency(coutDepensesHt)}) − main-d&apos;œuvre ({formatCurrency(coutMainOeuvre)}){coutSousTraitance > 0 ? ` − sous-traitance (${formatCurrency(coutSousTraitance)})` : ''}. {totalHeures > 0 && `${totalHeures.toFixed(1).replace('.0', '')} h déclarées.`}
           </p>
         </CardContent>
       </Card>

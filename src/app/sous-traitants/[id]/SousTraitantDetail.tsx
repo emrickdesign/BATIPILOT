@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import {
   ArrowLeft, Phone, Mail, MapPin, Star, Trash2, Pencil, Upload, Plus, FileText,
   ShieldCheck, ShieldAlert, HardHat, Wallet, MessageSquare, FileCheck2, Send,
-  CheckCircle2, ExternalLink, Building2, CreditCard,
+  CheckCircle2, ExternalLink, Building2, CreditCard, Users,
 } from 'lucide-react'
 import type {
   Subcontractor, SubcontractorDocument, SubcontractorContract, SubcontractorInvoice,
@@ -24,7 +24,7 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   tradeOptions, subStatusLabels, subDocTypeLabels, requiredDocTypes,
   subContractStatusLabels, subInvoiceStatusLabels, subInitials, expiryState,
-  complianceCheck, daysUntil,
+  complianceCheck, daysUntil, profitability, retention, invoiceHt,
 } from '@/lib/soustraitants'
 
 type Doc = SubcontractorDocument & { url: string | null }
@@ -57,6 +57,7 @@ export default function SousTraitantDetail({
   const projTitle = useMemo(() => new Map(projects.map(p => [p.id, p.title])), [projects])
 
   const conf = complianceCheck(docs, sub.insurance_expiry)
+  const prof = profitability(contracts, invoices)
 
   async function updateSub(patch: Partial<Subcontractor>) {
     const { error } = await supabase().from('subcontractors').update(patch).eq('id', sub.id)
@@ -104,6 +105,21 @@ export default function SousTraitantDetail({
         </div>
       </div>
 
+      {/* Synthèse rentabilité — ce qu'il rapporte vs ce qu'on le paye */}
+      <div className="grid grid-cols-3 gap-3">
+        <SynTile label="CA généré" value={formatCurrency(prof.ca)} sub="facturé au client" />
+        <SynTile label="Coût" value={formatCurrency(prof.cout)} sub={prof.facture > 0 ? 'facturé par le ST' : 'engagé (contrats)'} />
+        <SynTile label={prof.margePct !== null ? `Marge · ${prof.margePct} %` : 'Marge'} value={formatCurrency(prof.marge)} tone={prof.marge >= 0 ? 'ok' : 'bad'} />
+      </div>
+      {(prof.unpaid > 0 || prof.retenue > 0 || prof.litiges > 0 || prof.retards > 0) && (
+        <div className="flex flex-wrap gap-2 text-xs -mt-1">
+          {prof.unpaid > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 text-gray-600"><Wallet className="w-3.5 h-3.5" /> {formatCurrency(prof.unpaid)} restant à payer</span>}
+          {prof.retenue > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-50 text-amber-700"><CreditCard className="w-3.5 h-3.5" /> {formatCurrency(prof.retenue)} de retenue</span>}
+          {prof.retards > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 text-red-700">{prof.retards} facture(s) en retard</span>}
+          {prof.litiges > 0 && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-50 text-red-700">{prof.litiges} litige(s)</span>}
+        </div>
+      )}
+
       {/* Onglets */}
       <div className="flex items-center gap-1 border-b border-gray-200 overflow-x-auto">
         {TABS.map(t => {
@@ -121,7 +137,7 @@ export default function SousTraitantDetail({
 
       {tab === 'infos' && <InfosTab sub={sub} onSave={updateSub} />}
       {tab === 'conformite' && <ConformiteTab sub={sub} docs={docs} conf={conf} />}
-      {tab === 'contrats' && <ContratsTab sub={sub} contracts={contracts} projects={projects} projTitle={projTitle} />}
+      {tab === 'contrats' && <ContratsTab sub={sub} contracts={contracts} invoices={invoices} projects={projects} projTitle={projTitle} />}
       {tab === 'factures' && <FacturesTab sub={sub} invoices={invoices} contracts={contracts} projects={projects} projTitle={projTitle} />}
       {tab === 'discussion' && <DiscussionTab sub={sub} messages={messages} />}
     </div>
@@ -138,6 +154,7 @@ function InfosTab({ sub, onSave }: { sub: Subcontractor; onSave: (p: Partial<Sub
     vat_number: sub.vat_number || '', iban: sub.iban || '',
     insurance_decennale: sub.insurance_decennale || '', insurance_expiry: sub.insurance_expiry || '',
     hourly_rate: sub.hourly_rate != null ? String(sub.hourly_rate) : '',
+    crew_size: sub.crew_size != null ? String(sub.crew_size) : '',
     status: sub.status as SubcontractorStatus, notes: sub.notes || '',
   })
   const set = (k: keyof typeof f, v: string) => setF(p => ({ ...p, [k]: v }))
@@ -149,7 +166,8 @@ function InfosTab({ sub, onSave }: { sub: Subcontractor; onSave: (p: Partial<Sub
       email: f.email || null, address: f.address || null, siret: f.siret || null,
       vat_number: f.vat_number || null, iban: f.iban || null,
       insurance_decennale: f.insurance_decennale || null, insurance_expiry: f.insurance_expiry || null,
-      hourly_rate: f.hourly_rate ? Number(f.hourly_rate) : null, status: f.status, notes: f.notes || null,
+      hourly_rate: f.hourly_rate ? Number(f.hourly_rate) : null,
+      crew_size: f.crew_size ? Number(f.crew_size) : null, status: f.status, notes: f.notes || null,
     })
     setSaving(false)
     if (ok) { toast.success('Enregistré'); setEdit(false) }
@@ -171,6 +189,7 @@ function InfosTab({ sub, onSave }: { sub: Subcontractor; onSave: (p: Partial<Sub
           <Info label="N° TVA" value={sub.vat_number} />
           <Info label="IBAN" value={sub.iban} icon={<CreditCard className="w-3.5 h-3.5" />} />
           <Info label="Taux horaire" value={sub.hourly_rate != null ? `${sub.hourly_rate} €/h` : null} />
+          <Info label="Intervenants" value={sub.crew_size ? (sub.crew_size === 1 ? 'Solo' : `${sub.crew_size} personnes`) : null} icon={<Users className="w-3.5 h-3.5" />} />
           <Info label="Assurance décennale" value={sub.insurance_decennale} />
           <div>
             <p className="text-xs text-gray-400 mb-0.5">Échéance décennale</p>
@@ -203,6 +222,7 @@ function InfosTab({ sub, onSave }: { sub: Subcontractor; onSave: (p: Partial<Sub
         <div><Label>Téléphone</Label><Input value={f.phone} onChange={e => set('phone', e.target.value)} /></div>
         <div><Label>Email</Label><Input value={f.email} onChange={e => set('email', e.target.value)} /></div>
         <div><Label>Taux horaire (€/h)</Label><Input type="number" value={f.hourly_rate} onChange={e => set('hourly_rate', e.target.value)} /></div>
+        <div><Label>Nombre d&apos;intervenants</Label><Input type="number" min="1" value={f.crew_size} onChange={e => set('crew_size', e.target.value)} placeholder="1 = solo" /></div>
         <div className="sm:col-span-2"><Label>Adresse</Label><Input value={f.address} onChange={e => set('address', e.target.value)} /></div>
         <div><Label>SIRET</Label><Input value={f.siret} onChange={e => set('siret', e.target.value)} /></div>
         <div><Label>N° TVA</Label><Input value={f.vat_number} onChange={e => set('vat_number', e.target.value)} /></div>
@@ -215,6 +235,17 @@ function InfosTab({ sub, onSave }: { sub: Subcontractor; onSave: (p: Partial<Sub
         <Button variant="ghost" onClick={() => setEdit(false)}>Annuler</Button>
         <Button onClick={save} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Button>
       </div>
+    </CardContent></Card>
+  )
+}
+
+function SynTile({ label, value, sub, tone }: { label: string; value: string; sub?: string; tone?: 'ok' | 'bad' }) {
+  const color = tone === 'ok' ? 'text-emerald-600' : tone === 'bad' ? 'text-red-600' : 'text-gray-900'
+  return (
+    <Card><CardContent className="p-3">
+      <p className="text-[11px] text-gray-400">{label}</p>
+      <p className={`text-lg font-bold tabular-nums ${color}`}>{value}</p>
+      {sub && <p className="text-[10px] text-gray-400 mt-0.5 truncate">{sub}</p>}
     </CardContent></Card>
   )
 }
@@ -331,13 +362,13 @@ function ConformiteTab({ sub, docs, conf }: { sub: Subcontractor; docs: Doc[]; c
 }
 
 /* ─── Onglet Contrats / missions ───────────────────────────────────────── */
-function ContratsTab({ sub, contracts, projects, projTitle }: {
-  sub: Subcontractor; contracts: SubcontractorContract[]; projects: ProjectOption[]; projTitle: Map<string, string>
+function ContratsTab({ sub, contracts, invoices, projects, projTitle }: {
+  sub: Subcontractor; contracts: SubcontractorContract[]; invoices: Inv[]; projects: ProjectOption[]; projTitle: Map<string, string>
 }) {
   const router = useRouter()
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [f, setF] = useState({ title: '', project_id: '', amount_ht: '', retention_pct: '5', start_date: '', end_date: '', description: '' })
+  const [f, setF] = useState({ title: '', project_id: '', amount_ht: '', sale_price_ht: '', retention_pct: '5', start_date: '', end_date: '', description: '' })
   const set = (k: keyof typeof f, v: string) => setF(p => ({ ...p, [k]: v }))
 
   async function add() {
@@ -349,13 +380,14 @@ function ContratsTab({ sub, contracts, projects, projTitle }: {
     const { error } = await supabase.from('subcontractor_contracts').insert({
       user_id: user.id, subcontractor_id: sub.id, title: f.title.trim(),
       project_id: f.project_id || null, amount_ht: f.amount_ht ? Number(f.amount_ht) : null,
+      sale_price_ht: f.sale_price_ht ? Number(f.sale_price_ht) : null,
       retention_pct: f.retention_pct ? Number(f.retention_pct) : 0,
       start_date: f.start_date || null, end_date: f.end_date || null,
       description: f.description || null, status: 'en_preparation', progress: 0,
     })
     if (error) { toast.error('Erreur'); setSaving(false); return }
     toast.success('Contrat créé')
-    setF({ title: '', project_id: '', amount_ht: '', retention_pct: '5', start_date: '', end_date: '', description: '' })
+    setF({ title: '', project_id: '', amount_ht: '', sale_price_ht: '', retention_pct: '5', start_date: '', end_date: '', description: '' })
     setShowAdd(false); setSaving(false); router.refresh()
   }
 
@@ -384,7 +416,8 @@ function ContratsTab({ sub, contracts, projects, projTitle }: {
                 <option value="">— Aucun</option>{projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
             </div>
-            <div><Label>Montant HT (€)</Label><Input type="number" value={f.amount_ht} onChange={e => set('amount_ht', e.target.value)} /></div>
+            <div><Label>Coût ST — Montant HT (€)</Label><Input type="number" value={f.amount_ht} onChange={e => set('amount_ht', e.target.value)} placeholder="ce qu'on lui paye" /></div>
+            <div><Label>Prix vendu au client HT (€)</Label><Input type="number" value={f.sale_price_ht} onChange={e => set('sale_price_ht', e.target.value)} placeholder="ce que ça nous rapporte" /></div>
             <div><Label>Retenue de garantie (%)</Label><Input type="number" value={f.retention_pct} onChange={e => set('retention_pct', e.target.value)} /></div>
             <div className="grid grid-cols-2 gap-2">
               <div><Label>Début</Label><Input type="date" value={f.start_date} onChange={e => set('start_date', e.target.value)} /></div>
@@ -408,11 +441,38 @@ function ContratsTab({ sub, contracts, projects, projTitle }: {
             <Button variant="ghost" size="icon-sm" onClick={() => del(c.id)}><Trash2 className="w-4 h-4 text-gray-400" /></Button>
           </div>
           {c.description && <p className="text-sm text-gray-500 whitespace-pre-line">{c.description}</p>}
-          <div className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-gray-600">
-            {c.amount_ht != null && <span>Montant : <b className="text-gray-800">{formatCurrency(c.amount_ht)}</b> HT</span>}
-            {c.retention_pct > 0 && <span>Retenue : {c.retention_pct}%{c.amount_ht != null ? ` (${formatCurrency(c.amount_ht * c.retention_pct / 100)})` : ''}</span>}
-            {(c.start_date || c.end_date) && <span>{c.start_date ? formatDate(c.start_date) : '?'} → {c.end_date ? formatDate(c.end_date) : '?'}</span>}
-          </div>
+          {(c.start_date || c.end_date) && <p className="text-xs text-gray-400">{c.start_date ? formatDate(c.start_date) : '?'} → {c.end_date ? formatDate(c.end_date) : '?'}</p>}
+
+          {/* Rentabilité de la mission + réconciliation engagé/facturé/payé */}
+          {(() => {
+            const engage = Number(c.amount_ht) || 0
+            const linked = invoices.filter(i => i.contract_id === c.id)
+            const facture = linked.reduce((t, i) => t + invoiceHt(i), 0)
+            const paye = linked.filter(i => i.status === 'payee').reduce((t, i) => t + invoiceHt(i), 0)
+            const ca = Number(c.sale_price_ht) || 0
+            const cout = facture > 0 ? facture : engage
+            const marge = ca - cout
+            const over = engage > 0 && facture > engage
+            const ret = retention(c)
+            if (ca === 0 && engage === 0) return null
+            return (
+              <div className="rounded-xl bg-gray-50 p-3 space-y-2">
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div><p className="text-[10px] text-gray-400">Vendu client</p><p className="text-sm font-semibold text-gray-800 tabular-nums">{formatCurrency(ca)}</p></div>
+                  <div><p className="text-[10px] text-gray-400">Coût ST</p><p className="text-sm font-semibold text-gray-800 tabular-nums">{formatCurrency(cout)}</p></div>
+                  <div><p className="text-[10px] text-gray-400">Marge</p><p className={`text-sm font-bold tabular-nums ${marge >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(marge)}</p></div>
+                </div>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 pt-2 border-t border-gray-200/70">
+                  <span>Engagé <b className="text-gray-700 tabular-nums">{formatCurrency(engage)}</b></span>
+                  <span>Facturé <b className={`tabular-nums ${over ? 'text-red-600' : 'text-gray-700'}`}>{formatCurrency(facture)}</b></span>
+                  <span>Payé <b className="text-gray-700 tabular-nums">{formatCurrency(paye)}</b></span>
+                  {facture - paye > 0 && <span className="text-amber-600">Reste à payer {formatCurrency(facture - paye)}</span>}
+                  {ret.amount > 0 && <span>Retenue {formatCurrency(ret.amount)}{ret.releaseDate ? ` · libère le ${formatDate(ret.releaseDate)}` : ''}</span>}
+                </div>
+                {over && <p className="text-[11px] text-red-600">⚠︎ Facturé au-delà du contrat ({formatCurrency(facture - engage)} de dépassement).</p>}
+              </div>
+            )
+          })()}
           {/* Avancement */}
           <div>
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1"><span>Avancement</span><span className="font-medium">{c.progress}%</span></div>

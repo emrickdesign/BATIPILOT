@@ -413,6 +413,7 @@ export interface Subcontractor {
   insurance_decennale?: string | null
   insurance_expiry?: string | null
   hourly_rate?: number | null
+  crew_size?: number | null
   rating?: number | null
   notes?: string | null
   status: SubcontractorStatus
@@ -438,6 +439,7 @@ export interface SubcontractorContract {
   title: string
   description?: string | null
   amount_ht?: number | null
+  sale_price_ht?: number | null
   retention_pct: number
   start_date?: string | null
   end_date?: string | null

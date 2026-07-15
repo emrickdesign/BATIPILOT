@@ -1,7 +1,43 @@
 import type {
   SubcontractorStatus, SubDocType, SubContractStatus, SubInvoiceStatus,
-  SubcontractorDocument,
+  SubcontractorDocument, SubcontractorInvoice, SubcontractorContract,
 } from '@/types'
+
+const numv = (v: unknown) => Number(v) || 0
+
+/** Montant HT d'une facture ST (fallback : TTC / 1,2 si le HT n'est pas saisi). */
+export function invoiceHt(i: { amount_ht?: number | null; amount_ttc?: number | null }): number {
+  if (i.amount_ht != null) return numv(i.amount_ht)
+  if (i.amount_ttc != null) return numv(i.amount_ttc) / 1.2
+  return 0
+}
+
+/** Retenue de garantie d'un contrat (montant) + date de libération (fin + 1 an). */
+export function retention(c: { amount_ht?: number | null; retention_pct?: number | null; end_date?: string | null }) {
+  const amount = numv(c.amount_ht) * numv(c.retention_pct) / 100
+  let releaseDate: string | null = null
+  if (c.end_date && amount > 0) {
+    const d = new Date(c.end_date + 'T00:00:00'); d.setFullYear(d.getFullYear() + 1)
+    releaseDate = d.toISOString().slice(0, 10)
+  }
+  return { amount, releaseDate }
+}
+
+/** Rentabilité agrégée d'un sous-traitant : CA généré, coûts, marge, alertes. */
+export function profitability(contracts: SubcontractorContract[], invoices: Pick<SubcontractorInvoice, 'amount_ht' | 'amount_ttc' | 'status' | 'due_date'>[]) {
+  const ca = contracts.reduce((t, c) => t + numv(c.sale_price_ht), 0)
+  const engage = contracts.reduce((t, c) => t + numv(c.amount_ht), 0)
+  const facture = invoices.reduce((t, i) => t + invoiceHt(i), 0)
+  const paye = invoices.filter(i => i.status === 'payee').reduce((t, i) => t + invoiceHt(i), 0)
+  const unpaid = invoices.filter(i => i.status !== 'payee').reduce((t, i) => t + numv(i.amount_ttc), 0)
+  const cout = facture > 0 ? facture : engage // coût réel si facturé, sinon l'engagé
+  const marge = ca - cout
+  const margePct = ca > 0 ? Math.round((marge / ca) * 100) : null
+  const retenue = contracts.reduce((t, c) => t + retention(c).amount, 0)
+  const litiges = invoices.filter(i => i.status === 'litige').length
+  const retards = invoices.filter(i => i.status !== 'payee' && i.due_date && (daysUntil(i.due_date) ?? 0) < 0).length
+  return { ca, engage, facture, paye, unpaid, cout, marge, margePct, retenue, litiges, retards }
+}
 
 // Spécialités les plus courantes dans le bâtiment (liste indicative, champ libre autorisé)
 export const tradeOptions: string[] = [

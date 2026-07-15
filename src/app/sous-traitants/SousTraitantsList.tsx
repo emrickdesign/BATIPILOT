@@ -11,8 +11,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
-  Handshake, Plus, Search, Phone, Mail, ShieldAlert, ShieldCheck, FileWarning,
-  Wallet, Star, ChevronRight,
+  Handshake, Plus, Search, Phone, Mail, ShieldAlert, ShieldCheck,
+  Wallet, Star, ChevronRight, TrendingUp, Coins,
 } from 'lucide-react'
 import type { Subcontractor, SubcontractorDocument, SubcontractorStatus } from '@/types'
 import { formatCurrency } from '@/lib/utils'
@@ -23,12 +23,19 @@ import {
 export type SubMeta = {
   docs: SubcontractorDocument[]
   openContracts: number
-  unpaid: number
   toValidate: number
+  ca: number; engage: number; facture: number; paye: number
+  unpaid: number; cout: number; marge: number; margePct: number | null
+  retenue: number; litiges: number; retards: number
 }
 
 const selectClass =
   'w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
+
+function crewLabel(n?: number | null): string {
+  if (!n || n <= 0) return ''
+  return n === 1 ? 'Solo' : `${n} intervenants`
+}
 
 const statusColors: Record<SubcontractorStatus, string> = {
   actif: 'bg-emerald-50 text-emerald-700',
@@ -59,11 +66,14 @@ export default function SousTraitantsList({ subs, meta }: { subs: Subcontractor[
     return true
   }), [subs, search, statusFilter])
 
-  // KPIs
-  const nbActifs = subs.filter(s => s.status === 'actif').length
+  // KPIs — rentabilité en tête
   const nonConformes = subs.filter(s => !complianceCheck(meta[s.id]?.docs || [], s.insurance_expiry).ok).length
   const totalDu = subs.reduce((t, s) => t + (meta[s.id]?.unpaid || 0), 0)
-  const facturesAValider = subs.reduce((t, s) => t + (meta[s.id]?.toValidate || 0), 0)
+  const totalCa = subs.reduce((t, s) => t + (meta[s.id]?.ca || 0), 0)
+  const totalCout = subs.reduce((t, s) => t + (meta[s.id]?.cout || 0), 0)
+  const totalMarge = totalCa - totalCout
+  const margePct = totalCa > 0 ? Math.round((totalMarge / totalCa) * 100) : null
+  const totalRetenue = subs.reduce((t, s) => t + (meta[s.id]?.retenue || 0), 0)
 
   async function handleAdd() {
     if (!companyName.trim()) { toast.error('Indiquez le nom de l\'entreprise'); return }
@@ -103,13 +113,21 @@ export default function SousTraitantsList({ subs, meta }: { subs: Subcontractor[
         <Button onClick={() => setShowAdd(v => !v)} className="gap-1.5"><Plus className="w-4 h-4" /> Ajouter</Button>
       </div>
 
-      {/* KPIs */}
+      {/* KPIs — combien ils rapportent vs combien on les paye */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <KpiCard icon={<Handshake className="w-4 h-4" />} label="Sous-traitants actifs" value={String(nbActifs)} tone="neutral" />
-        <KpiCard icon={<ShieldAlert className="w-4 h-4" />} label="Non conformes" value={String(nonConformes)} tone={nonConformes > 0 ? 'danger' : 'ok'} />
-        <KpiCard icon={<FileWarning className="w-4 h-4" />} label="Factures à valider" value={String(facturesAValider)} tone={facturesAValider > 0 ? 'warn' : 'neutral'} />
-        <KpiCard icon={<Wallet className="w-4 h-4" />} label="Restant à payer" value={formatCurrency(totalDu)} tone="neutral" />
+        <KpiCard icon={<TrendingUp className="w-4 h-4" />} label="CA sous-traité" value={formatCurrency(totalCa)} tone="neutral" />
+        <KpiCard icon={<Coins className="w-4 h-4" />} label="Coût sous-traitance" value={formatCurrency(totalCout)} tone="neutral" />
+        <KpiCard icon={<Wallet className="w-4 h-4" />} label={margePct !== null ? `Marge (${margePct} %)` : 'Marge'} value={formatCurrency(totalMarge)} tone={totalMarge >= 0 ? 'ok' : 'danger'} />
+        <KpiCard icon={<Wallet className="w-4 h-4" />} label="Restant à payer" value={formatCurrency(totalDu)} tone={totalDu > 0 ? 'warn' : 'neutral'} />
       </div>
+
+      {/* Alertes conformité / retenues (secondaires) */}
+      {(nonConformes > 0 || totalRetenue > 0) && (
+        <div className="flex flex-wrap gap-2 text-xs">
+          {nonConformes > 0 && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 text-red-700"><ShieldAlert className="w-3.5 h-3.5" /> {nonConformes} non conforme{nonConformes > 1 ? 's' : ''}</span>}
+          {totalRetenue > 0 && <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-50 text-amber-700"><Coins className="w-3.5 h-3.5" /> {formatCurrency(totalRetenue)} de retenues de garantie</span>}
+        </div>
+      )}
 
       {/* Formulaire ajout */}
       {showAdd && (
@@ -185,7 +203,7 @@ export default function SousTraitantsList({ subs, meta }: { subs: Subcontractor[
                       <span className="grid place-items-center w-10 h-10 rounded-full bg-accent text-primary font-bold text-sm flex-shrink-0">{subInitials(s.company_name)}</span>
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-gray-900 truncate leading-tight">{s.company_name}</p>
-                        {s.trade && <p className="text-xs text-gray-500 truncate">{s.trade}</p>}
+                        {(s.trade || s.crew_size) && <p className="text-xs text-gray-500 truncate">{[s.trade, crewLabel(s.crew_size)].filter(Boolean).join(' · ')}</p>}
                       </div>
                       <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
                     </div>
@@ -207,11 +225,19 @@ export default function SousTraitantsList({ subs, meta }: { subs: Subcontractor[
                       {s.email && <span className="inline-flex items-center gap-1 truncate"><Mail className="w-3 h-3" />{s.email}</span>}
                     </div>
 
-                    {(m.openContracts > 0 || m.unpaid > 0 || m.toValidate > 0) && (
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 pt-2 border-t border-gray-100 text-[11px] text-gray-500">
-                        {m.openContracts > 0 && <span>{m.openContracts} contrat(s) en cours</span>}
-                        {m.toValidate > 0 && <span className="text-amber-600">{m.toValidate} facture(s) à valider</span>}
+                    {/* Rentabilité : ce qu'il rapporte vs ce qu'on le paye */}
+                    {(m.ca > 0 || m.cout > 0) && (
+                      <div className="grid grid-cols-3 gap-1 pt-2 border-t border-gray-100 text-center">
+                        <div><p className="text-[10px] text-gray-400">CA</p><p className="text-xs font-semibold text-gray-800 tabular-nums">{formatCurrency(m.ca)}</p></div>
+                        <div><p className="text-[10px] text-gray-400">Coût</p><p className="text-xs font-semibold text-gray-800 tabular-nums">{formatCurrency(m.cout)}</p></div>
+                        <div><p className="text-[10px] text-gray-400">Marge</p><p className={`text-xs font-bold tabular-nums ${m.marge >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{formatCurrency(m.marge)}</p></div>
+                      </div>
+                    )}
+                    {(m.toValidate > 0 || m.unpaid > 0 || m.litiges > 0) && (
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-gray-500">
+                        {m.toValidate > 0 && <span className="text-amber-600">{m.toValidate} à valider</span>}
                         {m.unpaid > 0 && <span className="text-gray-700 font-medium">{formatCurrency(m.unpaid)} dû</span>}
+                        {m.litiges > 0 && <span className="text-red-600">{m.litiges} litige(s)</span>}
                       </div>
                     )}
                   </CardContent>
