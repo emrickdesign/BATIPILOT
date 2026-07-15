@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Employee } from '@/types'
 import EquipeManager, { type EmployeeMeta } from './EquipeManager'
+import TeamsPanel from './TeamsPanel'
 
 const num = (v: unknown) => Number(v) || 0
 
@@ -14,12 +15,14 @@ export default async function EquipePage() {
   const monday = new Date(now); monday.setDate(now.getDate() - ((now.getDay() + 6) % 7)); monday.setHours(0, 0, 0, 0)
   const mondayStr = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`
 
-  const [{ data: employees }, { data: assignments }, { data: times }, { data: vehicles }, { data: projects }] = await Promise.all([
+  const [{ data: employees }, { data: assignments }, { data: times }, { data: vehicles }, { data: projects }, { data: teams }, { data: teamMembers }] = await Promise.all([
     supabase.from('employees').select('*').eq('user_id', user.id).order('active', { ascending: false }).order('full_name'),
     supabase.from('assignments').select('employee_id, project_id').eq('user_id', user.id).eq('date', todayStr),
     supabase.from('time_entries').select('employee_id, hours, date').eq('user_id', user.id).gte('date', mondayStr),
     supabase.from('vehicles').select('id, name, plate, driver_employee_id').eq('user_id', user.id).eq('active', true),
     supabase.from('projects').select('id, title').eq('user_id', user.id),
+    supabase.from('teams').select('id, name, color, project_id, conversation_id').eq('user_id', user.id).order('created_at'),
+    supabase.from('team_members').select('team_id, employee_id').eq('user_id', user.id),
   ])
 
   const projTitle = new Map((projects || []).map(p => [p.id, p.title]))
@@ -39,5 +42,19 @@ export default async function EquipePage() {
     }
   }
 
-  return <EquipeManager employees={(employees as Employee[]) || []} meta={meta} />
+  const activeEmployees = ((employees as Employee[]) || [])
+    .filter(e => e.active)
+    .map(e => ({ id: e.id, full_name: e.full_name, color: e.color }))
+
+  return (
+    <div className="grid lg:grid-cols-[1fr_360px] gap-6 items-start">
+      <EquipeManager employees={(employees as Employee[]) || []} meta={meta} />
+      <TeamsPanel
+        employees={activeEmployees}
+        teams={teams || []}
+        members={teamMembers || []}
+        projects={(projects || []).map(p => ({ id: p.id, title: p.title }))}
+      />
+    </div>
+  )
 }

@@ -39,7 +39,7 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
       { href: '/chantiers', label: 'Chantiers', icon: HardHat },
       { href: '/planning', label: 'Planning', icon: CalendarDays },
       { href: '/heures', label: 'Heures', icon: Clock },
-      { href: '/equipe', label: 'Équipe', icon: Users2 },
+      { href: '/equipe', label: 'Salariés', icon: Users2 },
       { href: '/sous-traitants', label: 'Sous-traitants', icon: Handshake },
       { href: '/vehicules', label: 'Véhicules', icon: Truck },
     ],

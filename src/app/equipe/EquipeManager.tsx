@@ -105,7 +105,7 @@ export default function EquipeManager({ employees, meta }: { employees: Employee
     <div className="space-y-5 animate-fade-up">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Équipe</h1>
+          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Salariés</h1>
           <p className="text-gray-500 mt-1 text-sm">Vos salariés, leurs compétences et leur coût — base du planning et des heures.</p>
         </div>
         {!draft && (
