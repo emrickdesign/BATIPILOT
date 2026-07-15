@@ -6,25 +6,14 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ArrowLeft, MapPin, User, Calendar, FileText, Receipt, ScanLine, Edit, HardHat,
-  FolderOpen, ReceiptText, Clock, Navigation, Camera, Users2, Truck, Store, Plus,
+  FolderOpen, ReceiptText, Clock, Navigation, Camera, Users2, Truck, Plus,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Project, ProjectStatus } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
 import StatusSelect from '../StatusSelect'
-import StoresNearby from './StoresNearby'
 
 const num = (v: unknown) => Number(v) || 0
-
-// Types de magasin à mettre en avant selon le métier (bloc « Magasins utiles autour »).
-const STORE_HINTS: { test: RegExp; label: string }[] = [
-  { test: /plomb|sanitaire|chauff|salle de bain/i, label: 'Plomberie' },
-  { test: /électr|elec/i, label: 'Électricité' },
-  { test: /peint/i, label: 'Peinture' },
-  { test: /menuis|bois|parquet/i, label: 'Bois / Menuiserie' },
-  { test: /carrel|sol|fa[iï]ence/i, label: 'Carrelage' },
-  { test: /ma[çc]on|gros[\s-]?œuvre|béton|placo|plaqu|cuisine/i, label: 'Matériaux' },
-]
 
 export default async function ChantierPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -91,10 +80,6 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
   const mapSrc = `https://maps.google.com/maps?q=${enc}&z=15&output=embed`
   const itineraire = `https://www.google.com/maps/dir/?api=1&destination=${enc}`
   const applePlans = `https://maps.apple.com/?q=${enc}`
-
-  // Types de magasin mis en avant selon le métier du chantier.
-  const metier = `${p.project_type || ''} ${p.title || ''}`
-  const suggestedStores = STORE_HINTS.filter(s => s.test.test(metier)).map(s => s.label)
 
   const devisLink = `/devis/nouveau?project=${id}${p.client_id ? `&client=${p.client_id}` : ''}`
   const factureLink = p.client_id ? `/factures/nouveau?client=${p.client_id}` : '/factures/nouveau'
@@ -208,16 +193,6 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
               <a href={itineraire} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1"><Navigation className="w-4 h-4" /> Itinéraire (Google)</Button></a>
               <a href={applePlans} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1"><MapPin className="w-4 h-4" /> Apple Plans</Button></a>
             </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Bloc magasins autour */}
-      {addr && (
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><Store className="w-4 h-4 text-gray-400" /> Magasins utiles autour</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-4">
-            <StoresNearby address={addr} suggested={suggestedStores} />
           </CardContent>
         </Card>
       )}
