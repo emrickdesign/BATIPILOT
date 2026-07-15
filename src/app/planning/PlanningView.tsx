@@ -95,7 +95,6 @@ export default function PlanningView({
   const [items, setItems] = useState<AssignmentRow[]>(assignments)
   const [busy, setBusy] = useState(false)
   const [selDay, setSelDay] = useState<string | null>(null)
-  const [popAnchor, setPopAnchor] = useState<{ left: number; top: number; bottom: number } | null>(null)
 
   // Resync après router.refresh()
   const [syncedFrom, setSyncedFrom] = useState(assignments)
@@ -366,7 +365,7 @@ export default function PlanningView({
                 const isToday = d === todayIso
                 const isSel = d === selDay
                 return (
-                  <button key={d} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setPopAnchor({ left: r.left, top: r.top, bottom: r.bottom }); setSelDay(d) }} className={`text-left min-h-[84px] border-b border-l border-gray-50 p-2 hover:bg-gray-50 transition-colors ${isSel ? 'bg-primary/[0.06] ring-2 ring-inset ring-primary/50' : ''}`}>
+                  <button key={d} onClick={() => setSelDay(d)} className={`text-left min-h-[84px] border-b border-l border-gray-50 p-2 hover:bg-gray-50 transition-colors ${isSel ? 'bg-primary/[0.06] ring-2 ring-inset ring-primary/50' : ''}`}>
                     <span className={`inline-grid place-items-center w-6 h-6 rounded-full text-[13px] font-bold ${isToday ? 'bg-primary text-white' : 'text-gray-600'}`}>
                       {Number(d.split('-')[2])}
                     </span>
@@ -381,22 +380,19 @@ export default function PlanningView({
             </div>
           </Card>
 
-          {/* Popover d'affectation ancré au jour cliqué (comme en semaine, en 1 clic) */}
-          {selDay && daySet.has(selDay) && popAnchor && typeof document !== 'undefined' && createPortal(
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setSelDay(null)} />
+          {/* Modal d'affectation centré (comme en semaine, en 1 clic) */}
+          {selDay && daySet.has(selDay) && typeof document !== 'undefined' && createPortal(
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={() => setSelDay(null)}>
+              <div className="absolute inset-0 bg-black/30 backdrop-blur-[1px]" />
               <div
-                className="fixed z-50 w-[300px] max-w-[calc(100vw-16px)] rounded-2xl bg-white shadow-[var(--shadow-lg)] border border-gray-100 overflow-hidden animate-fade-up"
-                style={{
-                  left: Math.min(Math.max(popAnchor.left, 8), window.innerWidth - 308),
-                  top: popAnchor.bottom + 320 > window.innerHeight - 8 ? Math.max(8, popAnchor.top - 326) : popAnchor.bottom + 6,
-                }}
+                onClick={e => e.stopPropagation()}
+                className="relative w-[420px] max-w-full rounded-2xl bg-white shadow-[var(--shadow-lg)] border border-gray-100 overflow-hidden animate-fade-up"
               >
                 <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100">
                   <h3 className="text-sm font-semibold text-marine capitalize flex items-center gap-1.5"><CalendarDays className="w-4 h-4 text-gray-400" /> {fmtLong(selDay)}</h3>
                   <button onClick={() => setSelDay(null)} className="text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
                 </div>
-                <div className="max-h-[300px] overflow-y-auto divide-y divide-gray-100">
+                <div className="max-h-[45vh] overflow-y-auto divide-y divide-gray-100">
                   {projects.map(p => (
                     <div key={p.id} className="px-4 py-2.5">
                       <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate block mb-1.5">{p.title}</Link>
@@ -411,7 +407,7 @@ export default function PlanningView({
                   Ouvrir la journée <ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </div>
-            </>,
+            </div>,
             document.body
           )}
         </>
