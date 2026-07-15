@@ -532,52 +532,51 @@ function ContratsTab({ sub, contracts, invoices, projects, projTitle, signatures
   )
 }
 
-/* ─── Onglet Factures reçues ───────────────────────────────────────────── */
-function FacturesTab({ sub, invoices, contracts, projects, projTitle }: {
+/* ─── Onglet Factures reçues (import direct du PDF) ─────────────────────── */
+function FacturesTab({ sub, invoices, contracts, projTitle }: {
   sub: Subcontractor; invoices: Inv[]; contracts: SubcontractorContract[]; projects: ProjectOption[]; projTitle: Map<string, string>
 }) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
-  const [showAdd, setShowAdd] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const [f, setF] = useState({ number: '', amount_ht: '', amount_ttc: '', issue_date: '', due_date: '', project_id: '', contract_id: '' })
-  const [file, setFile] = useState<File | null>(null)
-  const set = (k: keyof typeof f, v: string) => setF(p => ({ ...p, [k]: v }))
+  const [uploading, setUploading] = useState(false)
+  const [amt, setAmt] = useState<Record<string, string>>({})
 
   const totalDu = invoices.filter(i => i.status !== 'payee').reduce((t, i) => t + (Number(i.amount_ttc) || 0), 0)
   const totalPaye = invoices.filter(i => i.status === 'payee').reduce((t, i) => t + (Number(i.amount_ttc) || 0), 0)
 
-  async function add() {
-    if (!f.amount_ttc && !f.amount_ht) { toast.error('Indiquez un montant'); return }
-    setSaving(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSaving(false); return }
-    let storage_path: string | null = null
-    if (file) {
+  // Import : on stocke juste le fichier reçu, le reste se complète sur la carte.
+  async function importInvoice(file: File) {
+    setUploading(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { toast.error('Non connecté'); return }
       const safe = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
-      storage_path = `st/${user.id}/${sub.id}/facture-${Date.now()}-${safe}`
-      const { error } = await supabase.storage.from('documents').upload(storage_path, file, { contentType: file.type || undefined, upsert: false })
-      if (error) { toast.error('Erreur envoi fichier'); setSaving(false); return }
-    }
-    const { error } = await supabase.from('subcontractor_invoices').insert({
-      user_id: user.id, subcontractor_id: sub.id,
-      number: f.number || null, amount_ht: f.amount_ht ? Number(f.amount_ht) : null,
-      amount_ttc: f.amount_ttc ? Number(f.amount_ttc) : (f.amount_ht ? Number(f.amount_ht) * 1.2 : null),
-      issue_date: f.issue_date || null, due_date: f.due_date || null,
-      project_id: f.project_id || null, contract_id: f.contract_id || null,
-      storage_path, status: 'a_valider',
-    })
-    if (error) { toast.error('Erreur'); setSaving(false); return }
-    toast.success('Facture enregistrée')
-    setF({ number: '', amount_ht: '', amount_ttc: '', issue_date: '', due_date: '', project_id: '', contract_id: '' })
-    setFile(null); if (fileRef.current) fileRef.current.value = ''
-    setShowAdd(false); setSaving(false); router.refresh()
+      const storage_path = `st/${user.id}/${sub.id}/facture-${Date.now()}-${safe}`
+      const { error: upErr } = await supabase.storage.from('documents').upload(storage_path, file, { contentType: file.type || undefined, upsert: false })
+      if (upErr) { toast.error('Erreur envoi fichier'); return }
+      const { error } = await supabase.from('subcontractor_invoices').insert({
+        user_id: user.id, subcontractor_id: sub.id, storage_path, status: 'a_valider',
+      })
+      if (error) { toast.error('Erreur enregistrement'); return }
+      toast.success('Facture importée')
+      router.refresh()
+    } finally { setUploading(false); if (fileRef.current) fileRef.current.value = '' }
   }
 
   async function update(id: string, patch: Partial<SubcontractorInvoice>) {
     await createClient().from('subcontractor_invoices').update(patch).eq('id', id)
     router.refresh()
+  }
+  async function saveAmount(id: string) {
+    const v = Number((amt[id] || '').replace(',', '.'))
+    if (!v) return
+    await update(id, { amount_ttc: v })
+    setAmt(p => { const n = { ...p }; delete n[id]; return n })
+  }
+  async function linkContract(id: string, contractId: string) {
+    const c = contracts.find(x => x.id === contractId)
+    await update(id, { contract_id: contractId || null, project_id: c?.project_id ?? null })
   }
   async function del(inv: Inv) {
     if (!confirm('Supprimer cette facture ?')) return
@@ -599,69 +598,66 @@ function FacturesTab({ sub, invoices, contracts, projects, projTitle }: {
         <Card><CardContent className="p-4"><p className="text-xs text-gray-500">Déjà payé</p><p className="text-xl font-bold text-emerald-600">{formatCurrency(totalPaye)}</p></CardContent></Card>
       </div>
 
-      <div className="flex justify-end">
-        <Button size="sm" onClick={() => setShowAdd(v => !v)} className="gap-1.5"><Plus className="w-4 h-4" /> Enregistrer une facture</Button>
+      {/* Import direct du PDF reçu */}
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-xs text-gray-400">Importez la facture que le sous-traitant vous a envoyée. Le montant se renseigne ensuite en un clic.</p>
+        <Button size="sm" onClick={() => fileRef.current?.click()} disabled={uploading} className="gap-1.5">
+          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />} Importer une facture
+        </Button>
+        <input ref={fileRef} type="file" accept="application/pdf,image/*" className="hidden" onChange={e => { const file = e.target.files?.[0]; if (file) importInvoice(file) }} />
       </div>
 
-      {showAdd && (
-        <Card><CardContent className="p-4 space-y-3">
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div><Label>N° facture</Label><Input value={f.number} onChange={e => set('number', e.target.value)} /></div>
-            <div><Label>Chantier</Label>
-              <select className={selectClass} value={f.project_id} onChange={e => set('project_id', e.target.value)}>
-                <option value="">—</option>{projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-              </select>
-            </div>
-            <div><Label>Montant HT (€)</Label><Input type="number" value={f.amount_ht} onChange={e => set('amount_ht', e.target.value)} /></div>
-            <div><Label>Montant TTC (€)</Label><Input type="number" value={f.amount_ttc} onChange={e => set('amount_ttc', e.target.value)} placeholder="auto si vide" /></div>
-            <div><Label>Date facture</Label><Input type="date" value={f.issue_date} onChange={e => set('issue_date', e.target.value)} /></div>
-            <div><Label>Échéance</Label><Input type="date" value={f.due_date} onChange={e => set('due_date', e.target.value)} /></div>
-            {contracts.length > 0 && (
-              <div className="sm:col-span-2"><Label>Rattacher à un contrat</Label>
-                <select className={selectClass} value={f.contract_id} onChange={e => set('contract_id', e.target.value)}>
-                  <option value="">—</option>{contracts.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
-                </select>
-              </div>
-            )}
-            <div className="sm:col-span-2"><Label>Fichier de la facture</Label>
-              <input ref={fileRef} type="file" onChange={e => setFile(e.target.files?.[0] || null)} className="block w-full text-sm text-gray-600 file:mr-3 file:rounded-full file:border-0 file:bg-accent file:px-3 file:py-1.5 file:text-primary file:text-sm" />
-            </div>
-          </div>
-          <div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setShowAdd(false)}>Annuler</Button><Button onClick={add} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Button></div>
-        </CardContent></Card>
-      )}
-
       {invoices.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-4">Aucune facture reçue.</p>
+        <p className="text-sm text-gray-400 text-center py-6">Aucune facture. Cliquez « Importer une facture » pour déposer le PDF reçu.</p>
       ) : invoices.map(inv => {
         const overdue = inv.status !== 'payee' && inv.due_date && (daysUntil(inv.due_date) ?? 0) < 0
+        const hasAmount = Number(inv.amount_ttc) > 0
         return (
-          <Card key={inv.id}><CardContent className="p-4 space-y-2">
+          <Card key={inv.id}><CardContent className="p-4 space-y-2.5">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <p className="font-semibold text-gray-900">{inv.number ? `N° ${inv.number}` : 'Facture'}</p>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="font-semibold text-gray-900">{inv.number ? `N° ${inv.number}` : 'Facture reçue'}</p>
                   <Badge className={`border-0 text-[11px] ${statusBadge[inv.status]}`}>{subInvoiceStatusLabels[inv.status]}</Badge>
                   {overdue && <Badge className="bg-red-50 text-red-700 border-0 text-[11px]">En retard</Badge>}
                 </div>
                 <p className="text-xs text-gray-400">
-                  {inv.issue_date ? formatDate(inv.issue_date) : 'Sans date'}
-                  {inv.due_date ? ` · échéance ${formatDate(inv.due_date)}` : ''}
+                  {inv.issue_date ? formatDate(inv.issue_date) : 'Importée'}
                   {inv.project_id ? ` · ${projTitle.get(inv.project_id) || 'Chantier'}` : ''}
                 </p>
               </div>
-              <div className="text-right flex-shrink-0">
-                <p className="font-bold text-gray-900">{formatCurrency(Number(inv.amount_ttc) || 0)}</p>
-                {inv.amount_ht != null && <p className="text-[11px] text-gray-400">{formatCurrency(inv.amount_ht)} HT</p>}
-              </div>
+              {hasAmount && (
+                <div className="text-right flex-shrink-0">
+                  <p className="font-bold text-gray-900">{formatCurrency(Number(inv.amount_ttc))}</p>
+                  <p className="text-[10px] text-gray-400">TTC</p>
+                </div>
+              )}
             </div>
+
+            {/* Montant à renseigner (une fois) */}
+            {!hasAmount && (
+              <div className="flex items-center gap-2">
+                <Input type="number" inputMode="decimal" placeholder="Montant TTC (€)" value={amt[inv.id] ?? ''}
+                  onChange={e => setAmt(p => ({ ...p, [inv.id]: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && saveAmount(inv.id)}
+                  className="h-8 w-40 text-sm" />
+                <Button size="sm" onClick={() => saveAmount(inv.id)}>Valider le montant</Button>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 flex-wrap pt-1">
               <select className="h-8 rounded-full border border-gray-200 bg-white px-3 text-xs" value={inv.status}
                 onChange={e => update(inv.id, { status: e.target.value as SubInvoiceStatus, paid_at: e.target.value === 'payee' ? new Date().toISOString().slice(0, 10) : null })}>
                 {(Object.keys(subInvoiceStatusLabels) as SubInvoiceStatus[]).map(k => <option key={k} value={k}>{subInvoiceStatusLabels[k]}</option>)}
               </select>
-              {inv.status !== 'payee' && <Button variant="success" size="sm" className="gap-1" onClick={() => update(inv.id, { status: 'payee', paid_at: new Date().toISOString().slice(0, 10) })}><CheckCircle2 className="w-3.5 h-3.5" /> Marquer payée</Button>}
-              {inv.url && <a href={inv.url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="sm" className="gap-1"><FileCheck2 className="w-3.5 h-3.5" /> Voir</Button></a>}
+              {contracts.length > 0 && (
+                <select className="h-8 rounded-full border border-gray-200 bg-white px-3 text-xs max-w-[160px]" value={inv.contract_id || ''} onChange={e => linkContract(inv.id, e.target.value)}>
+                  <option value="">Rattacher au contrat…</option>
+                  {contracts.map(c => <option key={c.id} value={c.id}>{c.title}</option>)}
+                </select>
+              )}
+              {inv.status !== 'payee' && hasAmount && <Button variant="success" size="sm" className="gap-1" onClick={() => update(inv.id, { status: 'payee', paid_at: new Date().toISOString().slice(0, 10) })}><CheckCircle2 className="w-3.5 h-3.5" /> Marquer payée</Button>}
+              {inv.url && <a href={inv.url} target="_blank" rel="noopener noreferrer"><Button variant="ghost" size="sm" className="gap-1"><FileCheck2 className="w-3.5 h-3.5" /> Voir le PDF</Button></a>}
               <Button variant="ghost" size="icon-sm" onClick={() => del(inv)}><Trash2 className="w-4 h-4 text-gray-400" /></Button>
             </div>
           </CardContent></Card>
