@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { phasesBefore } from '@/lib/clients'
@@ -18,7 +18,7 @@ type Line = { tempId: string; designation: string; quantity: number; unit: strin
 
 const UNITS = { m2: 'm²', ml: 'ml', u: 'unité', forfait: 'forfait', h: 'heure', j: 'jour', piece: 'pièce' }
 
-export default function NouvelleFacturePage() {
+function NouvelleFactureForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [clients, setClients] = useState<Client[]>([])
@@ -189,5 +189,13 @@ export default function NouvelleFacturePage() {
         </Button>
       </div>
     </div>
+  )
+}
+
+export default function NouvelleFacturePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement...</div>}>
+      <NouvelleFactureForm />
+    </Suspense>
   )
 }
