@@ -13,12 +13,12 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
   ArrowLeft, Phone, Mail, MapPin, Star, Trash2, Pencil, Upload, Plus, FileText,
-  ShieldCheck, ShieldAlert, HardHat, Wallet, MessageSquare, FileCheck2, Send,
+  ShieldCheck, ShieldAlert, HardHat, Wallet, MessageCircle, FileCheck2, Send,
   CheckCircle2, ExternalLink, Building2, CreditCard, Users, Loader2,
 } from 'lucide-react'
 import type {
   Subcontractor, SubcontractorDocument, SubcontractorContract, SubcontractorInvoice,
-  SubcontractorMessage, SubDocType, SubContractStatus, SubInvoiceStatus, SubcontractorStatus,
+  SubDocType, SubContractStatus, SubInvoiceStatus, SubcontractorStatus,
 } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
@@ -38,19 +38,25 @@ const TABS = [
   { id: 'conformite', label: 'Conformité', icon: ShieldCheck },
   { id: 'contrats', label: 'Contrats', icon: HardHat },
   { id: 'factures', label: 'Factures', icon: Wallet },
-  { id: 'discussion', label: 'Discussion', icon: MessageSquare },
 ] as const
+
+// Normalise un numéro FR pour un lien WhatsApp (wa.me attend l'indicatif sans +).
+function waLink(phone?: string | null): string | null {
+  if (!phone) return null
+  let p = phone.replace(/\D/g, '')
+  if (p.startsWith('0')) p = '33' + p.slice(1)
+  return p.length >= 8 ? `https://wa.me/${p}` : null
+}
 
 type ContractSig = { id: string; contract_id: string | null; status: string; signed_at: string | null; signer_name: string | null }
 
 export default function SousTraitantDetail({
-  sub, docs, contracts, invoices, messages, projects, signatures,
+  sub, docs, contracts, invoices, projects, signatures,
 }: {
   sub: Subcontractor
   docs: Doc[]
   contracts: SubcontractorContract[]
   invoices: Inv[]
-  messages: SubcontractorMessage[]
   projects: ProjectOption[]
   signatures: ContractSig[]
 }) {
@@ -102,8 +108,10 @@ export default function SousTraitantDetail({
             ))}
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {sub.phone && <a href={`tel:${sub.phone}`}><Button variant="outline" size="sm" className="gap-1"><Phone className="w-4 h-4" /> Appeler</Button></a>}
+          {waLink(sub.phone) && <a href={waLink(sub.phone)!} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1 border-green-200 text-green-700 hover:bg-green-50"><MessageCircle className="w-4 h-4" /> WhatsApp</Button></a>}
+          {sub.email && <a href={`mailto:${sub.email}`}><Button variant="outline" size="sm" className="gap-1"><Mail className="w-4 h-4" /> Email</Button></a>}
           <Button variant="destructive-soft" size="sm" onClick={deleteSub} className="gap-1"><Trash2 className="w-4 h-4" /></Button>
         </div>
       </div>
@@ -127,7 +135,7 @@ export default function SousTraitantDetail({
       <div className="flex items-center gap-1 border-b border-gray-200 overflow-x-auto">
         {TABS.map(t => {
           const active = tab === t.id
-          const count = t.id === 'conformite' ? docs.length : t.id === 'contrats' ? contracts.length : t.id === 'factures' ? invoices.length : t.id === 'discussion' ? messages.length : 0
+          const count = t.id === 'conformite' ? docs.length : t.id === 'contrats' ? contracts.length : t.id === 'factures' ? invoices.length : 0
           return (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap transition-colors ${active ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-800'}`}>
@@ -142,7 +150,6 @@ export default function SousTraitantDetail({
       {tab === 'conformite' && <ConformiteTab sub={sub} docs={docs} conf={conf} />}
       {tab === 'contrats' && <ContratsTab sub={sub} contracts={contracts} invoices={invoices} projects={projects} projTitle={projTitle} signatures={signatures} />}
       {tab === 'factures' && <FacturesTab sub={sub} invoices={invoices} contracts={contracts} projects={projects} projTitle={projTitle} />}
-      {tab === 'discussion' && <DiscussionTab sub={sub} messages={messages} />}
     </div>
   )
 }
@@ -664,53 +671,3 @@ function FacturesTab({ sub, invoices, contracts, projects, projTitle }: {
   )
 }
 
-/* ─── Onglet Discussion ────────────────────────────────────────────────── */
-function DiscussionTab({ sub, messages }: { sub: Subcontractor; messages: SubcontractorMessage[] }) {
-  const router = useRouter()
-  const [body, setBody] = useState('')
-  const [direction, setDirection] = useState<'sortant' | 'entrant'>('sortant')
-  const [sending, setSending] = useState(false)
-
-  async function send() {
-    if (!body.trim()) return
-    setSending(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setSending(false); return }
-    const { error } = await supabase.from('subcontractor_messages').insert({
-      user_id: user.id, subcontractor_id: sub.id, body: body.trim(), direction,
-    })
-    if (error) { toast.error('Erreur'); setSending(false); return }
-    setBody(''); setSending(false); router.refresh()
-  }
-
-  return (
-    <div className="space-y-4">
-      <Card><CardContent className="p-4">
-        {messages.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-6">Aucun échange enregistré. Consignez ici vos appels, mails et notes avec ce sous-traitant.</p>
-        ) : (
-          <div className="space-y-2.5 max-h-[420px] overflow-y-auto">
-            {messages.map(m => (
-              <div key={m.id} className={`flex ${m.direction === 'sortant' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] rounded-2xl px-3.5 py-2 ${m.direction === 'sortant' ? 'bg-primary text-primary-foreground' : 'bg-gray-100 text-gray-800'}`}>
-                  <p className="text-sm whitespace-pre-line break-words">{m.body}</p>
-                  <p className={`text-[10px] mt-1 ${m.direction === 'sortant' ? 'text-white/70' : 'text-gray-400'}`}>{formatDate(m.created_at)} {new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </CardContent></Card>
-
-      <Card><CardContent className="p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <button onClick={() => setDirection('sortant')} className={`px-3 py-1 rounded-full text-xs font-medium ${direction === 'sortant' ? 'bg-primary text-primary-foreground' : 'bg-gray-100 text-gray-600'}`}>Moi → eux</button>
-          <button onClick={() => setDirection('entrant')} className={`px-3 py-1 rounded-full text-xs font-medium ${direction === 'entrant' ? 'bg-gray-800 text-white' : 'bg-gray-100 text-gray-600'}`}>Eux → moi</button>
-        </div>
-        <Textarea value={body} onChange={e => setBody(e.target.value)} rows={2} placeholder="Noter un échange, un appel, une relance…" />
-        <div className="flex justify-end"><Button onClick={send} disabled={sending} className="gap-1.5"><Send className="w-4 h-4" /> Ajouter</Button></div>
-      </CardContent></Card>
-    </div>
-  )
-}
