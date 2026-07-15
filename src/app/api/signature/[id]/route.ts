@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createHash } from 'crypto'
 import { z } from 'zod'
 import { createServiceClient } from '@/lib/supabase/service'
-import { generateQuotePDF, generateInvoicePDF, type ClientSignatureInfo } from '@/lib/pdf-generator'
+import { generateQuotePDF, generateInvoicePDF, generateContractPDF, type ClientSignatureInfo } from '@/lib/pdf-generator'
 import { getValidGmailToken } from '@/lib/gmail-token'
 import { sendGmailWithPdf } from '@/lib/gmail-send'
 import { isProspect } from '@/lib/clients'
@@ -51,6 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     let quote: any = null
     let invoice: any = null
+    let contract: any = null
     let company: any = null
     let clientRow: any = null
 
@@ -66,17 +67,27 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         service.from('companies').select('*').eq('user_id', sig.user_id).single(),
       ])
       invoice = inv; company = comp; clientRow = inv?.clients
+    } else if (sig.contract_id) {
+      const [{ data: c }, { data: comp }] = await Promise.all([
+        service.from('subcontractor_contracts').select('*, subcontractors(*)').eq('id', sig.contract_id).single(),
+        service.from('companies').select('*').eq('user_id', sig.user_id).single(),
+      ])
+      contract = c; company = comp
+      if (c?.project_id) {
+        const { data: p } = await service.from('projects').select('title').eq('id', c.project_id).single()
+        if (contract) contract.project_title = p?.title
+      }
     }
-    if (!quote && !invoice) return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+    if (!quote && !invoice && !contract) return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
 
     // Hash du document tel que présenté au signataire (preuve d'intégrité)
-    const unsignedBuffer = quote ? await generateQuotePDF(quote, company) : await generateInvoicePDF(invoice, company)
+    const genUnsigned = () => quote ? generateQuotePDF(quote, company) : invoice ? generateInvoicePDF(invoice, company) : generateContractPDF(contract, contract.subcontractors, company)
+    const genSigned = (s: ClientSignatureInfo) => quote ? generateQuotePDF(quote, company, s) : invoice ? generateInvoicePDF(invoice, company, s) : generateContractPDF(contract, contract.subcontractors, company, s)
+    const unsignedBuffer = await genUnsigned()
     const documentHash = createHash('sha256').update(unsignedBuffer).digest('hex')
 
     const signaturePayload: ClientSignatureInfo = { name: signerName, signedAt, imageBuffer, hash: documentHash }
-    const signedPdfBuffer = quote
-      ? await generateQuotePDF(quote, company, signaturePayload)
-      : await generateInvoicePDF(invoice, company, signaturePayload)
+    const signedPdfBuffer = await genSigned(signaturePayload)
 
     const finalEmail = signerEmail || sig.signer_email
 
@@ -97,22 +108,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (clientRow?.id && clientRow?.status && isProspect(clientRow.status as ClientStatus)) {
         await service.from('clients').update({ status: 'devis_accepte' }).eq('id', clientRow.id)
       }
+    } else if (contract) {
+      // Le contrat de sous-traitance signé passe en « Signé ».
+      await service.from('subcontractor_contracts').update({ status: 'signe' }).eq('id', sig.contract_id).eq('user_id', sig.user_id)
     }
 
     // Notifications email — best-effort, la signature reste valide même si l'envoi échoue
     try {
       const gmailToken = await getValidGmailToken(service, sig.user_id)
       if (gmailToken) {
-        const docNumber = quote ? quote.quote_number : invoice.invoice_number
-        const docLabel = quote ? 'devis' : 'facture'
-        const filename = `${docNumber}-signe.pdf`
+        const docTitle = quote ? 'Devis' : invoice ? 'Facture' : 'Contrat'
+        const docLabel = quote ? 'devis' : invoice ? 'facture' : 'contrat de sous-traitance'
+        const docNumber = quote ? quote.quote_number : invoice ? invoice.invoice_number : (contract.title || 'sous-traitance')
+        const filename = `${docLabel.replace(/\s+/g, '-')}-signe.pdf`
 
         if (finalEmail) {
           await sendGmailWithPdf({
             accessToken: gmailToken.accessToken,
             fromEmail: gmailToken.gmailEmail,
             to: finalEmail,
-            subject: `${quote ? 'Devis' : 'Facture'} ${docNumber} signé — votre copie`,
+            subject: `${docTitle} ${docNumber} signé — votre copie`,
             htmlBody: `<p>Bonjour ${signerName},</p><p>Voici la copie signée de votre ${docLabel} <strong>${docNumber}</strong>.</p><p>Cordialement,<br>${company?.trade_name || ''}</p>`,
             pdfBuffer: signedPdfBuffer,
             filename,
@@ -122,7 +137,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
           accessToken: gmailToken.accessToken,
           fromEmail: gmailToken.gmailEmail,
           to: gmailToken.gmailEmail,
-          subject: `✓ ${quote ? 'Devis' : 'Facture'} ${docNumber} signé par ${signerName}`,
+          subject: `✓ ${docTitle} ${docNumber} signé par ${signerName}`,
           htmlBody: `<p>${signerName} vient de signer le ${docLabel} <strong>${docNumber}</strong>.</p><p>Document signé en pièce jointe.</p>`,
           pdfBuffer: signedPdfBuffer,
           filename,

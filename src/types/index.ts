@@ -316,6 +316,7 @@ export interface DocumentSignature {
   user_id: string
   quote_id?: string | null
   invoice_id?: string | null
+  contract_id?: string | null
   status: DocumentSignatureStatus
   signer_name?: string | null
   signer_email?: string | null

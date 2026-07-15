@@ -495,3 +495,68 @@ export async function generateInvoicePDF(invoice: any, company: any, signature?:
     doc.end()
   })
 }
+
+// Contrat de sous-traitance : donneur d'ordre + sous-traitant, objet, conditions, signatures.
+export async function generateContractPDF(contract: any, sub: any, company: any, signature?: ClientSignatureInfo): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = []
+    const cfg = getTemplateConfig(company)
+    const doc = new PDFDocument({ margin: cfg.margin, size: 'A4' })
+    doc.on('data', (chunk: Buffer) => chunks.push(chunk))
+    doc.on('end', () => resolve(Buffer.concat(chunks)))
+    doc.on('error', reject)
+
+    const F = fonts(cfg)
+    const ML = cfg.margin, CW = doc.page.width - 2 * ML
+    const P = hexToRgb(cfg.primaryColor)
+    const ref = (contract.title || 'Sous-traitance').slice(0, 40)
+
+    let y = renderHeader(doc, cfg, 'CONTRAT DE SOUS-TRAITANCE', ref, contract.start_date || contract.created_at || new Date().toISOString(), contract.end_date || null, 'Fin prévue :', company)
+
+    // Parties
+    const boxH = 78, boxW = (CW - 12) / 2
+    drawBox(doc, cfg, ML, y, boxW, boxH)
+    drawBox(doc, cfg, ML + boxW + 12, y, boxW, boxH)
+    doc.fillColor(P).fontSize(7).font(F.bold).text("DONNEUR D'ORDRE", ML + 12, y + 10)
+    doc.fillColor('#111').fontSize(9).font(F.bold).text(company?.trade_name || '', ML + 12, y + 22, { width: boxW - 24 })
+    const doLines = [company?.address, company?.siret ? `SIRET : ${company.siret}` : null, [company?.phone, company?.email].filter(Boolean).join(' · ') || null].filter(Boolean) as string[]
+    doc.fillColor('#555').fontSize(7.5).font(F.reg).text(doLines.join('\n'), ML + 12, y + 36, { width: boxW - 24 })
+    const rx = ML + boxW + 24
+    doc.fillColor(P).fontSize(7).font(F.bold).text('LE SOUS-TRAITANT', rx, y + 10)
+    doc.fillColor('#111').fontSize(9).font(F.bold).text(sub?.company_name || '', rx, y + 22, { width: boxW - 24 })
+    const stLines = [sub?.trade, sub?.address, sub?.siret ? `SIRET : ${sub.siret}` : null, [sub?.phone, sub?.email].filter(Boolean).join(' · ') || null].filter(Boolean) as string[]
+    doc.fillColor('#555').fontSize(7.5).font(F.reg).text(stLines.join('\n'), rx, y + 36, { width: boxW - 24 })
+    y += boxH + cfg.sectionGap
+
+    // Objet de la mission
+    doc.fillColor(P).fontSize(8).font(F.bold).text('OBJET DE LA MISSION', ML, y); y += 14
+    doc.fillColor('#111').fontSize(10).font(F.bold).text(contract.title || '—', ML, y, { width: CW }); y = doc.y + 4
+    if (contract.project_title) { doc.fillColor('#666').fontSize(8.5).font(F.reg).text(`Chantier : ${contract.project_title}`, ML, y); y = doc.y + 4 }
+    if (contract.description) { doc.fillColor('#444').fontSize(9).font(F.reg).text(contract.description, ML, y, { width: CW }); y = doc.y + 6 }
+
+    // Conditions financières
+    y += 6
+    const finH = 56
+    drawBox(doc, cfg, ML, y, CW, finH)
+    const amount = Number(contract.amount_ht) || 0
+    const ret = amount * (Number(contract.retention_pct) || 0) / 100
+    doc.fillColor(P).fontSize(7).font(F.bold).text('CONDITIONS FINANCIÈRES', ML + 12, y + 10)
+    doc.fillColor('#111').fontSize(9).font(F.reg)
+      .text(`Montant HT : ${fmt(amount)}`, ML + 12, y + 24)
+      .text(`Retenue de garantie : ${contract.retention_pct || 0}%${ret > 0 ? ` (${fmt(ret)})` : ''}`, ML + 12, y + 38)
+    if (contract.start_date || contract.end_date) {
+      doc.fillColor('#111').fontSize(9).font(F.reg).text(`Période : ${fmtDate(contract.start_date)} → ${fmtDate(contract.end_date)}`, ML + CW / 2, y + 24, { width: CW / 2 - 12 })
+    }
+    y += finH + cfg.sectionGap
+
+    // Mentions légales sous-traitance
+    doc.fillColor('#888').fontSize(7).font(F.reg).text(
+      "Contrat régi par la loi n°75-1334 du 31 décembre 1975 relative à la sous-traitance. Le sous-traitant atteste être à jour de ses obligations sociales et fiscales et disposer des assurances requises (responsabilité civile et, le cas échéant, garantie décennale).",
+      ML, y, { width: CW }); y = doc.y + 10
+
+    y = renderSignatures(doc, cfg, company, contract.start_date || new Date().toISOString(), y, 'LE SOUS-TRAITANT — BON POUR ACCORD', signature)
+    if (signature) y = renderSignatureProof(doc, cfg, signature, y)
+    renderFooter(doc, cfg, company, 'Contrat de sous-traitance', y)
+    doc.end()
+  })
+}

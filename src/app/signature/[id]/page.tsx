@@ -22,6 +22,96 @@ export default async function SignaturePage({ params }: { params: Promise<{ id: 
     status = 'expiree'
   }
 
+  // ─── Contrat de sous-traitance ───
+  if (sig.contract_id) {
+    const [{ data: contract }, { data: comp }] = await Promise.all([
+      service.from('subcontractor_contracts').select('*, subcontractors(*)').eq('id', sig.contract_id).single(),
+      service.from('companies').select('*').eq('user_id', sig.user_id).single(),
+    ])
+    if (!contract) return notFound()
+    const sub = (contract as any).subcontractors
+    let projectTitle: string | null = null
+    if (contract.project_id) {
+      const { data: p } = await service.from('projects').select('title').eq('id', contract.project_id).single()
+      projectTitle = p?.title ?? null
+    }
+    const amount = Number(contract.amount_ht) || 0
+    const ret = amount * (Number(contract.retention_pct) || 0) / 100
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="max-w-2xl mx-auto space-y-4">
+          <div className="flex items-center gap-3">
+            {comp?.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={comp.logo_url} alt={comp.trade_name || ''} className="w-10 h-10 rounded-lg object-cover" />
+            )}
+            <p className="font-bold text-gray-900 text-lg">{comp?.trade_name || 'Votre entreprise'}</p>
+          </div>
+
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold">Contrat de sous-traitance</p>
+                <p className="font-medium text-gray-900">{contract.title || 'Mission de sous-traitance'}</p>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm border-t border-b py-3">
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-400 mb-1">DONNEUR D&apos;ORDRE</p>
+                  <p className="font-medium text-gray-900">{comp?.trade_name || ''}</p>
+                  {comp?.siret && <p className="text-gray-500 text-xs">SIRET : {comp.siret}</p>}
+                  {comp?.address && <p className="text-gray-500 text-xs">{comp.address}</p>}
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-400 mb-1">LE SOUS-TRAITANT</p>
+                  <p className="font-medium text-gray-900">{sub?.company_name || ''}</p>
+                  {sub?.trade && <p className="text-gray-500 text-xs">{sub.trade}</p>}
+                  {sub?.siret && <p className="text-gray-500 text-xs">SIRET : {sub.siret}</p>}
+                </div>
+              </div>
+
+              {projectTitle && <p className="text-sm text-gray-600">Chantier : <span className="font-medium text-gray-900">{projectTitle}</span></p>}
+              {contract.description && <p className="text-sm text-gray-600 whitespace-pre-line">{contract.description}</p>}
+
+              <div className="rounded-lg bg-gray-50 p-3 text-sm space-y-1">
+                <div className="flex justify-between"><span className="text-gray-500">Montant HT</span><span className="font-semibold text-gray-900">{formatCurrency(amount)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">Retenue de garantie ({contract.retention_pct || 0}%)</span><span>{formatCurrency(ret)}</span></div>
+                {(contract.start_date || contract.end_date) && (
+                  <div className="flex justify-between"><span className="text-gray-500">Période</span><span>{contract.start_date ? formatDate(contract.start_date) : '?'} → {contract.end_date ? formatDate(contract.end_date) : '?'}</span></div>
+                )}
+              </div>
+
+              <p className="text-[11px] text-gray-400 border-t pt-3">Contrat régi par la loi n°75-1334 du 31 décembre 1975 relative à la sous-traitance. Le sous-traitant atteste être à jour de ses obligations sociales et fiscales et disposer des assurances requises.</p>
+            </CardContent>
+          </Card>
+
+          {status === 'signee' && (
+            <Card className="border-green-200 bg-green-50"><CardContent className="p-5 flex items-start gap-3">
+              <CheckCircle className="w-6 h-6 text-green-600 shrink-0 mt-0.5" />
+              <div><p className="font-semibold text-green-800">Contrat déjà signé</p>
+                <p className="text-sm text-green-700 mt-1">Signé par {sig.signer_name} le {formatDate(sig.signed_at)}.{sig.signer_email ? ` Une copie a été envoyée à ${sig.signer_email}.` : ''}</p></div>
+            </CardContent></Card>
+          )}
+          {status === 'expiree' && (
+            <Card className="border-orange-200 bg-orange-50"><CardContent className="p-5 flex items-start gap-3">
+              <Clock className="w-6 h-6 text-orange-600 shrink-0 mt-0.5" />
+              <div><p className="font-semibold text-orange-800">Ce lien a expiré</p>
+                <p className="text-sm text-orange-700 mt-1">Contactez {comp?.trade_name || "l'entreprise"} pour recevoir un nouveau lien.</p></div>
+            </CardContent></Card>
+          )}
+          {status === 'annulee' && (
+            <Card className="border-gray-200 bg-gray-100"><CardContent className="p-5 flex items-start gap-3">
+              <XCircle className="w-6 h-6 text-gray-500 shrink-0 mt-0.5" /><p className="font-semibold text-gray-700">Ce lien n&apos;est plus valide</p>
+            </CardContent></Card>
+          )}
+          {status === 'en_attente' && (
+            <SignatureForm signatureId={id} defaultName={sig.signer_name || sub?.company_name || ''} defaultEmail={sig.signer_email || sub?.email || ''} docTypeLabel="contrat" />
+          )}
+        </div>
+      </div>
+    )
+  }
+
   let document: any = null
   let lines: any[] = []
   let docType: 'devis' | 'facture' = 'devis'

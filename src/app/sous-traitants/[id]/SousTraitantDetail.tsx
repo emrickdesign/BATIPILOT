@@ -14,7 +14,7 @@ import { toast } from 'sonner'
 import {
   ArrowLeft, Phone, Mail, MapPin, Star, Trash2, Pencil, Upload, Plus, FileText,
   ShieldCheck, ShieldAlert, HardHat, Wallet, MessageSquare, FileCheck2, Send,
-  CheckCircle2, ExternalLink, Building2, CreditCard, Users,
+  CheckCircle2, ExternalLink, Building2, CreditCard, Users, Loader2,
 } from 'lucide-react'
 import type {
   Subcontractor, SubcontractorDocument, SubcontractorContract, SubcontractorInvoice,
@@ -41,8 +41,10 @@ const TABS = [
   { id: 'discussion', label: 'Discussion', icon: MessageSquare },
 ] as const
 
+type ContractSig = { id: string; contract_id: string | null; status: string; signed_at: string | null; signer_name: string | null }
+
 export default function SousTraitantDetail({
-  sub, docs, contracts, invoices, messages, projects,
+  sub, docs, contracts, invoices, messages, projects, signatures,
 }: {
   sub: Subcontractor
   docs: Doc[]
@@ -50,6 +52,7 @@ export default function SousTraitantDetail({
   invoices: Inv[]
   messages: SubcontractorMessage[]
   projects: ProjectOption[]
+  signatures: ContractSig[]
 }) {
   const router = useRouter()
   const [tab, setTab] = useState<typeof TABS[number]['id']>('infos')
@@ -137,7 +140,7 @@ export default function SousTraitantDetail({
 
       {tab === 'infos' && <InfosTab sub={sub} onSave={updateSub} />}
       {tab === 'conformite' && <ConformiteTab sub={sub} docs={docs} conf={conf} />}
-      {tab === 'contrats' && <ContratsTab sub={sub} contracts={contracts} invoices={invoices} projects={projects} projTitle={projTitle} />}
+      {tab === 'contrats' && <ContratsTab sub={sub} contracts={contracts} invoices={invoices} projects={projects} projTitle={projTitle} signatures={signatures} />}
       {tab === 'factures' && <FacturesTab sub={sub} invoices={invoices} contracts={contracts} projects={projects} projTitle={projTitle} />}
       {tab === 'discussion' && <DiscussionTab sub={sub} messages={messages} />}
     </div>
@@ -362,12 +365,30 @@ function ConformiteTab({ sub, docs, conf }: { sub: Subcontractor; docs: Doc[]; c
 }
 
 /* ─── Onglet Contrats / missions ───────────────────────────────────────── */
-function ContratsTab({ sub, contracts, invoices, projects, projTitle }: {
-  sub: Subcontractor; contracts: SubcontractorContract[]; invoices: Inv[]; projects: ProjectOption[]; projTitle: Map<string, string>
+function ContratsTab({ sub, contracts, invoices, projects, projTitle, signatures }: {
+  sub: Subcontractor; contracts: SubcontractorContract[]; invoices: Inv[]; projects: ProjectOption[]; projTitle: Map<string, string>; signatures: ContractSig[]
 }) {
   const router = useRouter()
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [sending, setSending] = useState<string | null>(null)
+
+  const pendingByContract = useMemo(() => {
+    const m = new Map<string, boolean>()
+    for (const s of signatures) if (s.contract_id && s.status === 'en_attente') m.set(s.contract_id, true)
+    return m
+  }, [signatures])
+
+  async function sendForSignature(contractId: string) {
+    if (!sub.email) { toast.error('Ce sous-traitant n\'a pas d\'email — renseignez-le dans l\'onglet Infos'); return }
+    setSending(contractId)
+    try {
+      const res = await fetch(`/api/sous-traitants/contrats/${contractId}/envoyer`, { method: 'POST' })
+      const json = await res.json()
+      if (res.ok) { toast.success(`Contrat envoyé à ${sub.email} pour signature`); router.refresh() }
+      else toast.error(json.error || 'Erreur envoi')
+    } finally { setSending(null) }
+  }
   const [f, setF] = useState({ title: '', project_id: '', amount_ht: '', sale_price_ht: '', retention_pct: '5', start_date: '', end_date: '', description: '' })
   const set = (k: keyof typeof f, v: string) => setF(p => ({ ...p, [k]: v }))
 
@@ -478,10 +499,25 @@ function ContratsTab({ sub, contracts, invoices, projects, projTitle }: {
             <div className="flex items-center justify-between text-xs text-gray-500 mb-1"><span>Avancement</span><span className="font-medium">{c.progress}%</span></div>
             <input type="range" min={0} max={100} step={5} value={c.progress} onChange={e => update(c.id, { progress: Number(e.target.value) })} className="w-full accent-[var(--primary)]" />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-gray-100">
             <select className="h-8 rounded-full border border-gray-200 bg-white px-3 text-xs" value={c.status} onChange={e => update(c.id, { status: e.target.value as SubContractStatus })}>
               {(Object.keys(subContractStatusLabels) as SubContractStatus[]).map(k => <option key={k} value={k}>{subContractStatusLabels[k]}</option>)}
             </select>
+            <a href={`/api/sous-traitants/contrats/${c.id}/pdf`} target="_blank" rel="noopener noreferrer">
+              <Button variant="outline" size="sm" className="gap-1"><FileText className="w-3.5 h-3.5" /> PDF</Button>
+            </a>
+            {c.status === 'signe' ? (
+              <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-medium"><CheckCircle2 className="w-3.5 h-3.5" /> Signé</span>
+            ) : pendingByContract.get(c.id) ? (
+              <>
+                <span className="inline-flex items-center gap-1 text-xs text-amber-600"><Send className="w-3.5 h-3.5" /> En attente de signature</span>
+                <Button variant="ghost" size="sm" onClick={() => sendForSignature(c.id)} disabled={sending === c.id}>{sending === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Renvoyer'}</Button>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" className="gap-1" onClick={() => sendForSignature(c.id)} disabled={sending === c.id}>
+                {sending === c.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />} Envoyer pour signature
+              </Button>
+            )}
           </div>
         </CardContent></Card>
       ))}

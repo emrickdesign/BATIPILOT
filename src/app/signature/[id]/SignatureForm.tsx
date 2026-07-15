@@ -14,7 +14,7 @@ export default function SignatureForm({
   signatureId: string
   defaultName: string
   defaultEmail: string
-  docTypeLabel: 'devis' | 'facture'
+  docTypeLabel: 'devis' | 'facture' | 'contrat'
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const padRef = useRef<SignaturePad | null>(null)
