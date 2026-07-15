@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -24,7 +25,7 @@ const DAY_END = 20
 const TOTAL_H = DAY_END - DAY_START
 const DEFAULT_START = 8
 const DEFAULT_END = 17
-const AXIS = [6, 8, 10, 12, 14, 16, 18, 20]
+const AXIS = Array.from({ length: TOTAL_H + 1 }, (_, i) => DAY_START + i) // toutes les heures 6h…20h
 
 const fmtShort = (iso: string) => { const [, m, d] = iso.split('-'); return `${d}/${m}` }
 const fmtLong = (iso: string) => {
@@ -94,6 +95,7 @@ export default function PlanningView({
   const [items, setItems] = useState<AssignmentRow[]>(assignments)
   const [busy, setBusy] = useState(false)
   const [selDay, setSelDay] = useState<string | null>(null)
+  const [popAnchor, setPopAnchor] = useState<{ left: number; top: number; bottom: number } | null>(null)
 
   // Resync après router.refresh()
   const [syncedFrom, setSyncedFrom] = useState(assignments)
@@ -296,7 +298,7 @@ export default function PlanningView({
                       <div className="w-24 flex-shrink-0" />
                       <div className="relative flex-1 h-4">
                         {AXIS.map(h => (
-                          <span key={h} className="absolute -translate-x-1/2 text-[10px] text-gray-400 tabular-nums" style={{ left: `${(h - DAY_START) / TOTAL_H * 100}%` }}>{h}h</span>
+                          <span key={h} className="absolute -translate-x-1/2 text-[9px] text-gray-400 tabular-nums" style={{ left: `${(h - DAY_START) / TOTAL_H * 100}%` }}>{h}h</span>
                         ))}
                       </div>
                     </div>
@@ -364,7 +366,7 @@ export default function PlanningView({
                 const isToday = d === todayIso
                 const isSel = d === selDay
                 return (
-                  <button key={d} onClick={() => setSelDay(d)} className={`text-left min-h-[84px] border-b border-l border-gray-50 p-2 hover:bg-gray-50 transition-colors ${isSel ? 'bg-primary/[0.06] ring-2 ring-inset ring-primary/50' : ''}`}>
+                  <button key={d} onClick={e => { const r = e.currentTarget.getBoundingClientRect(); setPopAnchor({ left: r.left, top: r.top, bottom: r.bottom }); setSelDay(d) }} className={`text-left min-h-[84px] border-b border-l border-gray-50 p-2 hover:bg-gray-50 transition-colors ${isSel ? 'bg-primary/[0.06] ring-2 ring-inset ring-primary/50' : ''}`}>
                     <span className={`inline-grid place-items-center w-6 h-6 rounded-full text-[13px] font-bold ${isToday ? 'bg-primary text-white' : 'text-gray-600'}`}>
                       {Number(d.split('-')[2])}
                     </span>
@@ -379,29 +381,38 @@ export default function PlanningView({
             </div>
           </Card>
 
-          {/* Panneau d'affectation du jour sélectionné (comme en semaine) */}
-          {selDay && daySet.has(selDay) && (
-            <Card className="border-0 shadow-[var(--shadow-sm)]">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between gap-3 mb-3">
-                  <h3 className="text-sm font-semibold text-marine capitalize flex items-center gap-2"><CalendarDays className="w-4 h-4 text-gray-400" /> {fmtLong(selDay)}</h3>
-                  <Link href={`/planning?view=jour&date=${selDay}`}>
-                    <Button variant="outline" size="sm" className="gap-1">Ouvrir la journée <ArrowRight className="w-3.5 h-3.5" /></Button>
-                  </Link>
+          {/* Popover d'affectation ancré au jour cliqué (comme en semaine, en 1 clic) */}
+          {selDay && daySet.has(selDay) && popAnchor && typeof document !== 'undefined' && createPortal(
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setSelDay(null)} />
+              <div
+                className="fixed z-50 w-[300px] max-w-[calc(100vw-16px)] rounded-2xl bg-white shadow-[var(--shadow-lg)] border border-gray-100 overflow-hidden animate-fade-up"
+                style={{
+                  left: Math.min(Math.max(popAnchor.left, 8), window.innerWidth - 308),
+                  top: popAnchor.bottom + 320 > window.innerHeight - 8 ? Math.max(8, popAnchor.top - 326) : popAnchor.bottom + 6,
+                }}
+              >
+                <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-gray-100">
+                  <h3 className="text-sm font-semibold text-marine capitalize flex items-center gap-1.5"><CalendarDays className="w-4 h-4 text-gray-400" /> {fmtLong(selDay)}</h3>
+                  <button onClick={() => setSelDay(null)} className="text-gray-400 hover:text-gray-700"><X className="w-4 h-4" /></button>
                 </div>
-                <div className="divide-y divide-gray-100">
+                <div className="max-h-[300px] overflow-y-auto divide-y divide-gray-100">
                   {projects.map(p => (
-                    <div key={p.id} className="flex items-start justify-between gap-3 py-2.5">
-                      <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate pt-1 min-w-0">{p.title}</Link>
-                      <div className="flex flex-wrap items-center justify-end gap-1.5 flex-1">
+                    <div key={p.id} className="px-4 py-2.5">
+                      <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate block mb-1.5">{p.title}</Link>
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {(cellMap.get(`${p.id}|${selDay}`) || []).map(a => <Chip key={a.id} a={a} date={selDay} />)}
                         <AffectSelect projectId={p.id} date={selDay} />
                       </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
+                <Link href={`/planning?view=jour&date=${selDay}`} className="flex items-center justify-center gap-1 px-4 py-2.5 border-t border-gray-100 text-sm font-medium text-primary hover:bg-accent transition-colors">
+                  Ouvrir la journée <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </>,
+            document.body
           )}
         </>
       )}
