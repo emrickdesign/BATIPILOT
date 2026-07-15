@@ -37,6 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       .maybeSingle()
 
     let signatureId: string
+    let createdNew = false
     if (existingSig) {
       signatureId = existingSig.id
       await supabase.from('document_signatures').update({
@@ -51,8 +52,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         .insert({ user_id: user.id, contract_id: id, signer_name: signerName, signer_email: sub.email })
         .select('id')
         .single()
-      if (sigError || !created) return NextResponse.json({ error: 'Erreur création demande de signature' }, { status: 500 })
+      if (sigError || !created) {
+        console.error('Erreur création demande signature contrat:', sigError)
+        return NextResponse.json({ error: `Erreur création demande de signature : ${sigError?.message || 'inconnue'}` }, { status: 500 })
+      }
       signatureId = created.id
+      createdNew = true
     }
     const signUrl = `${req.nextUrl.origin}/signature/${signatureId}`
 
@@ -80,7 +85,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     })
     if (!sent.ok) {
       console.error('Gmail send error (contrat ST):', sent.error)
-      return NextResponse.json({ error: 'Erreur envoi Gmail' }, { status: 502 })
+      // Rollback : pas d'email parti → on ne laisse pas une demande fantôme « en attente »
+      if (createdNew) await supabase.from('document_signatures').delete().eq('id', signatureId)
+      const detail = (sent.error || '').slice(0, 300)
+      return NextResponse.json({ error: `Envoi Gmail refusé${detail ? ` : ${detail}` : ''}` }, { status: 502 })
     }
 
     return NextResponse.json({ success: true, signUrl })
