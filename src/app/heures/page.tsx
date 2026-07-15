@@ -34,7 +34,7 @@ export default async function HeuresPage({
     supabase.from('projects').select('id,title,status').eq('user_id', user.id).not('status', 'in', `(${closed.join(',')})`).order('created_at', { ascending: false }),
     supabase.from('assignments').select('employee_id,project_id,date').eq('user_id', user.id).gte('date', days[0]).lte('date', days[6]),
     supabase.from('time_entries').select('id,employee_id,project_id,date,hours,status').eq('user_id', user.id).gte('date', days[0]).lte('date', days[6]),
-    supabase.from('presence_events').select('employee_id,type,photo_path,occurred_at').eq('user_id', user.id).gte('occurred_at', `${days[0]}T00:00:00`).lte('occurred_at', `${days[6]}T23:59:59`),
+    supabase.from('presence_events').select('employee_id,project_id,type,occurred_at').eq('user_id', user.id).gte('occurred_at', `${days[0]}T00:00:00`).lte('occurred_at', `${days[6]}T23:59:59`),
     supabase.from('vehicle_logs').select('project_id,date,hours_present').eq('user_id', user.id).gte('date', days[0]).lte('date', days[6]),
   ])
 

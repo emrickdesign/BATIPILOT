@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, CalendarDays, Clock, Plus, Users2, Check, X, Camera, FileSpreadsheet, CheckCheck } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, Clock, Plus, Users2, Check, X, MapPin, FileSpreadsheet, CheckCheck } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { employeeInitials } from '@/lib/equipe'
 
@@ -17,13 +17,40 @@ type EmployeeRow = { id: string; full_name: string; color: string; hourly_cost: 
 type ProjectRow = { id: string; title: string; status: string }
 type AssignmentRow = { employee_id: string; project_id: string; date: string }
 type EntryRow = { id: string; employee_id: string; project_id: string | null; date: string; hours: number; status: string }
-type PresenceRow = { employee_id: string | null; type: string; photo_path: string | null; occurred_at: string }
+type PresenceRow = { employee_id: string | null; project_id: string | null; type: string; occurred_at: string }
 type VehLogRow = { project_id: string | null; date: string; hours_present: number }
 type HeureStatus = 'declare' | 'valide' | 'refuse'
 
 const DAY_LABELS = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const fmtShort = (iso: string) => { const [, m, d] = iso.split('-'); return `${d}/${m}` }
 const keyOf = (e: string, p: string | null, d: string) => `${e}|${p || ''}|${d}`
+
+// Heures travaillées déduites des pointages géolocalisés d'un salarié sur un chantier/jour :
+// on somme les créneaux entre (arrivée/reprise) et (pause/départ), arrondi au quart d'heure.
+function buildPointed(presence: PresenceRow[]) {
+  const groups = new Map<string, PresenceRow[]>()
+  for (const ev of presence) {
+    if (!ev.employee_id) continue
+    const date = ev.occurred_at.split('T')[0]
+    const k = keyOf(ev.employee_id, ev.project_id, date)
+    if (!groups.has(k)) groups.set(k, [])
+    groups.get(k)!.push(ev)
+  }
+  const out = new Map<string, { arrivee?: string; depart?: string; hours: number }>()
+  for (const [k, evts] of groups) {
+    const sorted = [...evts].sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
+    let clockIn: number | null = null, total = 0
+    let arrivee: string | undefined, depart: string | undefined
+    for (const e of sorted) {
+      const t = new Date(e.occurred_at).getTime()
+      const hm = e.occurred_at.split('T')[1]?.slice(0, 5)
+      if (e.type === 'arrivee' || e.type === 'reprise') { if (clockIn == null) clockIn = t; if (e.type === 'arrivee' && !arrivee) arrivee = hm }
+      else if (e.type === 'pause' || e.type === 'depart') { if (clockIn != null) { total += t - clockIn; clockIn = null } if (e.type === 'depart') depart = hm }
+    }
+    out.set(k, { arrivee, depart, hours: Math.round((total / 3_600_000) * 4) / 4 })
+  }
+  return out
+}
 
 const ST: Record<HeureStatus, { label: string; cls: string }> = {
   declare: { label: 'À vérifier', cls: 'bg-amber-100 text-amber-700' },
@@ -59,18 +86,27 @@ export default function HeuresView({
   const router = useRouter()
   const empById = useMemo(() => new Map(employees.map(e => [e.id, e])), [employees])
   const projById = useMemo(() => new Map(projects.map(p => [p.id, p])), [projects])
+  // Heures déduites des pointages géolocalisés (remontée automatique).
+  const pointedByKey = useMemo(() => buildPointed(presence), [presence])
 
   const [tab, setTab] = useState<'validation' | 'controle'>('validation')
   const num = (v: string) => Number((v || '').replace(',', '.')) || 0
 
+  // Pré-remplissage : d'abord les heures pointées, puis les saisies manuelles (qui priment).
   const [hours, setHours] = useState<Record<string, string>>(() => {
-    const m: Record<string, string> = {}; for (const e of entries) m[keyOf(e.employee_id, e.project_id, e.date)] = String(e.hours); return m
+    const m: Record<string, string> = {}
+    for (const [k, v] of pointedByKey) if (v.hours > 0) m[k] = String(v.hours)
+    for (const e of entries) m[keyOf(e.employee_id, e.project_id, e.date)] = String(e.hours)
+    return m
   })
   const [ids, setIds] = useState<Record<string, string>>(() => {
     const m: Record<string, string> = {}; for (const e of entries) m[keyOf(e.employee_id, e.project_id, e.date)] = e.id; return m
   })
   const [statusMap, setStatusMap] = useState<Record<string, HeureStatus>>(() => {
-    const m: Record<string, HeureStatus> = {}; for (const e of entries) m[keyOf(e.employee_id, e.project_id, e.date)] = (e.status as HeureStatus) || 'declare'; return m
+    const m: Record<string, HeureStatus> = {}
+    for (const [k, v] of pointedByKey) if (v.hours > 0) m[k] = 'declare'
+    for (const e of entries) m[keyOf(e.employee_id, e.project_id, e.date)] = (e.status as HeureStatus) || 'declare'
+    return m
   })
   const [savingKey, setSavingKey] = useState<string | null>(null)
   const [showAdd, setShowAdd] = useState(false)
@@ -79,23 +115,6 @@ export default function HeuresView({
   // Filtres (§12.1)
   const [fStatut, setFStatut] = useState<'tous' | HeureStatus>('tous')
   const [fEmp, setFEmp] = useState(''); const [fProj, setFProj] = useState('')
-
-  // Présence (photos / heures arrivée-départ) par salarié+jour
-  const presByKey = useMemo(() => {
-    const m = new Map<string, { arrivee?: string; depart?: string; photo: boolean }>()
-    for (const ev of presence) {
-      if (!ev.employee_id) continue
-      const date = ev.occurred_at.split('T')[0]
-      const k = `${ev.employee_id}|${date}`
-      const r = m.get(k) || { photo: false }
-      const time = ev.occurred_at.split('T')[1]?.slice(0, 5)
-      if (ev.type === 'arrivee') r.arrivee = time
-      if (ev.type === 'depart') r.depart = time
-      if (ev.photo_path) r.photo = true
-      m.set(k, r)
-    }
-    return m
-  }, [presence])
 
   const rowsByDay = useMemo(() => {
     const seen = new Set<string>()
@@ -106,12 +125,14 @@ export default function HeuresView({
     }
     for (const a of assignments) push(a.employee_id, a.project_id, a.date)
     for (const e of entries) push(e.employee_id, e.project_id, e.date)
+    // Lignes issues des pointages (même sans affectation ni saisie préalable)
+    for (const k of pointedByKey.keys()) { const [emp, proj, date] = k.split('|'); push(emp, proj || null, date) }
     const byDay = new Map<string, typeof rows>()
     for (const d of days) byDay.set(d, [])
     for (const r of rows) { if (!byDay.has(r.date)) byDay.set(r.date, []); byDay.get(r.date)!.push(r) }
     for (const [, arr] of byDay) arr.sort((a, b) => (empById.get(a.employee_id)?.full_name || '').localeCompare(empById.get(b.employee_id)?.full_name || ''))
     return byDay
-  }, [assignments, entries, days, empById])
+  }, [assignments, entries, days, empById, pointedByKey])
 
   const matchFilter = (r: { employee_id: string; project_id: string | null; key: string }) => {
     if (fEmp && r.employee_id !== fEmp) return false
@@ -145,24 +166,42 @@ export default function HeuresView({
     setStatusMap(p => ({ ...p, [k]: st }))
   }
 
-  async function setStatus(key: string, status: HeureStatus) {
-    const id = ids[key]
-    if (!id) { toast.error('Enregistrez d\'abord les heures'); return }
-    setStatusMap(p => ({ ...p, [key]: status }))
+  // Persiste une ligne (crée l'entrée si elle vient d'un pointage, sinon met à jour le statut).
+  async function persist(key: string, status: HeureStatus): Promise<boolean> {
     const supabase = createClient()
-    const { error } = await supabase.from('time_entries').update({ status }).eq('id', id)
-    if (error) { toast.error('Erreur'); return }
+    const id = ids[key]
+    if (id) {
+      const { error } = await supabase.from('time_entries').update({ status }).eq('id', id)
+      return !error
+    }
+    const [emp, proj, date] = key.split('|')
+    const h = num(hours[key])
+    if (h <= 0) return false
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return false
+    const { data, error } = await supabase.from('time_entries')
+      .upsert({ user_id: user.id, employee_id: emp, project_id: proj || null, date, hours: h, status }, { onConflict: 'employee_id,project_id,date' })
+      .select('id').single()
+    if (error || !data) return false
+    setIds(p => ({ ...p, [key]: data.id }))
+    return true
+  }
+
+  async function setStatus(key: string, status: HeureStatus) {
+    setStatusMap(p => ({ ...p, [key]: status }))
+    const ok = await persist(key, status)
+    if (!ok) { toast.error('Erreur'); return }
     toast.success(status === 'valide' ? 'Heures validées' : status === 'refuse' ? 'Marqué à corriger' : 'Mis à jour')
   }
 
   async function validateAll() {
-    const toValidate = Object.entries(ids).filter(([k]) => (statusMap[k] || 'declare') === 'declare' && num(hours[k]) > 0)
-    if (!toValidate.length) { toast.info('Rien à valider'); return }
-    const supabase = createClient()
+    const keys = Object.keys(hours).filter(k => (statusMap[k] || 'declare') === 'declare' && num(hours[k]) > 0)
+    if (!keys.length) { toast.info('Rien à valider'); return }
     const next = { ...statusMap }
-    for (const [k, id] of toValidate) { await supabase.from('time_entries').update({ status: 'valide' }).eq('id', id); next[k] = 'valide' }
+    let n = 0
+    for (const k of keys) { if (await persist(k, 'valide')) { next[k] = 'valide'; n++ } }
     setStatusMap(next)
-    toast.success(`${toValidate.length} ligne(s) validée(s)`)
+    toast.success(`${n} ligne(s) validée(s)`)
   }
 
   async function handleAdd() {
@@ -350,16 +389,15 @@ export default function HeuresView({
                           if (!e) return null
                           const st = (statusMap[r.key] || 'declare') as HeureStatus
                           const hasHours = num(hours[r.key]) > 0
-                          const pres = presByKey.get(`${r.employee_id}|${r.date}`)
+                          const pres = pointedByKey.get(r.key)
                           return (
                             <div key={r.key} className="flex items-center gap-2.5 flex-wrap">
                               <span className="grid place-items-center w-7 h-7 rounded-full text-white text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: e.color }}>{employeeInitials(e.full_name)}</span>
                               <span className="text-sm text-gray-800 w-28 truncate">{e.full_name}</span>
                               <span className="text-xs text-gray-400 flex-1 min-w-[80px] truncate">{p?.title || 'Sans chantier'}</span>
-                              {pres && (
-                                <span className="text-[11px] text-gray-400 flex items-center gap-1">
-                                  {pres.arrivee || '—'}<span className="text-gray-300">→</span>{pres.depart || '—'}
-                                  {pres.photo && <Camera className="w-3 h-3 text-[#3F7A2E]" />}
+                              {pres && (pres.arrivee || pres.depart) && (
+                                <span className="text-[11px] text-emerald-600 flex items-center gap-1" title="Heures pointées sur le chantier (géolocalisé)">
+                                  <MapPin className="w-3 h-3" />{pres.arrivee || '—'}<span className="text-emerald-300">→</span>{pres.depart || '—'}
                                 </span>
                               )}
                               <div className="flex items-center gap-1 flex-shrink-0">

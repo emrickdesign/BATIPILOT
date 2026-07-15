@@ -1,9 +1,9 @@
 import type { PresenceType } from '@/types'
 
 export const presenceLabels: Record<PresenceType, string> = {
-  arrivee: "J'arrive sur chantier",
+  arrivee: 'Je pointe — je suis au chantier',
   depart: 'Je pars du chantier',
-  pause: 'Je commence ma pause',
+  pause: 'Pause déjeuner',
   reprise: 'Je reprends',
   photo: 'Photo chantier',
 }
