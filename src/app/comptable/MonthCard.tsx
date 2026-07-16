@@ -123,9 +123,8 @@ export default function MonthCard({
         {/* 1 — Comment s'est passé mon mois ? */}
         <section>
           <SectionTitle icon={<TrendingUp className="w-3.5 h-3.5" />} title="Mon mois" note="hors taxes" />
-          {/* CA − Achats = Marge : les opérateurs rendent le calcul évident.
-              Largeur bornée pour que l'équation se lise d'un bloc sur grand écran. */}
-          <div className="flex items-center gap-1 text-center max-w-2xl">
+          {/* CA − Achats = Marge : les opérateurs rendent le calcul évident */}
+          <div className="flex items-center gap-2 text-center">
             <div className="flex-1 min-w-0">
               <Figure label="Chiffre d'affaires" value={formatCurrency(s.caHt)} hint={`${s.nbFactures} facture${s.nbFactures > 1 ? 's' : ''}`}
                 onClick={() => toggle('ca')} active={focus === 'ca'} />
@@ -147,7 +146,7 @@ export default function MonthCard({
         {/* 2 — Qu'est-ce que je dois à l'État ? */}
         <section>
           <SectionTitle icon={<Scale className="w-3.5 h-3.5" />} title="Ma TVA" note="l'argent de l'État, pas le tien" />
-          <div className="flex items-center gap-1 text-center rounded-xl bg-gray-50 py-2.5 max-w-2xl">
+          <div className="flex items-center gap-2 text-center rounded-xl bg-gray-50 py-2.5 px-2">
             <div className="flex-1 min-w-0"><Figure label="Collectée" value={formatCurrency(s.tvaCollectee)} hint="sur tes ventes" small /></div>
             <Op>−</Op>
             <div className="flex-1 min-w-0"><Figure label="Déductible" value={formatCurrency(s.tvaDeductible)} hint="sur tes achats" small /></div>
@@ -325,11 +324,12 @@ function SectionTitle({ icon, title, note }: { icon: React.ReactNode; title: str
 function Figure({ label, value, hint, onClick, active, tone, small }: {
   label: string; value: string; hint?: string; onClick?: () => void; active?: boolean; tone?: string; small?: boolean
 }) {
+  // Le libellé porte l'accent : on doit comprendre CE QUE C'EST avant de lire le chiffre.
   const content = (
     <>
-      <p className="text-[10px] text-gray-400">{label}</p>
-      <p className={`font-bold tabular-nums ${small ? 'text-sm' : 'text-base'} ${tone || 'text-marine'}`}>{value}</p>
-      {hint && <p className="text-[10px] text-gray-400">{hint}</p>}
+      <p className={`font-semibold text-gray-700 leading-tight ${small ? 'text-xs' : 'text-[13px]'}`}>{label}</p>
+      <p className={`font-semibold tabular-nums mt-0.5 ${small ? 'text-sm' : 'text-base'} ${tone || 'text-marine'}`}>{value}</p>
+      {hint && <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>}
     </>
   )
   if (!onClick) return <div className="py-1 w-full">{content}</div>
