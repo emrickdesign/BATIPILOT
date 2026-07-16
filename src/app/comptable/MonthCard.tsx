@@ -6,17 +6,19 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { ReceiptText, FileWarning, Send, CheckCircle2, Wallet, FileText, Handshake, ChevronRight, Scale } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import MonthActions from './MonthActions'
+import MonthActions, { type LastSend } from './MonthActions'
 import { num, isSent, isPaid, subVat, type MonthExpense, type MonthInvoice, type MonthSubInvoice } from './shared'
 
 type Focus = 'achats' | 'a_verifier' | 'justif' | 'envoye' | 'factures' | 'paiements' | 'soustraitance' | null
 
 export default function MonthCard({
-  monthKey, label, expenses, invoices, subInvoices, index,
+  monthKey, label, expenses, invoices, subInvoices, index, lastSend, accountantEmail,
 }: {
   monthKey: string; label: string
   expenses: MonthExpense[]; invoices: MonthInvoice[]; subInvoices: MonthSubInvoice[]
   index: number
+  lastSend: LastSend
+  accountantEmail: string
 }) {
   const [focus, setFocus] = useState<Focus>(null)
   const toggle = (f: Focus) => setFocus(c => (c === f ? null : f))
@@ -66,11 +68,14 @@ export default function MonthCard({
                 </Badge>
               </button>
             )}
-            {s.envoyeCompta === expenses.length && expenses.length > 0 && (
-              <Badge className="bg-[#F3E5D6] text-[#8A4B24] border-0 gap-1 text-xs"><CheckCircle2 className="w-3 h-3" /> envoyé</Badge>
+            {lastSend && (
+              <Badge className="bg-[#E9F2DB] text-[#3F7A2E] border-0 gap-1 text-xs" title={`Envoyé à ${lastSend.to_email}`}>
+                <CheckCircle2 className="w-3 h-3" /> envoyé à la compta
+              </Badge>
             )}
           </div>
-          <MonthActions monthKey={monthKey} label={label} expenses={expenses} invoices={invoices} subInvoices={subInvoices} />
+          <MonthActions monthKey={monthKey} label={label} expenses={expenses} invoices={invoices}
+            subInvoices={subInvoices} lastSend={lastSend} accountantEmail={accountantEmail} />
         </div>
 
         {/* Chiffres cliquables */}
