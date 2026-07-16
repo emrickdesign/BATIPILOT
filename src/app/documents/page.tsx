@@ -10,7 +10,7 @@ export default async function DocumentsPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [{ data: documents }, { data: clients }, { data: projects }] = await Promise.all([
+  const [{ data: documents }, { data: clients }, { data: projects }, { data: categories }] = await Promise.all([
     supabase
       .from('documents')
       .select('*, clients(type, first_name, last_name, company_name), projects(title)')
@@ -18,6 +18,7 @@ export default async function DocumentsPage({
       .order('created_at', { ascending: false }),
     supabase.from('clients').select('id, type, first_name, last_name, company_name').eq('user_id', user.id).neq('status', 'archive').order('created_at', { ascending: false }),
     supabase.from('projects').select('id, title').eq('user_id', user.id).neq('status', 'archive').order('created_at', { ascending: false }),
+    supabase.from('document_categories').select('id, name, family').eq('user_id', user.id).order('family').order('name'),
   ])
 
   // URLs signées (bucket privé) — 1h
@@ -32,6 +33,7 @@ export default async function DocumentsPage({
       documents={withUrls}
       clients={clients || []}
       projects={projects || []}
+      categories={categories || []}
       preselectClient={sp.client}
       preselectProject={sp.project}
     />
