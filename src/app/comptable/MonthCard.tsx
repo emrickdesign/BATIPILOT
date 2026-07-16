@@ -89,6 +89,9 @@ export default function MonthCard({
       tvaCollectee, tvaDeductible, soldeTva: tvaCollectee - tvaDeductible,
       aVerifier: expenses.filter(e => e.status === 'a_verifier').length,
       justifManquants: expenses.filter(e => !e.storage_path).length + subInvoices.filter(i => !i.storage_path).length,
+      // TVA incluse dans le déductible mais non sécurisée : sans la pièce, elle est perdue.
+      tvaSansJustif: expenses.filter(e => !e.storage_path).reduce((t, e) => t + num(e.vat_amount), 0)
+        + subInvoices.filter(i => !i.storage_path).reduce((t, i) => t + subVat(i), 0),
     }
   }, [expenses, invoices, subInvoices])
 
@@ -149,7 +152,11 @@ export default function MonthCard({
           <div className="flex items-center gap-2 text-center rounded-xl bg-gray-50 py-2.5 px-2">
             <div className="flex-1 min-w-0"><Figure label="Collectée" value={formatCurrency(s.tvaCollectee)} hint="sur tes ventes" small /></div>
             <Op>−</Op>
-            <div className="flex-1 min-w-0"><Figure label="Déductible" value={formatCurrency(s.tvaDeductible)} hint="sur tes achats" small /></div>
+            <div className="flex-1 min-w-0">
+              <Figure label="Déductible" value={formatCurrency(s.tvaDeductible)} small
+                hint={s.tvaSansJustif > 0 ? `dont ${formatCurrency(s.tvaSansJustif)} sans justificatif` : 'sur tes achats'}
+                hintTone={s.tvaSansJustif > 0 ? 'text-amber-600 font-medium' : undefined} />
+            </div>
             <Op>=</Op>
             <div className="flex-1 min-w-0">
               <Figure label={s.soldeTva >= 0 ? 'À payer' : 'Crédit de TVA'} value={formatCurrency(Math.abs(s.soldeTva))}
@@ -161,7 +168,7 @@ export default function MonthCard({
             <FileSpreadsheet className="w-3.5 h-3.5" />
             {showCa3 ? 'Masquer ma déclaration (CA3)' : 'Déclarer ma TVA — voir les cases de la CA3'}
           </button>
-          {showCa3 && <Ca3Block c={declaration} justifManquants={s.justifManquants} />}
+          {showCa3 && <Ca3Block c={declaration} justifManquants={s.justifManquants} tvaSansJustif={s.tvaSansJustif} />}
         </section>
 
         {/* 3 — Mon dossier est-il prêt à partir ? */}
@@ -238,7 +245,7 @@ export default function MonthCard({
 
 /** Les cases de la CA3, prêtes à recopier sur impots.gouv (le portail ne peut pas
  *  être pré-rempli : c'est un espace authentifié sans paramètres d'URL). */
-function Ca3Block({ c, justifManquants }: { c: Ca3; justifManquants: number }) {
+function Ca3Block({ c, justifManquants, tvaSansJustif }: { c: Ca3; justifManquants: number; tvaSansJustif: number }) {
   const rows: { code: string; label: string; base?: number; tva?: number; strong?: boolean }[] = []
   rows.push({ code: '01', label: 'Montant des opérations réalisées (HT)', base: c.baseTotal })
   if (c.t20.base > 0) rows.push({ code: '08', label: 'Taux normal 20 %', base: c.t20.base, tva: c.t20.tva })
@@ -286,7 +293,9 @@ function Ca3Block({ c, justifManquants }: { c: Ca3; justifManquants: number }) {
         Tout le déductible est porté en case 20. Si tu as acheté du matériel durable (véhicule, outillage lourd), une part va en <strong>case 19 (immobilisations)</strong> — ta comptable saura trancher.
       </p>
       {justifManquants > 0 && (
-        <p className="text-[11px] text-amber-700 mt-1">⚠︎ {justifManquants} justificatif(s) manquant(s) : cette TVA n&apos;est pas déductible, le montant de la case 20 est donc surestimé.</p>
+        <p className="text-[11px] text-amber-700 mt-1">
+          ⚠︎ {justifManquants} justificatif(s) manquant(s), soit <strong>{formatCurrency(tvaSansJustif)}</strong> de TVA inclus dans la case 20 mais <strong>non déductibles</strong> en l&apos;état. Ajoute les pièces avant de déclarer, sinon retire ce montant.
+        </p>
       )}
       <a href="https://www.impots.gouv.fr/professionnel" target="_blank" rel="noopener noreferrer" className="inline-block mt-3">
         <Button size="sm" variant="outline" className="gap-1.5">
@@ -321,15 +330,17 @@ function SectionTitle({ icon, title, note }: { icon: React.ReactNode; title: str
   )
 }
 
-function Figure({ label, value, hint, onClick, active, tone, small }: {
-  label: string; value: string; hint?: string; onClick?: () => void; active?: boolean; tone?: string; small?: boolean
+function Figure({ label, value, hint, onClick, active, tone, small, hintTone }: {
+  label: string; value: string; hint?: string; onClick?: () => void; active?: boolean; tone?: string; small?: boolean; hintTone?: string
 }) {
-  // Le libellé porte l'accent : on doit comprendre CE QUE C'EST avant de lire le chiffre.
+  // Le libellé porte l'accent (+ filet orange) : on doit comprendre CE QUE C'EST
+  // avant de lire le chiffre.
   const content = (
     <>
       <p className={`font-semibold text-gray-700 leading-tight ${small ? 'text-xs' : 'text-[13px]'}`}>{label}</p>
-      <p className={`font-semibold tabular-nums mt-0.5 ${small ? 'text-sm' : 'text-base'} ${tone || 'text-marine'}`}>{value}</p>
-      {hint && <p className="text-[10px] text-gray-400 mt-0.5">{hint}</p>}
+      <span className="mx-auto mt-1 block h-0.5 w-6 rounded-full bg-primary/70" />
+      <p className={`font-semibold tabular-nums mt-1 ${small ? 'text-sm' : 'text-base'} ${tone || 'text-marine'}`}>{value}</p>
+      {hint && <p className={`text-[10px] mt-0.5 ${hintTone || 'text-gray-400'}`}>{hint}</p>}
     </>
   )
   if (!onClick) return <div className="py-1 w-full">{content}</div>
