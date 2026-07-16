@@ -92,6 +92,16 @@ export default function DocumentsManager({
     return rows.sort((a, b) => (daysUntil(a.doc.expiry_date) ?? 0) - (daysUntil(b.doc.expiry_date) ?? 0))
   }, [documents])
 
+  // Ordonnées par famille (ordre du rythme, pas alphabétique) : les couleurs
+  // se regroupent naturellement au lieu de sortir en désordre.
+  const orderedCats = useMemo(() => {
+    const rank = (f: string) => {
+      const i = (documentFamilies as readonly string[]).indexOf(f)
+      return i === -1 ? 99 : i
+    }
+    return [...categories].sort((a, b) => rank(a.family) - rank(b.family) || a.name.localeCompare(b.name))
+  }, [categories])
+
   const catsByFamily = useMemo(() => {
     const m = new Map<string, DocumentCategory[]>()
     for (const c of categories) {
@@ -340,7 +350,7 @@ export default function DocumentsManager({
           </CardContent>
         </Card>
       ) : (
-        <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1 items-start">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-start">
           {/* À classer : n'apparaît que s'il y a des orphelins */}
           {byCategory.orphans.length > 0 && (
             <Column title="À classer" family="Autre" count={byCategory.orphans.length} hint="Range-les en leur donnant une catégorie">
@@ -348,7 +358,7 @@ export default function DocumentsManager({
             </Column>
           )}
 
-          {categories.map(c => {
+          {orderedCats.map(c => {
             const docs = byCategory.m.get(c.name) || []
             return (
               <Column key={c.id} title={c.name} family={c.family} count={docs.length}
@@ -359,8 +369,8 @@ export default function DocumentsManager({
             )
           })}
 
-          {/* Colonne d'ajout, tout à droite */}
-          <div className="w-64 flex-shrink-0 rounded-xl border border-dashed border-gray-300 p-3 space-y-2">
+          {/* Colonne d'ajout, en dernière case */}
+          <div className="rounded-xl border border-dashed border-gray-300 p-3 space-y-2">
             <p className="text-xs font-semibold text-gray-500">Nouvelle catégorie</p>
             <Input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Ex : PV de réception"
               className="h-9 text-sm" onKeyDown={e => e.key === 'Enter' && addCategory()} />
@@ -388,7 +398,7 @@ function Column({ title, family, count, hint, onDelete, children }: {
   onDelete?: () => void; children: React.ReactNode
 }) {
   return (
-    <div className={`w-64 flex-shrink-0 rounded-xl border p-2.5 ${familyTints[family] || 'bg-gray-50 border-gray-200'}`}>
+    <div className={`rounded-xl border p-2.5 ${familyTints[family] || 'bg-gray-50 border-gray-200'}`}>
       <div className="flex items-start justify-between gap-1 mb-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-marine truncate" title={title}>{title}</p>
