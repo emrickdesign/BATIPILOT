@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ReceiptText, FileWarning, Send, CheckCircle2, Wallet, FileText, Handshake, ChevronRight, Scale } from 'lucide-react'
+import { ReceiptText, FileWarning, Send, CheckCircle2, Wallet, FileText, Handshake, ChevronRight, Scale, TrendingUp } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import MonthActions, { type LastSend } from './MonthActions'
 import { num, isSent, isPaid, subVat, type MonthExpense, type MonthInvoice, type MonthSubInvoice } from './shared'
@@ -28,10 +28,14 @@ export default function MonthCard({
     const totalSousTraitance = subInvoices.reduce((t, i) => t + num(i.amount_ttc), 0)
     const tvaCollectee = invoices.filter(i => isSent(i.status)).reduce((t, i) => t + num(i.total_vat), 0)
     const tvaDeductible = expenses.reduce((t, e) => t + num(e.vat_amount), 0) + subInvoices.reduce((t, i) => t + subVat(i), 0)
+    // Résultat du mois : on compare des HT entre eux (le TTC et la TVA ne sont pas comparables au CA).
+    const caHt = invoices.filter(i => isSent(i.status)).reduce((t, i) => t + num(i.subtotal_ht), 0)
+    const achatsHt = expenses.reduce((t, e) => t + num(e.amount_ht), 0) + subInvoices.reduce((t, i) => t + num(i.amount_ht), 0)
     return {
       nbPieces: expenses.length + subInvoices.length,
       totalAchats: totalDepenses + totalSousTraitance,
       totalSousTraitance,
+      caHt, achatsHt, marge: caHt - achatsHt,
       aVerifier: expenses.filter(e => e.status === 'a_verifier').length,
       justifManquants: expenses.filter(e => !e.storage_path).length + subInvoices.filter(i => !i.storage_path).length,
       envoyeCompta: expenses.filter(e => e.status === 'envoye_comptable').length,
@@ -81,7 +85,7 @@ export default function MonthCard({
         {/* Chiffres cliquables */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <Stat icon={ReceiptText} value={String(s.nbPieces)} label="pièces d'achat" tone="bg-[#FCE7DE] text-[#C14E33]" active={focus === 'achats'} onClick={() => toggle('achats')} />
-          <Stat icon={Wallet} value={formatCurrency(s.totalAchats)} label="total achats TTC" tone="bg-accent text-primary" active={focus === 'achats'} onClick={() => toggle('achats')} />
+          <Stat icon={Wallet} value={formatCurrency(s.totalAchats)} label="achats payés (TTC)" tone="bg-accent text-primary" active={focus === 'achats'} onClick={() => toggle('achats')} />
           <Stat icon={FileWarning} value={String(s.aVerifier)} label="à vérifier" tone="bg-amber-100 text-amber-600" active={focus === 'a_verifier'} onClick={() => toggle('a_verifier')} />
           <Stat icon={Send} value={String(s.envoyeCompta)} label="envoyés compta" tone="bg-[#F3E5D6] text-[#8A4B24]" active={focus === 'envoye'} onClick={() => toggle('envoye')} />
           <Stat icon={FileText} value={String(s.facturesTransmises)} label="factures transmises" tone="bg-[#EFE7DA] text-[#8A5A2A]" active={focus === 'factures'} onClick={() => toggle('factures')} />
@@ -94,10 +98,34 @@ export default function MonthCard({
           </div>
         )}
 
-        {/* Récap TVA du mois */}
-        <div className="mt-4 rounded-xl bg-gray-50 p-3">
+        {/* Résultat du mois : CA vs achats, comparables (HT contre HT) */}
+        <div className="mt-4 rounded-xl border border-gray-200/80 p-3">
           <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-500">
-            <Scale className="w-3.5 h-3.5" /> TVA du mois
+            <TrendingUp className="w-3.5 h-3.5" /> Résultat du mois <span className="font-normal text-gray-400">(hors taxes)</span>
+          </div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <button type="button" onClick={() => toggle('factures')} className="rounded-lg py-1 hover:bg-gray-50 transition-colors">
+              <p className="text-[10px] text-gray-400">Chiffre d&apos;affaires</p>
+              <p className="text-base font-bold text-marine tabular-nums">{formatCurrency(s.caHt)}</p>
+              <p className="text-[10px] text-gray-400">ce que tu as vendu</p>
+            </button>
+            <button type="button" onClick={() => toggle('achats')} className="rounded-lg py-1 hover:bg-gray-50 transition-colors">
+              <p className="text-[10px] text-gray-400">Achats</p>
+              <p className="text-base font-bold text-marine tabular-nums">{formatCurrency(s.achatsHt)}</p>
+              <p className="text-[10px] text-gray-400">ce que tu as dépensé</p>
+            </button>
+            <div className="py-1">
+              <p className="text-[10px] text-gray-400">Marge</p>
+              <p className={`text-base font-bold tabular-nums ${s.marge >= 0 ? 'text-[#3F7A2E]' : 'text-[#C14E33]'}`}>{formatCurrency(s.marge)}</p>
+              <p className="text-[10px] text-gray-400">ce qu&apos;il te reste</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Récap TVA du mois */}
+        <div className="mt-3 rounded-xl bg-gray-50 p-3">
+          <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-500">
+            <Scale className="w-3.5 h-3.5" /> TVA du mois <span className="font-normal text-gray-400">(l&apos;argent de l&apos;État, pas le tien)</span>
           </div>
           <div className="grid grid-cols-3 gap-2 text-center">
             <div>
@@ -113,8 +141,11 @@ export default function MonthCard({
               <p className={`text-sm font-bold tabular-nums ${s.soldeTva >= 0 ? 'text-[#C14E33]' : 'text-[#3F7A2E]'}`}>{formatCurrency(Math.abs(s.soldeTva))}</p>
             </div>
           </div>
+          <p className="text-[11px] text-gray-400 mt-2">
+            La TVA collectée n&apos;est <strong>pas</strong> ton chiffre d&apos;affaires : c&apos;est seulement la part de TVA ajoutée sur tes factures, que tu encaisses pour l&apos;État puis lui reverses (après déduction de celle payée sur tes achats).
+          </p>
           {s.justifManquants > 0 && (
-            <p className="text-[11px] text-amber-700 mt-2">⚠︎ {s.justifManquants} pièce(s) sans justificatif : cette TVA n&apos;est pas déductible tant que le justificatif manque.</p>
+            <p className="text-[11px] text-amber-700 mt-1">⚠︎ {s.justifManquants} pièce(s) sans justificatif : cette TVA n&apos;est pas déductible tant que le justificatif manque.</p>
           )}
         </div>
 
