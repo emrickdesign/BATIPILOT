@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
-  Landmark, Plus, Trash2, Search, HardHat, ReceiptText, Wallet, Download, TrendingDown, Camera, Loader2, Upload,
+  Landmark, Plus, Trash2, Search, HardHat, ReceiptText, Wallet, Download, TrendingDown, Camera, Loader2, Upload, Check, Paperclip,
 } from 'lucide-react'
 import type { Expense } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -171,6 +171,47 @@ export default function DepensesLedger({
     setSupplier(''); setDate(''); setAmount(''); setCategory(''); setPayment(''); setProjectId('')
     setShowAdd(false)
     router.refresh()
+  }
+
+  // Débloquer une dépense sur place : la valider, ou lui joindre son justificatif.
+  const justifRef = useRef<HTMLInputElement>(null)
+  const [target, setTarget] = useState<string | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  async function validateExpense(id: string) {
+    setBusy(id)
+    const { error } = await createClient().from('expenses').update({ status: 'valide' }).eq('id', id)
+    setBusy(null)
+    if (error) { toast.error('Erreur'); return }
+    toast.success('Dépense validée')
+    router.refresh()
+  }
+
+  function askJustificatif(id: string) {
+    setTarget(id)
+    justifRef.current?.click()
+  }
+
+  async function uploadJustificatif(file: File) {
+    if (!target) return
+    setBusy(target)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { toast.error('Non connecté'); return }
+      // La policy storage exige l'user_id en 2e segment du chemin.
+      const safe = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+      const path = `tickets/${user.id}/${Date.now()}-${safe}`
+      const { error: upErr } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type || undefined, upsert: false })
+      if (upErr) { toast.error('Erreur envoi du fichier'); return }
+      const { error } = await supabase.from('expenses').update({ storage_path: path }).eq('id', target)
+      if (error) { toast.error('Erreur enregistrement'); return }
+      toast.success('Justificatif ajouté — TVA déductible')
+      router.refresh()
+    } finally {
+      setBusy(null); setTarget(null)
+      if (justifRef.current) justifRef.current.value = ''
+    }
   }
 
   async function handleDelete(exp: Exp) {
@@ -373,6 +414,10 @@ export default function DepensesLedger({
         </div>
       )}
 
+      {/* Input partagé pour joindre un justificatif à une dépense de la liste */}
+      <input ref={justifRef} type="file" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) uploadJustificatif(f) }} />
+
       {/* Liste */}
       {expenses.length === 0 ? (
         <Card>
@@ -406,6 +451,17 @@ export default function DepensesLedger({
                   </div>
                 </div>
                 <div className="font-semibold text-gray-900 tabular-nums flex-shrink-0">{formatCurrency(Number(exp.amount_ttc) || 0)}</div>
+                {exp.status === 'a_verifier' && (
+                  <Button size="sm" variant="success" className="gap-1 flex-shrink-0" onClick={() => validateExpense(exp.id)} disabled={busy === exp.id}>
+                    {busy === exp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Valider
+                  </Button>
+                )}
+                {!exp.storage_path && (
+                  <Button size="sm" variant="outline" className="gap-1 flex-shrink-0 border-amber-300 text-amber-700 hover:bg-amber-50"
+                    onClick={() => askJustificatif(exp.id)} disabled={busy === exp.id} title="Sans justificatif, la TVA n'est pas déductible">
+                    {busy === exp.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />} Justificatif
+                  </Button>
+                )}
                 <button onClick={() => handleDelete(exp)} title="Supprimer"
                   className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-50 flex-shrink-0"><Trash2 className="w-4 h-4" /></button>
               </CardContent>
