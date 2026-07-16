@@ -22,7 +22,23 @@ export default function LoginPage() {
     const supabase = createClient()
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) {
-      toast.error('Email ou mot de passe incorrect')
+      // Ne jamais annoncer « mot de passe incorrect » quand ce n'est pas la cause :
+      // un email non confirmé bloque la connexion alors que le mot de passe est bon.
+      const code = (error as { code?: string }).code
+      const msg = error.message?.toLowerCase() || ''
+      if (code === 'email_not_confirmed' || msg.includes('not confirmed')) {
+        const { error: resendErr } = await supabase.auth.resend({ type: 'signup', email })
+        toast.error(
+          resendErr
+            ? "Ton email n'est pas encore confirmé. Regarde ta boîte (et les spams) — le lien t'a déjà été envoyé."
+            : "Ton email n'est pas encore confirmé. On vient de te renvoyer le lien — pense à regarder tes spams.",
+          { duration: 8000 },
+        )
+      } else if (code === 'invalid_credentials' || msg.includes('invalid login')) {
+        toast.error('Email ou mot de passe incorrect')
+      } else {
+        toast.error(error.message)
+      }
     } else {
       router.push('/dashboard')
       router.refresh()

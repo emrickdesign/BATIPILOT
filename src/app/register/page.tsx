@@ -15,23 +15,69 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [loading, setLoading] = useState(false)
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null)
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { full_name: name } },
     })
     if (error) {
       toast.error(error.message)
-    } else {
-      toast.success('Compte créé ! Vérifiez votre email.')
+      setLoading(false)
+      return
+    }
+    // Sans confirmation d'email, signUp ouvre directement une session → dashboard.
+    // Avec confirmation, il n'y a PAS de session : envoyer sur /dashboard renvoyait
+    // l'utilisateur vers /login, où l'erreur s'affichait en « mot de passe incorrect ».
+    if (data.session) {
+      toast.success('Bienvenue sur BatiPilot !')
       router.push('/dashboard')
+      router.refresh()
+    } else {
+      setPendingEmail(email)
     }
     setLoading(false)
+  }
+
+  async function resendConfirmation() {
+    setLoading(true)
+    const { error } = await createClient().auth.resend({ type: 'signup', email })
+    setLoading(false)
+    toast[error ? 'error' : 'success'](error ? error.message : 'Lien renvoyé — pense à regarder tes spams.')
+  }
+
+  // Confirmation requise : on l'annonce clairement au lieu d'envoyer dans le mur
+  if (pendingEmail) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="text-4xl mb-2">📬</div>
+            <CardTitle className="text-2xl font-bold">Confirme ton email</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4 text-center">
+            <p className="text-sm text-gray-600">
+              On vient d&apos;envoyer un lien à <strong>{pendingEmail}</strong>. Clique dessus pour activer ton compte,
+              puis reviens te connecter.
+            </p>
+            <p className="text-xs text-amber-700 bg-amber-50 rounded-lg p-2">
+              Rien reçu ? <strong>Regarde tes spams</strong> — c&apos;est là que ça finit le plus souvent.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button variant="outline" onClick={resendConfirmation} disabled={loading}>
+                {loading ? 'Envoi…' : 'Renvoyer le lien'}
+              </Button>
+              <Button variant="ghost" onClick={() => router.push('/login')}>Aller à la connexion</Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
   }
 
   return (
