@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
-  Landmark, Plus, Trash2, Search, HardHat, ReceiptText, Wallet, Download, TrendingDown, Camera, Loader2,
+  Landmark, Plus, Trash2, Search, HardHat, ReceiptText, Wallet, Download, TrendingDown, Camera, Loader2, Upload,
 } from 'lucide-react'
 import type { Expense } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -59,7 +59,11 @@ export default function DepensesLedger({
   const [projectId, setProjectId] = useState('')
 
   // Scan de ticket (OCR) → crée une dépense source=ticket
-  const scanRef = useRef<HTMLInputElement>(null)
+  // Sur mobile (admin sur le terrain) : photo. Sur ordinateur : import de fichier.
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const importRef = useRef<HTMLInputElement>(null)
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => { setIsMobile(window.matchMedia('(pointer: coarse)').matches) }, [])
   const [scanning, setScanning] = useState(false)
   const [draft, setDraft] = useState<ScanDraft | null>(null)
   const setDraftField = (k: keyof ScanDraft, v: string) => setDraft(d => (d ? { ...d, [k]: v } : d))
@@ -89,7 +93,7 @@ export default function DepensesLedger({
       if (json.error) toast.warning('Ticket enregistré, lecture partielle — vérifiez les champs')
       else toast.success('Ticket lu — vérifiez puis enregistrez')
     } catch { toast.error('Erreur réseau pendant le scan') }
-    finally { setScanning(false); if (scanRef.current) scanRef.current.value = '' }
+    finally { setScanning(false); if (cameraRef.current) cameraRef.current.value = ''; if (importRef.current) importRef.current.value = '' }
   }
 
   async function saveDraft() {
@@ -201,12 +205,21 @@ export default function DepensesLedger({
           <Button variant="info" className="h-10 gap-2" onClick={handleExport}>
             <Download className="w-4 h-4" /> Exporter
           </Button>
-          <input ref={scanRef} type="file" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" className="hidden"
+          {/* Mobile admin : photo directe. Ordinateur : import de fichier. */}
+          <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
             onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(f) }} />
-          <Button variant="outline" className="h-10 gap-2" disabled={scanning} onClick={() => scanRef.current?.click()}>
-            {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-            {scanning ? 'Lecture…' : 'Scanner un ticket'}
+          <input ref={importRef} type="file" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(f) }} />
+          <Button variant="outline" className="h-10 gap-2" disabled={scanning} onClick={() => importRef.current?.click()}>
+            {scanning && !isMobile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {scanning && !isMobile ? 'Lecture…' : 'Importer un ticket'}
           </Button>
+          {isMobile && (
+            <Button className="h-10 gap-2 shadow-sm" disabled={scanning} onClick={() => cameraRef.current?.click()}>
+              {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+              {scanning ? 'Lecture…' : 'Scanner un ticket'}
+            </Button>
+          )}
           <Button className="h-10 gap-2 shadow-sm" onClick={() => setShowAdd(v => !v)}>
             <Plus className="w-4 h-4" /> Ajouter une dépense
           </Button>
