@@ -74,8 +74,9 @@ export default function MonthCard({
         {/* 1 — Comment s'est passé mon mois ? */}
         <section>
           <SectionTitle icon={<TrendingUp className="w-3.5 h-3.5" />} title="Mon mois" note="hors taxes" />
-          {/* CA − Achats = Marge : les opérateurs rendent le calcul évident */}
-          <div className="flex items-center gap-1 text-center">
+          {/* CA − Achats = Marge : les opérateurs rendent le calcul évident.
+              Largeur bornée pour que l'équation se lise d'un bloc sur grand écran. */}
+          <div className="flex items-center gap-1 text-center max-w-2xl">
             <div className="flex-1 min-w-0">
               <Figure label="Chiffre d'affaires" value={formatCurrency(s.caHt)} hint={`${s.nbFactures} facture${s.nbFactures > 1 ? 's' : ''}`}
                 onClick={() => toggle('ca')} active={focus === 'ca'} />
@@ -97,7 +98,7 @@ export default function MonthCard({
         {/* 2 — Qu'est-ce que je dois à l'État ? */}
         <section>
           <SectionTitle icon={<Scale className="w-3.5 h-3.5" />} title="Ma TVA" note="l'argent de l'État, pas le tien" />
-          <div className="flex items-center gap-1 text-center rounded-xl bg-gray-50 py-2.5">
+          <div className="flex items-center gap-1 text-center rounded-xl bg-gray-50 py-2.5 max-w-2xl">
             <div className="flex-1 min-w-0"><Figure label="Collectée" value={formatCurrency(s.tvaCollectee)} hint="sur tes ventes" small /></div>
             <Op>−</Op>
             <div className="flex-1 min-w-0"><Figure label="Déductible" value={formatCurrency(s.tvaDeductible)} hint="sur tes achats" small /></div>
@@ -205,7 +206,7 @@ function Figure({ label, value, hint, onClick, active, tone, small }: {
 
 /** Opérateur (− / =) intercalé entre deux chiffres pour rendre le calcul lisible. */
 function Op({ children }: { children: React.ReactNode }) {
-  return <span className="px-0.5 text-lg font-light text-gray-300 select-none flex-shrink-0">{children}</span>
+  return <span className="px-1 text-2xl font-medium text-gray-400 select-none flex-shrink-0 leading-none">{children}</span>
 }
 
 function Row({ href, title, sub, amount, warn }: { href: string; title: string; sub?: string; amount: string; warn?: string }) {
