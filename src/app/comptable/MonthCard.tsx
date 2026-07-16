@@ -58,37 +58,54 @@ export default function MonthCard({
   return (
     <Card className="border border-gray-200/80 bg-white animate-fade-up" style={{ animationDelay: `${index * 50}ms` }}>
       <CardContent className="p-5 space-y-4">
-        <div className="flex items-center gap-3 flex-wrap">
-          <h2 className="text-lg font-heading font-bold text-marine capitalize">{label}</h2>
-          {lastSend && (
-            <Badge className="bg-[#E9F2DB] text-[#3F7A2E] border-0 gap-1 text-xs" title={`Envoyé à ${lastSend.to_email}`}>
-              <CheckCircle2 className="w-3 h-3" /> envoyé le {formatDate(lastSend.sent_at)}
-            </Badge>
-          )}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h2 className="text-lg font-heading font-bold text-marine capitalize">{label}</h2>
+            {lastSend && (
+              <Badge className="bg-[#E9F2DB] text-[#3F7A2E] border-0 gap-1 text-xs" title={`Envoyé à ${lastSend.to_email}`}>
+                <CheckCircle2 className="w-3 h-3" /> envoyé le {formatDate(lastSend.sent_at)}
+              </Badge>
+            )}
+          </div>
+          <MonthActions monthKey={monthKey} label={label} expenses={expenses} invoices={invoices}
+            subInvoices={subInvoices} lastSend={lastSend} accountantEmail={accountantEmail} />
         </div>
 
         {/* 1 — Comment s'est passé mon mois ? */}
         <section>
           <SectionTitle icon={<TrendingUp className="w-3.5 h-3.5" />} title="Mon mois" note="hors taxes" />
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <Figure label="Chiffre d'affaires" value={formatCurrency(s.caHt)} hint={`${s.nbFactures} facture${s.nbFactures > 1 ? 's' : ''}`}
-              onClick={() => toggle('ca')} active={focus === 'ca'} />
-            <Figure label="Achats" value={formatCurrency(s.achatsHt)}
-              hint={`${s.nbPieces} pièce${s.nbPieces > 1 ? 's' : ''}${s.nbSousTraitance > 0 ? ` · dont ${s.nbSousTraitance} ST` : ''}`}
-              onClick={() => toggle('achats')} active={focus === 'achats'} />
-            <Figure label="Marge" value={formatCurrency(s.marge)} hint={s.caHt > 0 ? `${s.margePct} %` : '—'}
-              tone={s.marge >= 0 ? 'text-[#3F7A2E]' : 'text-[#C14E33]'} />
+          {/* CA − Achats = Marge : les opérateurs rendent le calcul évident */}
+          <div className="flex items-center gap-1 text-center">
+            <div className="flex-1 min-w-0">
+              <Figure label="Chiffre d'affaires" value={formatCurrency(s.caHt)} hint={`${s.nbFactures} facture${s.nbFactures > 1 ? 's' : ''}`}
+                onClick={() => toggle('ca')} active={focus === 'ca'} />
+            </div>
+            <Op>−</Op>
+            <div className="flex-1 min-w-0">
+              <Figure label="Achats" value={formatCurrency(s.achatsHt)}
+                hint={`${s.nbPieces} pièce${s.nbPieces > 1 ? 's' : ''}${s.nbSousTraitance > 0 ? ` · dont ${s.nbSousTraitance} ST` : ''}`}
+                onClick={() => toggle('achats')} active={focus === 'achats'} />
+            </div>
+            <Op>=</Op>
+            <div className="flex-1 min-w-0">
+              <Figure label="Marge" value={formatCurrency(s.marge)} hint={s.caHt > 0 ? `${s.margePct} %` : '—'}
+                tone={s.marge >= 0 ? 'text-[#3F7A2E]' : 'text-[#C14E33]'} />
+            </div>
           </div>
         </section>
 
         {/* 2 — Qu'est-ce que je dois à l'État ? */}
         <section>
           <SectionTitle icon={<Scale className="w-3.5 h-3.5" />} title="Ma TVA" note="l'argent de l'État, pas le tien" />
-          <div className="grid grid-cols-3 gap-2 text-center rounded-xl bg-gray-50 py-2.5">
-            <Figure label="Collectée" value={formatCurrency(s.tvaCollectee)} hint="sur tes ventes" small />
-            <Figure label="Déductible" value={formatCurrency(s.tvaDeductible)} hint="sur tes achats" small />
-            <Figure label={s.soldeTva >= 0 ? 'À payer' : 'Crédit de TVA'} value={formatCurrency(Math.abs(s.soldeTva))}
-              hint={s.soldeTva >= 0 ? 'à reverser' : "l'État te doit"} small tone={s.soldeTva >= 0 ? 'text-[#C14E33]' : 'text-[#3F7A2E]'} />
+          <div className="flex items-center gap-1 text-center rounded-xl bg-gray-50 py-2.5">
+            <div className="flex-1 min-w-0"><Figure label="Collectée" value={formatCurrency(s.tvaCollectee)} hint="sur tes ventes" small /></div>
+            <Op>−</Op>
+            <div className="flex-1 min-w-0"><Figure label="Déductible" value={formatCurrency(s.tvaDeductible)} hint="sur tes achats" small /></div>
+            <Op>=</Op>
+            <div className="flex-1 min-w-0">
+              <Figure label={s.soldeTva >= 0 ? 'À payer' : 'Crédit de TVA'} value={formatCurrency(Math.abs(s.soldeTva))}
+                hint={s.soldeTva >= 0 ? 'à reverser' : "l'État te doit"} small tone={s.soldeTva >= 0 ? 'text-[#C14E33]' : 'text-[#3F7A2E]'} />
+            </div>
           </div>
         </section>
 
@@ -120,8 +137,6 @@ export default function MonthCard({
               </>
             )}
           </div>
-          <MonthActions monthKey={monthKey} label={label} expenses={expenses} invoices={invoices}
-            subInvoices={subInvoices} lastSend={lastSend} accountantEmail={accountantEmail} />
         </section>
 
         {/* Détail déplié */}
@@ -179,13 +194,18 @@ function Figure({ label, value, hint, onClick, active, tone, small }: {
       {hint && <p className="text-[10px] text-gray-400">{hint}</p>}
     </>
   )
-  if (!onClick) return <div className="py-1">{content}</div>
+  if (!onClick) return <div className="py-1 w-full">{content}</div>
   return (
     <button type="button" onClick={onClick}
-      className={`rounded-lg py-1 transition-colors ${active ? 'bg-accent/60 ring-1 ring-primary/30' : 'hover:bg-gray-50'}`}>
+      className={`w-full rounded-lg py-1 transition-colors ${active ? 'bg-accent/60 ring-1 ring-primary/30' : 'hover:bg-gray-50'}`}>
       {content}
     </button>
   )
+}
+
+/** Opérateur (− / =) intercalé entre deux chiffres pour rendre le calcul lisible. */
+function Op({ children }: { children: React.ReactNode }) {
+  return <span className="px-0.5 text-lg font-light text-gray-300 select-none flex-shrink-0">{children}</span>
 }
 
 function Row({ href, title, sub, amount, warn }: { href: string; title: string; sub?: string; amount: string; warn?: string }) {
