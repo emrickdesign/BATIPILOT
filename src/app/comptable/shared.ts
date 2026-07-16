@@ -28,6 +28,8 @@ export type MonthInvoice = {
   total_ttc: number
   status: string
   client_name: string
+  /** Lignes de la facture : servent à ventiler les ventes par taux (cases CA3). */
+  lines: { vat_rate: number; total_ht: number }[]
 }
 
 export type MonthSubInvoice = {
@@ -116,6 +118,64 @@ export function tvaCsv(expenses: MonthExpense[], invoices: MonthInvoice[], subIn
     ['TVA déductible (achats)', deductible.toFixed(2)],
     [solde >= 0 ? 'TVA à payer' : 'Crédit de TVA', Math.abs(solde).toFixed(2)],
   ])
+}
+
+/* ─── Déclaration de TVA (formulaire CA3 n°3310) ───────────────────────────
+   Cases officielles : 08 = taux normal 20 %, 9B = taux réduit 10 %,
+   09 = taux réduit 5,5 %, 16 = total TVA brute due, 20 = TVA déductible sur
+   autres biens et services, 23 = total TVA déductible, 28 = TVA nette due
+   (25 = crédit de TVA si le solde est négatif).
+   On ne sait pas distinguer les immobilisations (case 19) : tout le déductible
+   est porté en case 20, à ajuster avec le comptable si achat d'équipement. */
+
+export type Ca3 = ReturnType<typeof ca3>
+
+/** Taux de TVA en vigueur (BTP : 20 % neuf, 10 % rénovation, 5,5 % rénovation énergétique). */
+const LEGAL_RATES = [20, 10, 5.5, 2.1, 0]
+
+export function ca3(expenses: MonthExpense[], invoices: MonthInvoice[], subInvoices: MonthSubInvoice[]) {
+  const byRate = new Map<number, { base: number; tva: number }>()
+  const add = (r: number, base: number, tva: number) => {
+    const cur = byRate.get(r) || { base: 0, tva: 0 }
+    cur.base += base; cur.tva += tva
+    byRate.set(r, cur)
+  }
+  // Factures dont on n'arrive pas à déterminer le taux : jamais devinées en silence.
+  const nonVentile = { base: 0, tva: 0, nb: 0 }
+
+  for (const inv of invoices.filter(i => isSent(i.status))) {
+    if (inv.lines.length > 0) {
+      for (const l of inv.lines) add(num(l.vat_rate), num(l.total_ht), num(l.total_ht) * num(l.vat_rate) / 100)
+      continue
+    }
+    // Pas de lignes : on déduit le taux effectif (TVA / HT) et on ne le retient
+    // que s'il correspond à un taux légal ; sinon la facture est signalée.
+    const base = num(inv.subtotal_ht)
+    const tva = num(inv.total_vat)
+    if (base <= 0) continue
+    const effectif = (tva / base) * 100
+    const connu = LEGAL_RATES.find(r => Math.abs(r - effectif) < 0.3)
+    if (connu !== undefined) add(connu, base, tva)
+    else { nonVentile.base += base; nonVentile.tva += tva; nonVentile.nb++ }
+  }
+  const at = (r: number) => byRate.get(r) || { base: 0, tva: 0 }
+  const baseTotal = [...byRate.values()].reduce((t, v) => t + v.base, 0)
+  const tvaBrute = [...byRate.values()].reduce((t, v) => t + v.tva, 0)
+  const deductible = expenses.reduce((t, e) => t + num(e.vat_amount), 0) + subInvoices.reduce((t, i) => t + subVat(i), 0)
+  // Taux exotiques (2,1 %, 8,5 %…) : signalés à part, ils ont leurs propres cases
+  const autresTaux = [...byRate.entries()]
+    .filter(([r]) => ![20, 10, 5.5, 0].includes(r) && byRate.get(r)!.base > 0)
+    .map(([r, v]) => ({ taux: r, ...v }))
+
+  return {
+    baseTotal: baseTotal + nonVentile.base,
+    t20: at(20), t10: at(10), t55: at(5.5),
+    autresTaux,
+    nonVentile,
+    tvaBrute: tvaBrute + nonVentile.tva,
+    deductible,
+    net: tvaBrute + nonVentile.tva - deductible,
+  }
 }
 
 export function safeName(s: string) {

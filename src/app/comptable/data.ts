@@ -23,8 +23,9 @@ export async function loadMonths(supabase: SupabaseClient, userId: string): Prom
     supabase.from('expenses')
       .select('id, expense_date, created_at, supplier, category, amount_ht, amount_ttc, vat_amount, vat_rate, payment_method, ticket_number, notes, status, storage_path, projects(title)')
       .eq('user_id', userId).neq('status', 'archive'),
+    // invoice_lines : indispensable pour ventiler les ventes par taux de TVA (cases CA3)
     supabase.from('invoices')
-      .select('id, invoice_number, status, subtotal_ht, total_vat, total_ttc, issue_date, created_at, clients(type, company_name, first_name, last_name)')
+      .select('id, invoice_number, status, subtotal_ht, total_vat, total_ttc, issue_date, created_at, clients(type, company_name, first_name, last_name), invoice_lines(vat_rate, total_ht)')
       .eq('user_id', userId),
     // Les factures de sous-traitance sont aussi des achats : le comptable en a besoin.
     supabase.from('subcontractor_invoices')
@@ -54,6 +55,8 @@ export async function loadMonths(supabase: SupabaseClient, userId: string): Prom
       total_ttc: Number(i.total_ttc) || 0,
       status: i.status,
       client_name: clientName(i.clients as unknown as ClientRow),
+      lines: ((i.invoice_lines as unknown as { vat_rate: number | null; total_ht: number | null }[]) || [])
+        .map(l => ({ vat_rate: Number(l.vat_rate) || 0, total_ht: Number(l.total_ht) || 0 })),
     })
   }
   for (const s of subRes.data || []) {

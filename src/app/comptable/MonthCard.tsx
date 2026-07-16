@@ -4,10 +4,12 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, ChevronRight, TrendingUp, Scale, FolderCheck, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, ChevronRight, TrendingUp, Scale, FolderCheck, AlertTriangle, Copy, ExternalLink, FileSpreadsheet } from 'lucide-react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import MonthActions, { type LastSend } from './MonthActions'
-import { num, isSent, subVat, type MonthExpense, type MonthInvoice, type MonthSubInvoice } from './shared'
+import { num, isSent, subVat, ca3, type Ca3, type MonthExpense, type MonthInvoice, type MonthSubInvoice } from './shared'
 
 type Focus = 'ca' | 'achats' | 'a_verifier' | 'justif' | null
 
@@ -21,7 +23,9 @@ export default function MonthCard({
   accountantEmail: string
 }) {
   const [focus, setFocus] = useState<Focus>(null)
+  const [showCa3, setShowCa3] = useState(false)
   const toggle = (f: Focus) => setFocus(c => (c === f ? null : f))
+  const declaration = useMemo(() => ca3(expenses, invoices, subInvoices), [expenses, invoices, subInvoices])
 
   const s = useMemo(() => {
     const sent = invoices.filter(i => isSent(i.status))
@@ -108,6 +112,12 @@ export default function MonthCard({
                 hint={s.soldeTva >= 0 ? 'à reverser' : "l'État te doit"} small tone={s.soldeTva >= 0 ? 'text-[#C14E33]' : 'text-[#3F7A2E]'} />
             </div>
           </div>
+          <button onClick={() => setShowCa3(v => !v)}
+            className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline">
+            <FileSpreadsheet className="w-3.5 h-3.5" />
+            {showCa3 ? 'Masquer ma déclaration (CA3)' : 'Déclarer ma TVA — voir les cases de la CA3'}
+          </button>
+          {showCa3 && <Ca3Block c={declaration} justifManquants={s.justifManquants} />}
         </section>
 
         {/* 3 — Mon dossier est-il prêt à partir ? */}
@@ -173,6 +183,82 @@ export default function MonthCard({
         )}
       </CardContent>
     </Card>
+  )
+}
+
+/** Les cases de la CA3, prêtes à recopier sur impots.gouv (le portail ne peut pas
+ *  être pré-rempli : c'est un espace authentifié sans paramètres d'URL). */
+function Ca3Block({ c, justifManquants }: { c: Ca3; justifManquants: number }) {
+  const rows: { code: string; label: string; base?: number; tva?: number; strong?: boolean }[] = []
+  rows.push({ code: '01', label: 'Montant des opérations réalisées (HT)', base: c.baseTotal })
+  if (c.t20.base > 0) rows.push({ code: '08', label: 'Taux normal 20 %', base: c.t20.base, tva: c.t20.tva })
+  if (c.t10.base > 0) rows.push({ code: '9B', label: 'Taux réduit 10 % (rénovation)', base: c.t10.base, tva: c.t10.tva })
+  if (c.t55.base > 0) rows.push({ code: '09', label: 'Taux réduit 5,5 % (rénovation énergétique)', base: c.t55.base, tva: c.t55.tva })
+  rows.push({ code: '16', label: 'Total TVA brute due', tva: c.tvaBrute, strong: true })
+  rows.push({ code: '20', label: 'TVA déductible — autres biens et services', tva: c.deductible })
+  rows.push({ code: '23', label: 'Total TVA déductible', tva: c.deductible, strong: true })
+  rows.push({
+    code: c.net >= 0 ? '28' : '25',
+    label: c.net >= 0 ? 'TVA nette due (à payer)' : 'Crédit de TVA',
+    tva: Math.abs(c.net), strong: true,
+  })
+
+  return (
+    <div className="mt-2 rounded-xl border border-gray-200/80 p-3 max-w-2xl">
+      <p className="text-[11px] text-gray-500 mb-2">
+        Formulaire <strong>CA3 n°3310</strong> — clique un montant pour le copier, puis colle-le dans la case correspondante.
+        Montants arrondis à l&apos;euro, comme l&apos;attend l&apos;administration.
+      </p>
+      <div className="hidden sm:flex items-center gap-3 text-[10px] text-gray-400 pb-1 border-b border-gray-100">
+        <span className="w-9">Case</span><span className="flex-1">Libellé</span>
+        <span className="w-24 text-right">Base HT</span><span className="w-24 text-right">TVA</span>
+      </div>
+      {rows.map(r => (
+        <div key={r.code + r.label} className="flex items-center gap-3 py-1.5 border-b border-gray-100 last:border-0">
+          <span className="w-9 font-mono text-xs font-bold text-primary flex-shrink-0">{r.code}</span>
+          <span className={`flex-1 min-w-0 text-xs truncate ${r.strong ? 'font-semibold text-gray-700' : 'text-gray-500'}`}>{r.label}</span>
+          <span className="w-24 text-right">{r.base !== undefined ? <CopyAmount value={r.base} /> : <span className="text-gray-300">—</span>}</span>
+          <span className="w-24 text-right">{r.tva !== undefined ? <CopyAmount value={r.tva} strong={r.strong} /> : <span className="text-gray-300">—</span>}</span>
+        </div>
+      ))}
+
+      {c.autresTaux.length > 0 && (
+        <p className="text-[11px] text-amber-700 mt-2">
+          ⚠︎ Tu as aussi des ventes à {c.autresTaux.map(t => `${t.taux} %`).join(', ')} : elles ont leur propre case sur la CA3, demande à ta comptable.
+        </p>
+      )}
+      {c.nonVentile.nb > 0 && (
+        <p className="text-[11px] text-red-600 mt-2">
+          ⚠︎ {c.nonVentile.nb} facture(s) au taux indéterminé ({formatCurrency(c.nonVentile.base)} HT) : leur TVA ne correspond à aucun taux légal et elles n&apos;ont pas de lignes détaillées. Elles sont comptées dans les totaux (16/23/28) mais <strong>pas ventilées</strong> dans les cases par taux — corrige-les avant de déclarer.
+        </p>
+      )}
+      <p className="text-[11px] text-gray-400 mt-2">
+        Tout le déductible est porté en case 20. Si tu as acheté du matériel durable (véhicule, outillage lourd), une part va en <strong>case 19 (immobilisations)</strong> — ta comptable saura trancher.
+      </p>
+      {justifManquants > 0 && (
+        <p className="text-[11px] text-amber-700 mt-1">⚠︎ {justifManquants} justificatif(s) manquant(s) : cette TVA n&apos;est pas déductible, le montant de la case 20 est donc surestimé.</p>
+      )}
+      <a href="https://www.impots.gouv.fr/professionnel" target="_blank" rel="noopener noreferrer" className="inline-block mt-3">
+        <Button size="sm" variant="outline" className="gap-1.5">
+          <ExternalLink className="w-3.5 h-3.5" /> Ouvrir impots.gouv.fr
+        </Button>
+      </a>
+    </div>
+  )
+}
+
+function CopyAmount({ value, strong }: { value: number; strong?: boolean }) {
+  const rounded = Math.round(value)
+  return (
+    <button type="button" title="Copier ce montant"
+      onClick={() => {
+        navigator.clipboard.writeText(String(rounded))
+        toast.success(`${rounded.toLocaleString('fr-FR')} € copié`)
+      }}
+      className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs tabular-nums transition-colors hover:bg-accent/60 ${strong ? 'font-bold text-marine' : 'font-medium text-gray-700'}`}>
+      {rounded.toLocaleString('fr-FR')}
+      <Copy className="w-3 h-3 text-gray-400" />
+    </button>
   )
 }
 
