@@ -212,6 +212,8 @@ export interface Document {
   file_type?: string
   file_size?: number
   notes?: string
+  /** Échéance de validité (assurances, contrôles, avis…) — null si le document n'expire pas. */
+  expiry_date?: string | null
   created_at: string
   clients?: Client
   projects?: Project

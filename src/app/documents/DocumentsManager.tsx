@@ -10,13 +10,15 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { FolderOpen, Upload, Download, Trash2, Search, FileText, User, HardHat, Plus, X, Loader2 } from 'lucide-react'
+import { FolderOpen, Upload, Download, Trash2, Search, FileText, User, HardHat, Plus, X, Loader2, AlertTriangle } from 'lucide-react'
 import type { Document } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
 import {
-  documentFamilies, familyRetention, familyColors, familyTints, recommendedCategories,
-  formatFileSize, type DocumentCategory, type DocumentFamily,
+  documentFamilies, familyRetention, familyRhythm, familyColors, familyTints, recommendedCategories,
+  familyNeedsExpiry, expiryState, daysUntil, formatFileSize,
+  type DocumentCategory, type DocumentFamily,
 } from '@/lib/documents'
+import { formatDate } from '@/lib/utils'
 
 type Doc = Document & { signedUrl?: string }
 type ClientOption = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null }
@@ -38,6 +40,7 @@ export default function DocumentsManager({
   const [showUpload, setShowUpload] = useState(!!(preselectClient || preselectProject))
   const [file, setFile] = useState<File | null>(null)
   const [category, setCategory] = useState('')
+  const [expiry, setExpiry] = useState('')
   const [clientId, setClientId] = useState(preselectClient || '')
   const [projectId, setProjectId] = useState(preselectProject || '')
   const [notes, setNotes] = useState('')
@@ -50,7 +53,7 @@ export default function DocumentsManager({
 
   // Gestion des catégories (ajout via la colonne de droite du board)
   const [newCat, setNewCat] = useState('')
-  const [newFamily, setNewFamily] = useState<DocumentFamily>('Mon entreprise')
+  const [newFamily, setNewFamily] = useState<DocumentFamily>("L'entreprise")
   const [busy, setBusy] = useState(false)
 
   const familyOf = useMemo(() => {
@@ -80,6 +83,14 @@ export default function DocumentsManager({
     }
     return { m, orphans }
   }, [filtered, familyOf])
+
+  // Ce qui expire : le vrai intérêt du classement par rythme
+  const expiring = useMemo(() => {
+    const rows = documents
+      .map(d => ({ doc: d, state: expiryState(d.expiry_date) }))
+      .filter(r => r.state === 'expire' || r.state === 'bientot')
+    return rows.sort((a, b) => (daysUntil(a.doc.expiry_date) ?? 0) - (daysUntil(b.doc.expiry_date) ?? 0))
+  }, [documents])
 
   const catsByFamily = useMemo(() => {
     const m = new Map<string, DocumentCategory[]>()
@@ -159,6 +170,7 @@ export default function DocumentsManager({
       file_type: file.type || null,
       file_size: file.size,
       notes: notes || null,
+      expiry_date: expiry || null,
     })
     if (dbErr) {
       await supabase.storage.from('documents').remove([path])
@@ -168,7 +180,7 @@ export default function DocumentsManager({
     }
 
     toast.success('Document importé !')
-    setFile(null); setCategory(''); setNotes('')
+    setFile(null); setCategory(''); setNotes(''); setExpiry('')
     if (fileRef.current) fileRef.current.value = ''
     setUploading(false)
     setShowUpload(false)
@@ -198,6 +210,32 @@ export default function DocumentsManager({
           <Upload className="w-4 h-4" /> Importer un document
         </Button>
       </div>
+
+      {/* Ce qui expire — remonté en haut, c'est l'urgent */}
+      {expiring.length > 0 && (
+        <Card className="border border-amber-200 bg-amber-50/50">
+          <CardContent className="p-3.5">
+            <div className="flex items-center gap-2 mb-2">
+              <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0" />
+              <p className="text-sm font-semibold text-amber-800">
+                {expiring.length} document{expiring.length > 1 ? 's' : ''} à renouveler
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {expiring.map(({ doc, state }) => {
+                const j = daysUntil(doc.expiry_date) ?? 0
+                return (
+                  <span key={doc.id}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs ${state === 'expire' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'}`}>
+                    <span className="font-medium">{doc.category || doc.name}</span>
+                    {state === 'expire' ? `expiré depuis ${Math.abs(j)} j` : `dans ${j} j`}
+                  </span>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Panneau d'import */}
       {showUpload && (
@@ -245,9 +283,19 @@ export default function DocumentsManager({
                 </select>
               </div>
             </div>
-            <div className="space-y-1">
-              <Label htmlFor="notes">Note (optionnel)</Label>
-              <Input id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: bilan 2025 transmis par la comptable" />
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* L'échéance n'a de sens que pour ce qui expire (assurances, contrôles, avis) */}
+              {familyNeedsExpiry(familyOf.get(category)) && (
+                <div className="space-y-1">
+                  <Label htmlFor="expiry">Valable jusqu&apos;au</Label>
+                  <Input id="expiry" type="date" value={expiry} onChange={e => setExpiry(e.target.value)} />
+                  <p className="text-[11px] text-gray-400">On te préviendra 30 jours avant.</p>
+                </div>
+              )}
+              <div className="space-y-1 sm:col-span-2">
+                <Label htmlFor="notes">Note (optionnel)</Label>
+                <Input id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Ex: bilan 2025 transmis par la comptable" />
+              </div>
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setShowUpload(false)} disabled={uploading}>Annuler</Button>
@@ -304,7 +352,7 @@ export default function DocumentsManager({
             const docs = byCategory.m.get(c.name) || []
             return (
               <Column key={c.id} title={c.name} family={c.family} count={docs.length}
-                hint={docs.length === 0 ? `À conserver ${familyRetention[c.family]}` : undefined}
+                hint={docs.length === 0 ? `Vide · à conserver ${familyRetention[c.family]}` : undefined}
                 onDelete={() => deleteCategory(c)}>
                 {docs.map(d => <DocCard key={d.id} doc={d} onDelete={() => handleDelete(d)} />)}
               </Column>
@@ -344,7 +392,10 @@ function Column({ title, family, count, hint, onDelete, children }: {
       <div className="flex items-start justify-between gap-1 mb-2">
         <div className="min-w-0">
           <p className="text-sm font-semibold text-marine truncate" title={title}>{title}</p>
-          <Badge className={`${familyColors[family] || 'bg-gray-100 text-gray-600'} border-0 text-[10px] mt-1`}>{family}</Badge>
+          <Badge className={`${familyColors[family] || 'bg-gray-100 text-gray-600'} border-0 text-[10px] mt-1`}
+            title={familyRhythm[family] ? `${family} — ${familyRhythm[family]}` : family}>
+            {family}
+          </Badge>
         </div>
         <div className="flex items-center gap-1 flex-shrink-0">
           <span className="grid place-items-center min-w-5 h-5 px-1 rounded-full bg-white/80 text-[11px] font-semibold text-gray-500">{count}</span>
@@ -389,6 +440,15 @@ function DocCard({ doc, onDelete }: { doc: Doc; onDelete: () => void }) {
           )}
         </div>
       )}
+      {doc.expiry_date && (() => {
+        const st = expiryState(doc.expiry_date)
+        const j = daysUntil(doc.expiry_date) ?? 0
+        return (
+          <p className={`mt-1.5 text-[10px] font-medium ${st === 'expire' ? 'text-red-600' : st === 'bientot' ? 'text-amber-600' : 'text-gray-400'}`}>
+            {st === 'expire' ? `⚠ Expiré depuis ${Math.abs(j)} j` : st === 'bientot' ? `⚠ Expire dans ${j} j` : `Valable jusqu'au ${formatDate(doc.expiry_date)}`}
+          </p>
+        )
+      })()}
       <div className="flex items-center justify-between mt-1.5">
         <span className="text-[10px] text-gray-400">{formatFileSize(doc.file_size)}</span>
         <div className="flex items-center gap-0.5">
