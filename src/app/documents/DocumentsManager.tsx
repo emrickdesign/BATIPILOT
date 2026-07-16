@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { FolderOpen, Upload, Download, Trash2, Search, FileText, User, HardHat, Plus, X, Loader2, AlertTriangle } from 'lucide-react'
 import type { Document } from '@/types'
@@ -36,6 +35,7 @@ export default function DocumentsManager({
 }) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
+  const quickRef = useRef<HTMLInputElement>(null)
 
   const [showUpload, setShowUpload] = useState(!!(preselectClient || preselectProject))
   const [file, setFile] = useState<File | null>(null)
@@ -47,14 +47,14 @@ export default function DocumentsManager({
   const [uploading, setUploading] = useState(false)
 
   const [search, setSearch] = useState('')
-  const [catFilter, setCatFilter] = useState('')
-  const [clientFilter, setClientFilter] = useState(preselectClient || '')
-  const [projectFilter, setProjectFilter] = useState(preselectProject || '')
 
-  // Gestion des catégories (ajout via la colonne de droite du board)
+  // Ajout d'une catégorie : en ligne, dans la colonne de sa famille
+  const [addingIn, setAddingIn] = useState<string | null>(null)
   const [newCat, setNewCat] = useState('')
-  const [newFamily, setNewFamily] = useState<DocumentFamily>("L'entreprise")
   const [busy, setBusy] = useState(false)
+
+  // Import rapide : la carte cliquée devient la cible
+  const [quickTarget, setQuickTarget] = useState<string | null>(null)
 
   const familyOf = useMemo(() => {
     const m = new Map<string, string>()
@@ -62,16 +62,13 @@ export default function DocumentsManager({
     return m
   }, [categories])
 
-  const filtered = useMemo(() => documents.filter(d => {
-    if (catFilter && d.category !== catFilter) return false
-    if (clientFilter && d.client_id !== clientFilter) return false
-    if (projectFilter && d.project_id !== projectFilter) return false
-    if (search && !d.name.toLowerCase().includes(search.toLowerCase())) return false
-    return true
-  }), [documents, search, catFilter, clientFilter, projectFilter])
+  const filtered = useMemo(
+    () => (search ? documents.filter(d => d.name.toLowerCase().includes(search.toLowerCase())) : documents),
+    [documents, search],
+  )
 
-  // Une colonne par catégorie. Les documents sans catégorie (ou dont la catégorie
-  // a été supprimée) atterrissent dans « À classer » plutôt que de disparaître.
+  // Documents par catégorie ; ceux sans catégorie (ou catégorie supprimée) ne
+  // disparaissent pas : ils tombent dans « À classer ».
   const byCategory = useMemo(() => {
     const m = new Map<string, Doc[]>()
     const orphans: Doc[] = []
@@ -84,34 +81,27 @@ export default function DocumentsManager({
     return { m, orphans }
   }, [filtered, familyOf])
 
-  // Ce qui expire : le vrai intérêt du classement par rythme
-  const expiring = useMemo(() => {
-    const rows = documents
-      .map(d => ({ doc: d, state: expiryState(d.expiry_date) }))
-      .filter(r => r.state === 'expire' || r.state === 'bientot')
-    return rows.sort((a, b) => (daysUntil(a.doc.expiry_date) ?? 0) - (daysUntil(b.doc.expiry_date) ?? 0))
-  }, [documents])
-
-  // Ordonnées par famille (ordre du rythme, pas alphabétique) : les couleurs
-  // se regroupent naturellement au lieu de sortir en désordre.
-  const orderedCats = useMemo(() => {
-    const rank = (f: string) => {
-      const i = (documentFamilies as readonly string[]).indexOf(f)
-      return i === -1 ? 99 : i
-    }
-    return [...categories].sort((a, b) => rank(a.family) - rank(b.family) || a.name.localeCompare(b.name))
-  }, [categories])
-
   const catsByFamily = useMemo(() => {
     const m = new Map<string, DocumentCategory[]>()
     for (const c of categories) {
       const arr = m.get(c.family) || []
       arr.push(c); m.set(c.family, arr)
     }
+    for (const arr of m.values()) arr.sort((a, b) => a.name.localeCompare(b.name))
     return m
   }, [categories])
 
-  async function addCategory() {
+  // Ce qui expire : le vrai intérêt du classement par rythme
+  const expiring = useMemo(() => {
+    return documents
+      .map(d => ({ doc: d, state: expiryState(d.expiry_date) }))
+      .filter(r => r.state === 'expire' || r.state === 'bientot')
+      .sort((a, b) => (daysUntil(a.doc.expiry_date) ?? 0) - (daysUntil(b.doc.expiry_date) ?? 0))
+  }, [documents])
+
+  /* ─── Catégories ─────────────────────────────────────────────────────── */
+
+  async function addCategory(family: string) {
     const name = newCat.trim()
     if (!name) { toast.error('Donnez un nom à la catégorie'); return }
     if (categories.some(c => c.name.toLowerCase() === name.toLowerCase())) { toast.error('Cette catégorie existe déjà'); return }
@@ -119,18 +109,18 @@ export default function DocumentsManager({
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setBusy(false); return }
-    const { error } = await supabase.from('document_categories').insert({ user_id: user.id, name, family: newFamily })
+    const { error } = await supabase.from('document_categories').insert({ user_id: user.id, name, family })
     setBusy(false)
     if (error) { toast.error('Erreur'); return }
-    toast.success(`Catégorie « ${name} » créée`)
-    setNewCat('')
+    toast.success(`« ${name} » créée`)
+    setNewCat(''); setAddingIn(null)
     router.refresh()
   }
 
   async function deleteCategory(c: DocumentCategory) {
     const used = documents.filter(d => d.category === c.name).length
     const msg = used > 0
-      ? `${used} document(s) utilisent « ${c.name} ». Ils resteront mais passeront dans « Autre ». Supprimer la catégorie ?`
+      ? `${used} document(s) utilisent « ${c.name} ». Ils resteront mais passeront dans « À classer ». Supprimer la catégorie ?`
       : `Supprimer la catégorie « ${c.name} » ?`
     if (!confirm(msg)) return
     const { error } = await createClient().from('document_categories').delete().eq('id', c.id)
@@ -152,6 +142,49 @@ export default function DocumentsManager({
     setBusy(false)
     if (error) { toast.error('Erreur'); return }
     toast.success(`${rows.length} catégorie(s) ajoutée(s)`)
+    router.refresh()
+  }
+
+  /* ─── Import ─────────────────────────────────────────────────────────── */
+
+  /** Clic sur une carte → sélecteur de fichiers, la catégorie est déjà connue. */
+  function askQuickImport(catName: string) {
+    setQuickTarget(catName)
+    quickRef.current?.click()
+  }
+
+  async function quickImport(f: File) {
+    if (!quickTarget) return
+    setBusy(true)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { toast.error('Non connecté'); return }
+      const safe = f.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+      const path = `docs/${user.id}/${Date.now()}-${safe}`
+      const { error: upErr } = await supabase.storage.from('documents').upload(path, f, { contentType: f.type || undefined, upsert: false })
+      if (upErr) { toast.error('Erreur lors de l\'envoi'); return }
+      const { error } = await supabase.from('documents').insert({
+        user_id: user.id, name: f.name, category: quickTarget,
+        storage_path: path, file_type: f.type || null, file_size: f.size,
+      })
+      if (error) { await supabase.storage.from('documents').remove([path]); toast.error('Erreur'); return }
+      const fam = familyOf.get(quickTarget)
+      toast.success(familyNeedsExpiry(fam)
+        ? `Importé dans « ${quickTarget} » — pense à renseigner l'échéance`
+        : `Importé dans « ${quickTarget} »`)
+      router.refresh()
+    } finally {
+      setBusy(false); setQuickTarget(null)
+      if (quickRef.current) quickRef.current.value = ''
+    }
+  }
+
+  /** Échéance renseignée après coup, directement sur la carte du document. */
+  async function setDocExpiry(id: string, date: string) {
+    const { error } = await createClient().from('documents').update({ expiry_date: date || null }).eq('id', id)
+    if (error) { toast.error('Erreur'); return }
+    toast.success('Échéance enregistrée')
     router.refresh()
   }
 
@@ -209,19 +242,24 @@ export default function DocumentsManager({
 
   return (
     <div className="space-y-5 animate-fade-up">
+      {/* Input caché commun à l'import rapide */}
+      <input ref={quickRef} type="file" className="hidden"
+        accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.csv,.doc,.docx,image/*"
+        onChange={e => { const f = e.target.files?.[0]; if (f) quickImport(f) }} />
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Documents</h1>
           <p className="text-gray-500 mt-1 text-sm">
-            Le coffre-fort de l&apos;entreprise : Kbis, assurances, bilans, paie… Tes devis, factures, tickets et plans restent dans leurs sections.
+            Le coffre-fort de l&apos;entreprise. <span className="text-gray-400">Clique une carte pour y déposer un fichier.</span>
           </p>
         </div>
-        <Button className="h-10 gap-2 shadow-sm" onClick={() => setShowUpload(v => !v)}>
-          <Upload className="w-4 h-4" /> Importer un document
+        <Button variant="outline" className="h-10 gap-2" onClick={() => setShowUpload(v => !v)}>
+          <Upload className="w-4 h-4" /> Import détaillé
         </Button>
       </div>
 
-      {/* Ce qui expire — remonté en haut, c'est l'urgent */}
+      {/* Ce qui expire — l'urgent, en haut */}
       {expiring.length > 0 && (
         <Card className="border border-amber-200 bg-amber-50/50">
           <CardContent className="p-3.5">
@@ -247,7 +285,7 @@ export default function DocumentsManager({
         </Card>
       )}
 
-      {/* Panneau d'import */}
+      {/* Import détaillé (client, chantier, note, échéance) */}
       {showUpload && (
         <Card>
           <CardContent className="p-4 space-y-3">
@@ -294,7 +332,6 @@ export default function DocumentsManager({
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {/* L'échéance n'a de sens que pour ce qui expire (assurances, contrôles, avis) */}
               {familyNeedsExpiry(familyOf.get(category)) && (
                 <div className="space-y-1">
                   <Label htmlFor="expiry">Valable jusqu&apos;au</Label>
@@ -309,37 +346,19 @@ export default function DocumentsManager({
             </div>
             <div className="flex gap-2 justify-end">
               <Button variant="outline" onClick={() => setShowUpload(false)} disabled={uploading}>Annuler</Button>
-              <Button onClick={handleUpload} disabled={uploading || !file}>
-                {uploading ? 'Envoi...' : 'Importer'}
-              </Button>
+              <Button onClick={handleUpload} disabled={uploading || !file}>{uploading ? 'Envoi...' : 'Importer'}</Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Filtres */}
       {documents.length > 0 && (
-        <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un document..." className="pl-9" />
-          </div>
-          <select value={catFilter} onChange={e => setCatFilter(e.target.value)} className={`${selectClass} sm:w-52`}>
-            <option value="">Toutes les catégories</option>
-            {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
-          <select value={clientFilter} onChange={e => setClientFilter(e.target.value)} className={`${selectClass} sm:w-44`}>
-            <option value="">Tous les clients</option>
-            {clients.map(c => <option key={c.id} value={c.id}>{clientDisplayName(c)}</option>)}
-          </select>
-          <select value={projectFilter} onChange={e => setProjectFilter(e.target.value)} className={`${selectClass} sm:w-44`}>
-            <option value="">Tous les chantiers</option>
-            {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-          </select>
+        <div className="relative max-w-md">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un document..." className="pl-9" />
         </div>
       )}
 
-      {/* Board : une colonne par catégorie, teintée par famille, ajout à droite */}
       {categories.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center text-gray-500">
@@ -350,127 +369,159 @@ export default function DocumentsManager({
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 items-start">
-          {/* À classer : n'apparaît que s'il y a des orphelins */}
-          {byCategory.orphans.length > 0 && (
-            <Column title="À classer" family="Autre" count={byCategory.orphans.length} hint="Range-les en leur donnant une catégorie">
-              {byCategory.orphans.map(d => <DocCard key={d.id} doc={d} onDelete={() => handleDelete(d)} />)}
-            </Column>
-          )}
-
-          {orderedCats.map(c => {
-            const docs = byCategory.m.get(c.name) || []
+        /* Une colonne par famille — les catégories s'empilent dedans */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start">
+          {documentFamilies.map(fam => {
+            const cats = catsByFamily.get(fam) || []
+            const orphans = fam === 'Autre' ? byCategory.orphans : []
+            if (cats.length === 0 && orphans.length === 0) return null
             return (
-              <Column key={c.id} title={c.name} family={c.family} count={docs.length}
-                hint={docs.length === 0 ? `Vide · à conserver ${familyRetention[c.family]}` : undefined}
-                onDelete={() => deleteCategory(c)}>
-                {docs.map(d => <DocCard key={d.id} doc={d} onDelete={() => handleDelete(d)} />)}
-              </Column>
+              <section key={fam} className="space-y-2">
+                <header className="px-0.5">
+                  <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-bold ${familyColors[fam]}`}>{fam}</span>
+                  {familyRhythm[fam] && <p className="text-[10px] text-gray-400 mt-1">{familyRhythm[fam]} · garder {familyRetention[fam]}</p>}
+                </header>
+
+                {orphans.length > 0 && (
+                  <CategoryCard name="À classer" family="Autre" docs={orphans}
+                    onDeleteDoc={handleDelete} onSetExpiry={setDocExpiry} needsExpiry={false} />
+                )}
+
+                {cats.map(c => (
+                  <CategoryCard key={c.id} name={c.name} family={c.family}
+                    docs={byCategory.m.get(c.name) || []}
+                    onImport={() => askQuickImport(c.name)}
+                    onDelete={() => deleteCategory(c)}
+                    onDeleteDoc={handleDelete}
+                    onSetExpiry={setDocExpiry}
+                    needsExpiry={familyNeedsExpiry(c.family)} />
+                ))}
+
+                {addingIn === fam ? (
+                  <div className="rounded-xl border border-dashed border-gray-300 p-2 space-y-1.5">
+                    <Input autoFocus value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Nom" className="h-8 text-xs"
+                      onKeyDown={e => { if (e.key === 'Enter') addCategory(fam); if (e.key === 'Escape') { setAddingIn(null); setNewCat('') } }} />
+                    <div className="flex gap-1">
+                      <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => addCategory(fam)} disabled={busy}>
+                        {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Créer'}
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setAddingIn(null); setNewCat('') }}>×</Button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => { setAddingIn(fam); setNewCat('') }}
+                    className="w-full rounded-xl border border-dashed border-gray-300 py-2 text-[11px] text-gray-400 hover:border-primary hover:text-primary transition-colors inline-flex items-center justify-center gap-1">
+                    <Plus className="w-3 h-3" /> catégorie
+                  </button>
+                )}
+              </section>
             )
           })}
-
-          {/* Colonne d'ajout, en dernière case */}
-          <div className="rounded-xl border border-dashed border-gray-300 p-3 space-y-2">
-            <p className="text-xs font-semibold text-gray-500">Nouvelle catégorie</p>
-            <Input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Ex : PV de réception"
-              className="h-9 text-sm" onKeyDown={e => e.key === 'Enter' && addCategory()} />
-            <select value={newFamily} onChange={e => setNewFamily(e.target.value as DocumentFamily)}
-              className="w-full h-9 rounded-md border border-gray-200 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary">
-              {documentFamilies.map(f => <option key={f} value={f}>{f}</option>)}
-            </select>
-            <Button size="sm" className="w-full gap-1" onClick={addCategory} disabled={busy}>
-              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} Ajouter
-            </Button>
-          </div>
         </div>
-      )}
-
-      {filtered.length === 0 && documents.length > 0 && (
-        <p className="text-sm text-gray-400 -mt-2 text-center">Aucun document ne correspond à votre recherche.</p>
       )}
     </div>
   )
 }
 
-/** Colonne du board : une catégorie (ou « À classer »). */
-function Column({ title, family, count, hint, onDelete, children }: {
-  title: string; family: string; count: number; hint?: string
-  onDelete?: () => void; children: React.ReactNode
+/** Une catégorie = une carte, et la carte est une cible d'import (clic → fichiers). */
+function CategoryCard({ name, family, docs, onImport, onDelete, onDeleteDoc, onSetExpiry, needsExpiry }: {
+  name: string; family: string; docs: Doc[]
+  onImport?: () => void
+  onDelete?: () => void
+  onDeleteDoc: (d: Doc) => void
+  onSetExpiry: (id: string, date: string) => void
+  needsExpiry: boolean
 }) {
   return (
-    <div className={`rounded-xl border p-2.5 ${familyTints[family] || 'bg-gray-50 border-gray-200'}`}>
-      <div className="flex items-start justify-between gap-1 mb-2">
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-marine truncate" title={title}>{title}</p>
-          <Badge className={`${familyColors[family] || 'bg-gray-100 text-gray-600'} border-0 text-[10px] mt-1`}
-            title={familyRhythm[family] ? `${family} — ${familyRhythm[family]}` : family}>
-            {family}
-          </Badge>
-        </div>
+    <div
+      onClick={onImport}
+      title={onImport ? `Déposer un fichier dans « ${name} »` : undefined}
+      className={`rounded-xl border p-2 transition-all ${familyTints[family] || 'bg-gray-50 border-gray-200'} ${onImport ? 'cursor-pointer hover:ring-2 hover:ring-primary/40' : ''}`}>
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-xs font-semibold text-marine truncate" title={name}>{name}</p>
         <div className="flex items-center gap-1 flex-shrink-0">
-          <span className="grid place-items-center min-w-5 h-5 px-1 rounded-full bg-white/80 text-[11px] font-semibold text-gray-500">{count}</span>
+          {docs.length > 0 && (
+            <span className="grid place-items-center min-w-4 h-4 px-1 rounded-full bg-white/80 text-[10px] font-semibold text-gray-500">{docs.length}</span>
+          )}
           {onDelete && (
-            <button onClick={onDelete} title="Supprimer cette catégorie"
-              className="grid place-items-center w-5 h-5 rounded-full text-gray-400 hover:text-red-500 hover:bg-white">
+            <button onClick={e => { e.stopPropagation(); onDelete() }} title="Supprimer la catégorie"
+              className="grid place-items-center w-4 h-4 rounded-full text-gray-400 hover:text-red-500 hover:bg-white">
               <X className="w-3 h-3" />
             </button>
           )}
         </div>
       </div>
-      <div className="space-y-1.5">
-        {count === 0
-          ? <p className="text-[11px] text-gray-400 px-1 py-3 text-center">{hint || 'Vide'}</p>
-          : children}
-      </div>
+
+      {docs.length > 0 && (
+        <div className="space-y-1 mt-1.5">
+          {docs.map(d => (
+            <DocCard key={d.id} doc={d} needsExpiry={needsExpiry}
+              onDelete={() => onDeleteDoc(d)} onSetExpiry={date => onSetExpiry(d.id, date)} />
+          ))}
+        </div>
+      )}
+
+      {onImport && (
+        <p className="mt-1.5 text-[10px] text-gray-400 inline-flex items-center gap-1">
+          <Upload className="w-2.5 h-2.5" /> {docs.length === 0 ? 'Déposer un fichier' : 'Ajouter'}
+        </p>
+      )}
     </div>
   )
 }
 
 /** Carte compacte : la colonne est étroite, on va à l'essentiel. */
-function DocCard({ doc, onDelete }: { doc: Doc; onDelete: () => void }) {
-  const c = doc.clients
-  const pr = doc.projects
+function DocCard({ doc, needsExpiry, onDelete, onSetExpiry }: {
+  doc: Doc; needsExpiry: boolean; onDelete: () => void; onSetExpiry: (date: string) => void
+}) {
+  const st = expiryState(doc.expiry_date)
+  const j = daysUntil(doc.expiry_date) ?? 0
   return (
-    <div className="rounded-lg bg-white border border-gray-200/80 p-2 hover:shadow-[var(--shadow-md)] transition-shadow">
-      <div className="flex items-start gap-2">
-        <FileText className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
-        <p className="text-xs font-medium text-gray-900 leading-snug break-words flex-1 min-w-0" title={doc.name}>{doc.name}</p>
+    <div onClick={e => e.stopPropagation()}
+      className="rounded-lg bg-white border border-gray-200/80 p-1.5 cursor-default">
+      <div className="flex items-start gap-1.5">
+        <FileText className="w-3 h-3 text-gray-400 flex-shrink-0 mt-0.5" />
+        <p className="text-[11px] font-medium text-gray-900 leading-snug break-words flex-1 min-w-0" title={doc.name}>{doc.name}</p>
       </div>
-      {(c || pr) && (
-        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1.5 text-[10px] text-gray-500">
-          {c && (
+
+      {(doc.clients || doc.projects) && (
+        <div className="flex flex-wrap gap-x-2 mt-1 text-[10px] text-gray-500">
+          {doc.clients && (
             <Link href={`/clients/${doc.client_id}`} className="flex items-center gap-0.5 hover:text-[#C14E33] truncate">
-              <User className="w-2.5 h-2.5" />{clientDisplayName(c)}
+              <User className="w-2.5 h-2.5" />{clientDisplayName(doc.clients)}
             </Link>
           )}
-          {pr && (
+          {doc.projects && (
             <Link href={`/chantiers/${doc.project_id}`} className="flex items-center gap-0.5 hover:text-[#C14E33] truncate">
-              <HardHat className="w-2.5 h-2.5" />{pr.title}
+              <HardHat className="w-2.5 h-2.5" />{doc.projects.title}
             </Link>
           )}
         </div>
       )}
-      {doc.expiry_date && (() => {
-        const st = expiryState(doc.expiry_date)
-        const j = daysUntil(doc.expiry_date) ?? 0
-        return (
-          <p className={`mt-1.5 text-[10px] font-medium ${st === 'expire' ? 'text-red-600' : st === 'bientot' ? 'text-amber-600' : 'text-gray-400'}`}>
-            {st === 'expire' ? `⚠ Expiré depuis ${Math.abs(j)} j` : st === 'bientot' ? `⚠ Expire dans ${j} j` : `Valable jusqu'au ${formatDate(doc.expiry_date)}`}
-          </p>
-        )
-      })()}
-      <div className="flex items-center justify-between mt-1.5">
+
+      {/* Échéance : affichée si connue, demandée si la famille l'exige */}
+      {doc.expiry_date ? (
+        <p className={`mt-1 text-[10px] font-medium ${st === 'expire' ? 'text-red-600' : st === 'bientot' ? 'text-amber-600' : 'text-gray-400'}`}>
+          {st === 'expire' ? `⚠ Expiré depuis ${Math.abs(j)} j` : st === 'bientot' ? `⚠ Expire dans ${j} j` : `Jusqu'au ${formatDate(doc.expiry_date)}`}
+        </p>
+      ) : needsExpiry ? (
+        <input type="date" onChange={e => onSetExpiry(e.target.value)}
+          title="Renseigner l'échéance"
+          className="mt-1 w-full h-6 rounded border border-amber-200 bg-amber-50/50 px-1 text-[10px] text-amber-700" />
+      ) : null}
+
+      <div className="flex items-center justify-between mt-1">
         <span className="text-[10px] text-gray-400">{formatFileSize(doc.file_size)}</span>
         <div className="flex items-center gap-0.5">
           {doc.signedUrl && (
             <a href={doc.signedUrl} target="_blank" rel="noopener noreferrer" title="Télécharger / ouvrir"
-              className="grid place-items-center w-6 h-6 rounded text-gray-400 hover:text-[#C14E33] hover:bg-gray-50">
-              <Download className="w-3.5 h-3.5" />
+              className="grid place-items-center w-5 h-5 rounded text-gray-400 hover:text-[#C14E33] hover:bg-gray-50">
+              <Download className="w-3 h-3" />
             </a>
           )}
           <button onClick={onDelete} title="Supprimer"
-            className="grid place-items-center w-6 h-6 rounded text-gray-400 hover:text-red-500 hover:bg-gray-50">
-            <Trash2 className="w-3.5 h-3.5" />
+            className="grid place-items-center w-5 h-5 rounded text-gray-400 hover:text-red-500 hover:bg-gray-50">
+            <Trash2 className="w-3 h-3" />
           </button>
         </div>
       </div>
