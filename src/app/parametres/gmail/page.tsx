@@ -1,160 +1,119 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Mail, CheckCircle, AlertCircle, ExternalLink, Loader2 } from 'lucide-react'
+import { ArrowLeft, Mail, CheckCircle, Loader2, ShieldCheck, Unlink } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
-import { Suspense } from 'react'
 
 function GmailPageInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  // Refs pour lire la valeur DOM réelle même si l'autofill ne déclenche pas onChange
-  const clientIdRef = useRef<HTMLInputElement>(null)
-  const clientSecretRef = useRef<HTMLInputElement>(null)
-  const [clientId, setClientId] = useState('')
-  const [saving, setSaving] = useState(false)
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
-      supabase.from('gmail_connections').select('client_id, gmail_email').eq('user_id', user.id).single().then(({ data }) => {
-        if (data?.client_id) setClientId(data.client_id)
-        if (data?.gmail_email) setConnectedEmail(data.gmail_email)
-        setLoading(false)
-      })
+      if (!user) { setLoading(false); return }
+      supabase.from('gmail_connections').select('gmail_email').eq('user_id', user.id).maybeSingle()
+        .then(({ data }) => {
+          if (data?.gmail_email) setConnectedEmail(data.gmail_email)
+          setLoading(false)
+        })
     })
 
     const success = searchParams.get('success')
     const error = searchParams.get('error')
-    if (success === 'connected') toast.success('Gmail connecté avec succès !')
+    if (success === 'connected') toast.success('Gmail connecté !')
     if (error === 'denied') toast.error('Connexion refusée par Google')
-    if (error === 'token-failed') toast.error('Erreur lors de l\'échange de tokens — vérifiez vos clés')
-    if (error === 'no-credentials') toast.error('Clés non trouvées — réessayez')
-    // Nettoie l'URL après lecture des params
+    if (error === 'token-failed') toast.error('Erreur lors de la connexion, réessayez')
+    if (error === 'no-credentials') toast.error('Connexion Gmail indisponible — contactez le support')
     if (success || error) router.replace('/parametres/gmail')
   }, [searchParams, router])
 
-  async function handleConnectGmail(e: React.FormEvent) {
-    e.preventDefault()
-
-    // Lire la valeur DOM réelle (gère l'autofill navigateur)
-    const idVal = clientIdRef.current?.value?.trim() || clientId.trim()
-    const secretVal = clientSecretRef.current?.value?.trim() || ''
-
-    if (!idVal) { toast.error('Entrez votre Client ID'); return }
-    if (!secretVal) { toast.error('Entrez votre Client Secret'); return }
-
-    setSaving(true)
-    try {
-      const res = await fetch('/api/auth/gmail/save-credentials', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ client_id: idVal, client_secret: secretVal }),
-      })
-
-      let json: any = {}
-      try { json = await res.json() } catch {}
-
-      if (!res.ok) {
-        toast.error(json.error || `Erreur sauvegarde (${res.status})`)
-        setSaving(false)
-        return
-      }
-
-      // Sauvegarde OK → redirection OAuth Google
-      window.location.href = '/api/auth/gmail/initiate'
-    } catch {
-      toast.error('Erreur réseau — réessayez')
-      setSaving(false)
-    }
+  async function disconnect() {
+    if (!confirm('Déconnecter Gmail ? Vous ne pourrez plus envoyer de devis, factures ou dossiers comptables par email.')) return
+    setBusy(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setBusy(false); return }
+    const { error } = await supabase.from('gmail_connections').delete().eq('user_id', user.id)
+    setBusy(false)
+    if (error) { toast.error('Erreur'); return }
+    setConnectedEmail(null)
+    toast.success('Gmail déconnecté')
   }
 
-  if (loading) return <div className="p-8 text-center text-gray-400">Chargement...</div>
-
   return (
-    <div className="space-y-4 max-w-2xl">
-      <div className="flex items-center gap-3">
-        <Link href="/parametres">
-          <Button variant="ghost" size="sm" className="gap-1"><ArrowLeft className="w-4 h-4" /> Retour</Button>
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Connexion Gmail</h1>
+    <div className="max-w-2xl mx-auto space-y-5">
+      <Link href="/parametres" className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800">
+        <ArrowLeft className="w-4 h-4" /> Paramètres
+      </Link>
+
+      <div>
+        <h1 className="text-2xl font-bold font-heading text-marine">Connexion Gmail</h1>
+        <p className="text-gray-500 mt-1 text-sm">
+          Pour envoyer vos devis, factures et contrats depuis votre propre adresse — et les retrouver dans vos « Envoyés ».
+        </p>
       </div>
 
-      {connectedEmail ? (
-        <Card className="border-green-200 bg-green-50">
-          <CardContent className="p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-green-800">Gmail connecté</p>
-                <p className="text-sm text-green-600">{connectedEmail}</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" className="border-green-300 text-green-700"
-              onClick={() => { window.location.href = '/api/auth/gmail/initiate' }}>
-              Reconnecter
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardContent className="p-4 flex items-center gap-3">
-            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
-            <p className="text-sm text-amber-800">Gmail non connecté — entrez vos clés et cliquez sur "Connecter Gmail"</p>
-          </CardContent>
-        </Card>
-      )}
-
       <Card>
-        <CardHeader className="pb-3 pt-4 px-4">
-          <CardTitle className="text-base">Vos clés Google OAuth</CardTitle>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Mail className="w-4 h-4 text-primary" /> Votre boîte mail
+          </CardTitle>
         </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <form onSubmit={handleConnectGmail} className="space-y-3">
-            <div className="space-y-1">
-              <Label>Client ID</Label>
-              <Input
-                ref={clientIdRef}
-                defaultValue={clientId}
-                autoComplete="off"
-                placeholder="710084271817-xxx.apps.googleusercontent.com"
-              />
+        <CardContent className="space-y-4">
+          {loading ? (
+            <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
+              <Loader2 className="w-4 h-4 animate-spin" /> Chargement…
             </div>
-            <div className="space-y-1">
-              <Label>Client Secret</Label>
-              <Input
-                ref={clientSecretRef}
-                type="text"
-                autoComplete="off"
-                placeholder="GOCSPX-..."
-              />
-              <p className="text-xs text-gray-400">Visible en clair pour éviter les problèmes d'autofill</p>
-            </div>
-            <div className="flex items-center gap-2 text-xs text-gray-400">
-              <ExternalLink className="w-3 h-3" />
-              <a href="https://console.cloud.google.com/auth/clients" target="_blank" rel="noopener noreferrer" className="text-blue-500 underline">
-                Retrouver mes clés sur Google Cloud Console
-              </a>
-            </div>
-            <Button type="submit" disabled={saving} className="w-full h-11 gap-2 text-base">
-              {saving
-                ? <><Loader2 className="w-4 h-4 animate-spin" />Connexion en cours...</>
-                : <><Mail className="w-5 h-5" />Connecter Gmail</>}
-            </Button>
-            <p className="text-xs text-gray-400 text-center">
-              Vous serez redirigé vers Google, puis automatiquement ramené sur BatiPilot.
+          ) : connectedEmail ? (
+            <>
+              <div className="flex items-center gap-3 rounded-xl bg-[#E9F2DB] p-3">
+                <CheckCircle className="w-5 h-5 text-[#3F7A2E] flex-shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-[#3F7A2E]">Gmail connecté</p>
+                  <p className="text-xs text-gray-600 truncate">{connectedEmail}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => { window.location.href = '/api/auth/gmail/initiate' }}>
+                  Reconnecter
+                </Button>
+                <Button variant="destructive-soft" size="sm" className="gap-1" onClick={disconnect} disabled={busy}>
+                  <Unlink className="w-3.5 h-3.5" /> Déconnecter
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-gray-600">
+                Un clic, vous vous connectez avec votre compte Google, et c&apos;est fini. Aucune clé à créer.
+              </p>
+              <Button className="gap-2 h-11" onClick={() => { setBusy(true); window.location.href = '/api/auth/gmail/initiate' }} disabled={busy}>
+                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
+                Connecter mon compte Gmail
+              </Button>
+              <p className="text-xs text-gray-400">
+                Google affichera peut-être un écran « Application non validée » : c&apos;est normal pendant notre phase de test.
+                Cliquez sur <strong>Paramètres avancés</strong> puis <strong>Continuer vers BatiPilot</strong>.
+              </p>
+            </>
+          )}
+
+          <div className="border-t border-gray-100 pt-3 flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-gray-500">
+              BatiPilot n&apos;accède qu&apos;à ce qui est nécessaire pour envoyer vos documents et afficher vos échanges clients.
+              Vos identifiants Google ne transitent jamais par BatiPilot, et vous pouvez déconnecter à tout moment.
             </p>
-          </form>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -163,7 +122,7 @@ function GmailPageInner() {
 
 export default function GmailPage() {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement...</div>}>
+    <Suspense fallback={<div className="p-6 text-sm text-gray-400">Chargement…</div>}>
       <GmailPageInner />
     </Suspense>
   )

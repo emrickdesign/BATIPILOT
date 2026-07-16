@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveCredentials } from '@/lib/google-oauth'
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
@@ -14,19 +15,21 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.redirect(new URL('/login', req.url))
 
+  // Credentials de l'app BatiPilot ; repli sur ceux de l'utilisateur (ancien système)
   const { data: connection } = await supabase
     .from('gmail_connections')
-    .select('client_id')
+    .select('client_id, client_secret')
     .eq('user_id', user.id)
-    .single()
+    .maybeSingle()
 
-  if (!connection?.client_id) {
+  const { clientId, ok } = resolveCredentials(connection)
+  if (!ok) {
     return NextResponse.redirect(new URL('/parametres/gmail?error=no-credentials', req.url))
   }
 
   const redirectUri = `${req.nextUrl.origin}/api/auth/gmail/callback`
   const params = new URLSearchParams({
-    client_id: connection.client_id,
+    client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
     scope: SCOPES,

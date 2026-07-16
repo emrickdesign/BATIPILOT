@@ -1,4 +1,5 @@
 import { SupabaseClient } from '@supabase/supabase-js'
+import { resolveCredentials } from './google-oauth'
 
 export async function getValidGmailToken(supabase: SupabaseClient, userId: string): Promise<{ accessToken: string; gmailEmail: string } | null> {
   const { data: conn } = await supabase
@@ -11,16 +12,19 @@ export async function getValidGmailToken(supabase: SupabaseClient, userId: strin
 
   let accessToken = conn.access_token_encrypted
 
-  // Refresh si expiré (ou si on est à moins de 60s de l'expiration)
+  // Refresh si expiré (ou si on est à moins de 60s de l'expiration).
+  // Credentials de l'app BatiPilot, sauf pour les connexions établies avec
+  // l'ancien système (un refresh_token n'est rafraîchissable que par son émetteur).
   const isExpired = conn.expires_at && new Date(conn.expires_at).getTime() < Date.now() + 60_000
+  const { clientId, clientSecret, ok } = resolveCredentials(conn)
 
-  if (isExpired && conn.refresh_token_encrypted && conn.client_id && conn.client_secret) {
+  if (isExpired && conn.refresh_token_encrypted && ok) {
     const res = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
-        client_id: conn.client_id,
-        client_secret: conn.client_secret,
+        client_id: clientId,
+        client_secret: clientSecret,
         refresh_token: conn.refresh_token_encrypted,
         grant_type: 'refresh_token',
       }),

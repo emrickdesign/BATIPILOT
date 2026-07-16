@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { resolveCredentials } from '@/lib/google-oauth'
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = req.nextUrl
@@ -20,19 +21,16 @@ export async function GET(req: NextRequest) {
   try {
     const supabase = await createClient()
 
-    // Récupérer les credentials OAuth stockés
-    const { data: connection, error: connError } = await supabase
+    // Credentials de l'app BatiPilot ; repli sur ceux de l'utilisateur (ancien système)
+    const { data: connection } = await supabase
       .from('gmail_connections')
       .select('client_id, client_secret')
       .eq('user_id', userId)
       .maybeSingle()
 
-    if (connError) {
-      console.error('DB error fetching connection:', connError)
-      return NextResponse.redirect(`${origin}/parametres/gmail?error=no-credentials`)
-    }
-
-    if (!connection?.client_id || !connection?.client_secret) {
+    const { clientId, clientSecret, ok } = resolveCredentials(connection)
+    if (!ok) {
+      console.error('Gmail OAuth : aucun credential (ni app, ni utilisateur)')
       return NextResponse.redirect(`${origin}/parametres/gmail?error=no-credentials`)
     }
 
@@ -44,8 +42,8 @@ export async function GET(req: NextRequest) {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         code,
-        client_id: connection.client_id,
-        client_secret: connection.client_secret,
+        client_id: clientId,
+        client_secret: clientSecret,
         redirect_uri: redirectUri,
         grant_type: 'authorization_code',
       }),
@@ -75,16 +73,16 @@ export async function GET(req: NextRequest) {
       console.error('Could not fetch Gmail userinfo:', e)
     }
 
-    // Sauvegarder les tokens
+    // Upsert : l'utilisateur ne crée plus la ligne lui-même (plus de save-credentials)
     const { error: updateError } = await supabase
       .from('gmail_connections')
-      .update({
+      .upsert({
+        user_id: userId,
         access_token_encrypted: tokens.access_token,
         refresh_token_encrypted: tokens.refresh_token ?? null,
         expires_at: expiresAt,
         gmail_email: gmailEmail,
-      })
-      .eq('user_id', userId)
+      }, { onConflict: 'user_id' })
 
     if (updateError) {
       console.error('DB update error:', updateError)
