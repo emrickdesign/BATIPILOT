@@ -4,12 +4,12 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { ReceiptText, FileWarning, Send, CheckCircle2, Wallet, FileText, Handshake, ChevronRight, Scale, TrendingUp } from 'lucide-react'
+import { CheckCircle2, ChevronRight, TrendingUp, Scale, FolderCheck, AlertTriangle } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import MonthActions, { type LastSend } from './MonthActions'
-import { num, isSent, isPaid, subVat, type MonthExpense, type MonthInvoice, type MonthSubInvoice } from './shared'
+import { num, isSent, subVat, type MonthExpense, type MonthInvoice, type MonthSubInvoice } from './shared'
 
-type Focus = 'achats' | 'a_verifier' | 'justif' | 'envoye' | 'factures' | 'paiements' | 'soustraitance' | null
+type Focus = 'ca' | 'achats' | 'a_verifier' | 'justif' | null
 
 export default function MonthCard({
   monthKey, label, expenses, invoices, subInvoices, index, lastSend, accountantEmail,
@@ -24,134 +24,109 @@ export default function MonthCard({
   const toggle = (f: Focus) => setFocus(c => (c === f ? null : f))
 
   const s = useMemo(() => {
-    const totalDepenses = expenses.reduce((t, e) => t + num(e.amount_ttc), 0)
-    const totalSousTraitance = subInvoices.reduce((t, i) => t + num(i.amount_ttc), 0)
-    const tvaCollectee = invoices.filter(i => isSent(i.status)).reduce((t, i) => t + num(i.total_vat), 0)
-    const tvaDeductible = expenses.reduce((t, e) => t + num(e.vat_amount), 0) + subInvoices.reduce((t, i) => t + subVat(i), 0)
-    // Résultat du mois : on compare des HT entre eux (le TTC et la TVA ne sont pas comparables au CA).
-    const caHt = invoices.filter(i => isSent(i.status)).reduce((t, i) => t + num(i.subtotal_ht), 0)
+    const sent = invoices.filter(i => isSent(i.status))
+    // On compare des HT entre eux : le TTC et la TVA ne sont pas comparables au CA.
+    const caHt = sent.reduce((t, i) => t + num(i.subtotal_ht), 0)
     const achatsHt = expenses.reduce((t, e) => t + num(e.amount_ht), 0) + subInvoices.reduce((t, i) => t + num(i.amount_ht), 0)
+    const tvaCollectee = sent.reduce((t, i) => t + num(i.total_vat), 0)
+    const tvaDeductible = expenses.reduce((t, e) => t + num(e.vat_amount), 0) + subInvoices.reduce((t, i) => t + subVat(i), 0)
+    const marge = caHt - achatsHt
     return {
+      caHt, achatsHt, marge,
+      margePct: caHt > 0 ? Math.round((marge / caHt) * 100) : 0,
+      nbFactures: sent.length,
       nbPieces: expenses.length + subInvoices.length,
-      totalAchats: totalDepenses + totalSousTraitance,
-      totalSousTraitance,
-      caHt, achatsHt, marge: caHt - achatsHt,
+      nbSousTraitance: subInvoices.length,
+      tvaCollectee, tvaDeductible, soldeTva: tvaCollectee - tvaDeductible,
       aVerifier: expenses.filter(e => e.status === 'a_verifier').length,
       justifManquants: expenses.filter(e => !e.storage_path).length + subInvoices.filter(i => !i.storage_path).length,
-      envoyeCompta: expenses.filter(e => e.status === 'envoye_comptable').length,
-      facturesTransmises: invoices.filter(i => isSent(i.status)).length,
-      paiementsDetectes: invoices.filter(i => isPaid(i.status)).length,
-      tvaCollectee, tvaDeductible, soldeTva: tvaCollectee - tvaDeductible,
     }
   }, [expenses, invoices, subInvoices])
 
-  // Lignes affichées selon le chiffre cliqué
   const detail = useMemo(() => {
     switch (focus) {
+      case 'ca': return { kind: 'ventes' as const, inv: invoices.filter(i => isSent(i.status)) }
       case 'achats': return { kind: 'achats' as const, exp: expenses, sub: subInvoices }
       case 'a_verifier': return { kind: 'achats' as const, exp: expenses.filter(e => e.status === 'a_verifier'), sub: [] }
       case 'justif': return { kind: 'achats' as const, exp: expenses.filter(e => !e.storage_path), sub: subInvoices.filter(i => !i.storage_path) }
-      case 'envoye': return { kind: 'achats' as const, exp: expenses.filter(e => e.status === 'envoye_comptable'), sub: [] }
-      case 'soustraitance': return { kind: 'achats' as const, exp: [], sub: subInvoices }
-      case 'factures': return { kind: 'ventes' as const, inv: invoices.filter(i => isSent(i.status)) }
-      case 'paiements': return { kind: 'ventes' as const, inv: invoices.filter(i => isPaid(i.status)) }
       default: return null
     }
   }, [focus, expenses, invoices, subInvoices])
 
+  const pret = s.aVerifier === 0 && s.justifManquants === 0
+
   return (
     <Card className="border border-gray-200/80 bg-white animate-fade-up" style={{ animationDelay: `${index * 50}ms` }}>
-      <CardContent className="p-5">
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <h2 className="text-lg font-heading font-bold text-marine capitalize">{label}</h2>
-            {s.justifManquants > 0 && (
-              <button onClick={() => toggle('justif')}>
-                <Badge className="bg-amber-100 text-amber-700 border-0 gap-1 text-xs hover:bg-amber-200 transition-colors">
-                  <FileWarning className="w-3 h-3" /> {s.justifManquants} justificatif{s.justifManquants > 1 ? 's' : ''} manquant{s.justifManquants > 1 ? 's' : ''}
-                </Badge>
-              </button>
-            )}
-            {lastSend && (
-              <Badge className="bg-[#E9F2DB] text-[#3F7A2E] border-0 gap-1 text-xs" title={`Envoyé à ${lastSend.to_email}`}>
-                <CheckCircle2 className="w-3 h-3" /> envoyé à la compta
-              </Badge>
+      <CardContent className="p-5 space-y-4">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h2 className="text-lg font-heading font-bold text-marine capitalize">{label}</h2>
+          {lastSend && (
+            <Badge className="bg-[#E9F2DB] text-[#3F7A2E] border-0 gap-1 text-xs" title={`Envoyé à ${lastSend.to_email}`}>
+              <CheckCircle2 className="w-3 h-3" /> envoyé le {formatDate(lastSend.sent_at)}
+            </Badge>
+          )}
+        </div>
+
+        {/* 1 — Comment s'est passé mon mois ? */}
+        <section>
+          <SectionTitle icon={<TrendingUp className="w-3.5 h-3.5" />} title="Mon mois" note="hors taxes" />
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <Figure label="Chiffre d'affaires" value={formatCurrency(s.caHt)} hint={`${s.nbFactures} facture${s.nbFactures > 1 ? 's' : ''}`}
+              onClick={() => toggle('ca')} active={focus === 'ca'} />
+            <Figure label="Achats" value={formatCurrency(s.achatsHt)}
+              hint={`${s.nbPieces} pièce${s.nbPieces > 1 ? 's' : ''}${s.nbSousTraitance > 0 ? ` · dont ${s.nbSousTraitance} ST` : ''}`}
+              onClick={() => toggle('achats')} active={focus === 'achats'} />
+            <Figure label="Marge" value={formatCurrency(s.marge)} hint={s.caHt > 0 ? `${s.margePct} %` : '—'}
+              tone={s.marge >= 0 ? 'text-[#3F7A2E]' : 'text-[#C14E33]'} />
+          </div>
+        </section>
+
+        {/* 2 — Qu'est-ce que je dois à l'État ? */}
+        <section>
+          <SectionTitle icon={<Scale className="w-3.5 h-3.5" />} title="Ma TVA" note="l'argent de l'État, pas le tien" />
+          <div className="grid grid-cols-3 gap-2 text-center rounded-xl bg-gray-50 py-2.5">
+            <Figure label="Collectée" value={formatCurrency(s.tvaCollectee)} hint="sur tes ventes" small />
+            <Figure label="Déductible" value={formatCurrency(s.tvaDeductible)} hint="sur tes achats" small />
+            <Figure label={s.soldeTva >= 0 ? 'À payer' : 'Crédit de TVA'} value={formatCurrency(Math.abs(s.soldeTva))}
+              hint={s.soldeTva >= 0 ? 'à reverser' : "l'État te doit"} small tone={s.soldeTva >= 0 ? 'text-[#C14E33]' : 'text-[#3F7A2E]'} />
+          </div>
+        </section>
+
+        {/* 3 — Mon dossier est-il prêt à partir ? */}
+        <section>
+          <SectionTitle icon={<FolderCheck className="w-3.5 h-3.5" />} title="Mon dossier" />
+          <div className="flex items-center gap-2 flex-wrap mb-3">
+            {pret ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-[#3F7A2E]">
+                <CheckCircle2 className="w-3.5 h-3.5" /> Prêt à envoyer — {s.nbPieces} pièce(s), {s.nbFactures} facture(s)
+              </span>
+            ) : (
+              <>
+                <span className="text-xs text-gray-500">{s.nbPieces} pièce(s), {s.nbFactures} facture(s) —</span>
+                {s.aVerifier > 0 && (
+                  <button onClick={() => toggle('a_verifier')}>
+                    <Badge className="bg-amber-100 text-amber-700 border-0 gap-1 text-xs hover:bg-amber-200 transition-colors">
+                      <AlertTriangle className="w-3 h-3" /> {s.aVerifier} à vérifier
+                    </Badge>
+                  </button>
+                )}
+                {s.justifManquants > 0 && (
+                  <button onClick={() => toggle('justif')}>
+                    <Badge className="bg-amber-100 text-amber-700 border-0 gap-1 text-xs hover:bg-amber-200 transition-colors">
+                      <AlertTriangle className="w-3 h-3" /> {s.justifManquants} justificatif(s) manquant(s) — TVA non déductible
+                    </Badge>
+                  </button>
+                )}
+              </>
             )}
           </div>
           <MonthActions monthKey={monthKey} label={label} expenses={expenses} invoices={invoices}
             subInvoices={subInvoices} lastSend={lastSend} accountantEmail={accountantEmail} />
-        </div>
-
-        {/* Chiffres cliquables */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-          <Stat icon={ReceiptText} value={String(s.nbPieces)} label="pièces d'achat" tone="bg-[#FCE7DE] text-[#C14E33]" active={focus === 'achats'} onClick={() => toggle('achats')} />
-          <Stat icon={Wallet} value={formatCurrency(s.totalAchats)} label="achats payés (TTC)" tone="bg-accent text-primary" active={focus === 'achats'} onClick={() => toggle('achats')} />
-          <Stat icon={FileWarning} value={String(s.aVerifier)} label="à vérifier" tone="bg-amber-100 text-amber-600" active={focus === 'a_verifier'} onClick={() => toggle('a_verifier')} />
-          <Stat icon={Send} value={String(s.envoyeCompta)} label="envoyés compta" tone="bg-[#F3E5D6] text-[#8A4B24]" active={focus === 'envoye'} onClick={() => toggle('envoye')} />
-          <Stat icon={FileText} value={String(s.facturesTransmises)} label="factures transmises" tone="bg-[#EFE7DA] text-[#8A5A2A]" active={focus === 'factures'} onClick={() => toggle('factures')} />
-          <Stat icon={CheckCircle2} value={String(s.paiementsDetectes)} label="paiements détectés" tone="bg-[#E9F2DB] text-[#3F7A2E]" active={focus === 'paiements'} onClick={() => toggle('paiements')} />
-        </div>
-
-        {subInvoices.length > 0 && (
-          <div className="mt-3">
-            <Stat icon={Handshake} value={formatCurrency(s.totalSousTraitance)} label={`sous-traitance (${subInvoices.length})`} tone="bg-[#E7EEF6] text-[#2F5C8A]" active={focus === 'soustraitance'} onClick={() => toggle('soustraitance')} />
-          </div>
-        )}
-
-        {/* Résultat du mois : CA vs achats, comparables (HT contre HT) */}
-        <div className="mt-4 rounded-xl border border-gray-200/80 p-3">
-          <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-500">
-            <TrendingUp className="w-3.5 h-3.5" /> Résultat du mois <span className="font-normal text-gray-400">(hors taxes)</span>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <button type="button" onClick={() => toggle('factures')} className="rounded-lg py-1 hover:bg-gray-50 transition-colors">
-              <p className="text-[10px] text-gray-400">Chiffre d&apos;affaires</p>
-              <p className="text-base font-bold text-marine tabular-nums">{formatCurrency(s.caHt)}</p>
-              <p className="text-[10px] text-gray-400">ce que tu as vendu</p>
-            </button>
-            <button type="button" onClick={() => toggle('achats')} className="rounded-lg py-1 hover:bg-gray-50 transition-colors">
-              <p className="text-[10px] text-gray-400">Achats</p>
-              <p className="text-base font-bold text-marine tabular-nums">{formatCurrency(s.achatsHt)}</p>
-              <p className="text-[10px] text-gray-400">ce que tu as dépensé</p>
-            </button>
-            <div className="py-1">
-              <p className="text-[10px] text-gray-400">Marge</p>
-              <p className={`text-base font-bold tabular-nums ${s.marge >= 0 ? 'text-[#3F7A2E]' : 'text-[#C14E33]'}`}>{formatCurrency(s.marge)}</p>
-              <p className="text-[10px] text-gray-400">ce qu&apos;il te reste</p>
-            </div>
-          </div>
-        </div>
-
-        {/* Récap TVA du mois */}
-        <div className="mt-3 rounded-xl bg-gray-50 p-3">
-          <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-500">
-            <Scale className="w-3.5 h-3.5" /> TVA du mois <span className="font-normal text-gray-400">(l&apos;argent de l&apos;État, pas le tien)</span>
-          </div>
-          <div className="grid grid-cols-3 gap-2 text-center">
-            <div>
-              <p className="text-[10px] text-gray-400">Collectée (ventes)</p>
-              <p className="text-sm font-semibold text-gray-800 tabular-nums">{formatCurrency(s.tvaCollectee)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-400">Déductible (achats)</p>
-              <p className="text-sm font-semibold text-gray-800 tabular-nums">{formatCurrency(s.tvaDeductible)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-400">{s.soldeTva >= 0 ? 'À payer' : 'Crédit de TVA'}</p>
-              <p className={`text-sm font-bold tabular-nums ${s.soldeTva >= 0 ? 'text-[#C14E33]' : 'text-[#3F7A2E]'}`}>{formatCurrency(Math.abs(s.soldeTva))}</p>
-            </div>
-          </div>
-          <p className="text-[11px] text-gray-400 mt-2">
-            La TVA collectée n&apos;est <strong>pas</strong> ton chiffre d&apos;affaires : c&apos;est seulement la part de TVA ajoutée sur tes factures, que tu encaisses pour l&apos;État puis lui reverses (après déduction de celle payée sur tes achats).
-          </p>
-          {s.justifManquants > 0 && (
-            <p className="text-[11px] text-amber-700 mt-1">⚠︎ {s.justifManquants} pièce(s) sans justificatif : cette TVA n&apos;est pas déductible tant que le justificatif manque.</p>
-          )}
-        </div>
+        </section>
 
         {/* Détail déplié */}
         {detail && (
-          <div className="mt-4 border-t border-gray-100 pt-3 space-y-1.5">
+          <div className="border-t border-gray-100 pt-3 space-y-1.5">
             {detail.kind === 'achats' && detail.exp.length === 0 && detail.sub.length === 0 && (
               <p className="text-sm text-gray-400 py-2 text-center">Rien à afficher ici.</p>
             )}
@@ -159,14 +134,14 @@ export default function MonthCard({
               <Row key={e.id} href="/depenses"
                 title={e.supplier || 'Dépense'}
                 sub={[e.expense_date ? formatDate(e.expense_date) : null, e.category, e.projects?.title].filter(Boolean).join(' · ')}
-                amount={formatCurrency(num(e.amount_ttc))}
+                amount={formatCurrency(num(e.amount_ht))}
                 warn={!e.storage_path ? 'sans justificatif' : e.status === 'a_verifier' ? 'à vérifier' : undefined} />
             ))}
             {detail.kind === 'achats' && detail.sub.map(i => (
               <Row key={i.id} href="/sous-traitants"
                 title={i.company_name || 'Sous-traitant'}
                 sub={[i.issue_date ? formatDate(i.issue_date) : null, i.number ? `N° ${i.number}` : null, 'sous-traitance'].filter(Boolean).join(' · ')}
-                amount={formatCurrency(num(i.amount_ttc))}
+                amount={formatCurrency(num(i.amount_ht))}
                 warn={!i.storage_path ? 'sans justificatif' : undefined} />
             ))}
             {detail.kind === 'ventes' && (detail.inv.length === 0
@@ -174,9 +149,10 @@ export default function MonthCard({
               : detail.inv.map(i => (
                 <Row key={i.id} href={`/factures/${i.id}`}
                   title={`${i.invoice_number}${i.client_name ? ` — ${i.client_name}` : ''}`}
-                  sub={[i.issue_date ? formatDate(i.issue_date) : null, `HT ${formatCurrency(i.subtotal_ht)}`, `TVA ${formatCurrency(i.total_vat)}`].filter(Boolean).join(' · ')}
-                  amount={formatCurrency(i.total_ttc)} />
+                  sub={[i.issue_date ? formatDate(i.issue_date) : null, `TVA ${formatCurrency(i.total_vat)}`].filter(Boolean).join(' · ')}
+                  amount={formatCurrency(i.subtotal_ht)} />
               )))}
+            <p className="text-[11px] text-gray-400 text-center pt-1">Montants affichés hors taxes.</p>
           </div>
         )}
       </CardContent>
@@ -184,17 +160,30 @@ export default function MonthCard({
   )
 }
 
-function Stat({ icon: Icon, value, label, tone, active, onClick }: {
-  icon: typeof Wallet; value: string; label: string; tone: string; active?: boolean; onClick?: () => void
+function SectionTitle({ icon, title, note }: { icon: React.ReactNode; title: string; note?: string }) {
+  return (
+    <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-gray-500">
+      {icon} {title}
+      {note && <span className="font-normal text-gray-400">({note})</span>}
+    </div>
+  )
+}
+
+function Figure({ label, value, hint, onClick, active, tone, small }: {
+  label: string; value: string; hint?: string; onClick?: () => void; active?: boolean; tone?: string; small?: boolean
 }) {
+  const content = (
+    <>
+      <p className="text-[10px] text-gray-400">{label}</p>
+      <p className={`font-bold tabular-nums ${small ? 'text-sm' : 'text-base'} ${tone || 'text-marine'}`}>{value}</p>
+      {hint && <p className="text-[10px] text-gray-400">{hint}</p>}
+    </>
+  )
+  if (!onClick) return <div className="py-1">{content}</div>
   return (
     <button type="button" onClick={onClick}
-      className={`flex items-center gap-2.5 rounded-lg p-1.5 -m-1.5 text-left transition-colors ${active ? 'bg-accent/60 ring-1 ring-primary/30' : 'hover:bg-gray-50'}`}>
-      <span className={`grid place-items-center w-9 h-9 rounded-lg flex-shrink-0 ${tone}`}><Icon className="w-4 h-4" /></span>
-      <div className="min-w-0">
-        <div className="text-base font-bold text-marine leading-none">{value}</div>
-        <div className="text-[11px] text-gray-500 leading-tight mt-0.5">{label}</div>
-      </div>
+      className={`rounded-lg py-1 transition-colors ${active ? 'bg-accent/60 ring-1 ring-primary/30' : 'hover:bg-gray-50'}`}>
+      {content}
     </button>
   )
 }
