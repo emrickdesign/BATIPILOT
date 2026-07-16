@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { resolveCredentials } from '@/lib/google-oauth'
+import { resolveCredentials, googleRedirectUri } from '@/lib/google-oauth'
 
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
@@ -27,7 +27,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/parametres/gmail?error=no-credentials', req.url))
   }
 
-  const redirectUri = `${req.nextUrl.origin}/api/auth/gmail/callback`
+  const redirectUri = googleRedirectUri(req.nextUrl.origin)
+  // Tracé : en cas de redirect_uri_mismatch, c'est CETTE valeur qu'il faut
+  // déclarer dans la console Google, au caractère près.
+  console.log('[gmail-oauth] redirect_uri envoyée à Google :', redirectUri)
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,

@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import { resolveCredentials } from '@/lib/google-oauth'
+import { resolveCredentials, googleRedirectUri } from '@/lib/google-oauth'
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = req.nextUrl
@@ -34,7 +34,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.redirect(`${origin}/parametres/gmail?error=no-credentials`)
     }
 
-    const redirectUri = `${origin}/api/auth/gmail/callback`
+    // Doit être STRICTEMENT la même que celle envoyée par initiate
+    const redirectUri = googleRedirectUri(origin)
 
     // Échange du code contre les tokens
     const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
