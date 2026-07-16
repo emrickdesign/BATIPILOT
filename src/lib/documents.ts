@@ -29,6 +29,17 @@ export const familyRetention: Record<string, string> = {
   'Autre': '—',
 }
 
+/** Fond de colonne (vue board) : un lavis de la couleur de la famille. */
+export const familyTints: Record<string, string> = {
+  'Mon entreprise': 'bg-indigo-50/60 border-indigo-100',
+  'Assurances': 'bg-rose-50/60 border-rose-100',
+  'Comptable & fiscal': 'bg-violet-50/60 border-violet-100',
+  'Salariés': 'bg-emerald-50/60 border-emerald-100',
+  'Véhicules': 'bg-cyan-50/60 border-cyan-100',
+  'Certifications': 'bg-amber-50/60 border-amber-100',
+  'Autre': 'bg-gray-50 border-gray-200',
+}
+
 export const familyColors: Record<string, string> = {
   'Mon entreprise': 'bg-indigo-100 text-indigo-700',
   'Assurances': 'bg-rose-100 text-rose-700',

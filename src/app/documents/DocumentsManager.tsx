@@ -10,11 +10,11 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
-import { FolderOpen, Upload, Download, Trash2, Search, FileText, User, HardHat, Plus, X, Settings2, Loader2 } from 'lucide-react'
+import { FolderOpen, Upload, Download, Trash2, Search, FileText, User, HardHat, Plus, X, Loader2 } from 'lucide-react'
 import type { Document } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
 import {
-  documentFamilies, familyRetention, familyColors, recommendedCategories,
+  documentFamilies, familyRetention, familyColors, familyTints, recommendedCategories,
   formatFileSize, type DocumentCategory, type DocumentFamily,
 } from '@/lib/documents'
 
@@ -48,8 +48,7 @@ export default function DocumentsManager({
   const [clientFilter, setClientFilter] = useState(preselectClient || '')
   const [projectFilter, setProjectFilter] = useState(preselectProject || '')
 
-  // Gestion des catégories
-  const [manage, setManage] = useState(false)
+  // Gestion des catégories (ajout via la colonne de droite du board)
   const [newCat, setNewCat] = useState('')
   const [newFamily, setNewFamily] = useState<DocumentFamily>('Mon entreprise')
   const [busy, setBusy] = useState(false)
@@ -68,15 +67,18 @@ export default function DocumentsManager({
     return true
   }), [documents, search, catFilter, clientFilter, projectFilter])
 
-  // Documents rangés par famille (via leur catégorie ; inconnue → Autre)
-  const byFamily = useMemo(() => {
+  // Une colonne par catégorie. Les documents sans catégorie (ou dont la catégorie
+  // a été supprimée) atterrissent dans « À classer » plutôt que de disparaître.
+  const byCategory = useMemo(() => {
     const m = new Map<string, Doc[]>()
+    const orphans: Doc[] = []
     for (const d of filtered) {
-      const fam = (d.category && familyOf.get(d.category)) || 'Autre'
-      const arr = m.get(fam) || []
-      arr.push(d); m.set(fam, arr)
+      if (d.category && familyOf.has(d.category)) {
+        const arr = m.get(d.category) || []
+        arr.push(d); m.set(d.category, arr)
+      } else orphans.push(d)
     }
-    return m
+    return { m, orphans }
   }, [filtered, familyOf])
 
   const catsByFamily = useMemo(() => {
@@ -192,69 +194,10 @@ export default function DocumentsManager({
             Le coffre-fort de l&apos;entreprise : Kbis, assurances, bilans, paie… Tes devis, factures, tickets et plans restent dans leurs sections.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" className="h-10 gap-2" onClick={() => setManage(v => !v)}>
-            <Settings2 className="w-4 h-4" /> Catégories
-          </Button>
-          <Button className="h-10 gap-2 shadow-sm" onClick={() => setShowUpload(v => !v)}>
-            <Upload className="w-4 h-4" /> Importer un document
-          </Button>
-        </div>
+        <Button className="h-10 gap-2 shadow-sm" onClick={() => setShowUpload(v => !v)}>
+          <Upload className="w-4 h-4" /> Importer un document
+        </Button>
       </div>
-
-      {/* Gestion des catégories */}
-      {manage && (
-        <Card>
-          <CardContent className="p-4 space-y-4">
-            <div className="flex items-end gap-2 flex-wrap">
-              <div className="space-y-1 flex-1 min-w-[180px]">
-                <Label>Nouvelle catégorie</Label>
-                <Input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Ex : Procès-verbal de réception"
-                  onKeyDown={e => e.key === 'Enter' && addCategory()} />
-              </div>
-              <div className="space-y-1">
-                <Label>Famille</Label>
-                <select value={newFamily} onChange={e => setNewFamily(e.target.value as DocumentFamily)} className={selectClass}>
-                  {documentFamilies.map(f => <option key={f} value={f}>{f}</option>)}
-                </select>
-              </div>
-              <Button onClick={addCategory} disabled={busy} className="gap-1">
-                {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />} Créer
-              </Button>
-            </div>
-
-            {documentFamilies.map(fam => {
-              const cats = catsByFamily.get(fam) || []
-              if (cats.length === 0) return null
-              return (
-                <div key={fam}>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Badge className={`${familyColors[fam]} border-0 text-[11px]`}>{fam}</Badge>
-                    <span className="text-[11px] text-gray-400">à conserver : {familyRetention[fam]}</span>
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {cats.map(c => (
-                      <span key={c.id} className="inline-flex items-center gap-1 rounded-full border border-gray-200 pl-2.5 pr-1 py-1 text-xs text-gray-600">
-                        {c.name}
-                        <button onClick={() => deleteCategory(c)} title="Supprimer cette catégorie"
-                          className="grid place-items-center w-4 h-4 rounded-full text-gray-400 hover:text-red-500 hover:bg-red-50">
-                          <X className="w-3 h-3" />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-
-            {categories.length < recommendedCategories.length && (
-              <Button variant="outline" size="sm" onClick={addRecommended} disabled={busy}>
-                Ajouter les catégories recommandées
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
       {/* Panneau d'import */}
       {showUpload && (
@@ -338,94 +281,129 @@ export default function DocumentsManager({
         </div>
       )}
 
-      {/* Rangé par famille — même vides, les familles montrent quoi stocker */}
-      {filtered.length === 0 && documents.length > 0 ? (
-        <p className="text-sm text-gray-400 py-6 text-center">Aucun document ne correspond à votre recherche.</p>
+      {/* Board : une colonne par catégorie, teintée par famille, ajout à droite */}
+      {categories.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center text-gray-500">
+            <FolderOpen className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+            <p className="font-medium">Aucune catégorie</p>
+            <p className="text-sm mt-1 mb-4">Crée tes catégories, ou pars des recommandées pour une entreprise du bâtiment.</p>
+            <Button onClick={addRecommended} disabled={busy}>Ajouter les catégories recommandées</Button>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="space-y-4">
-          {documentFamilies.map(fam => {
-            const docs = byFamily.get(fam) || []
-            const cats = catsByFamily.get(fam) || []
-            if (docs.length === 0 && cats.length === 0) return null
+        <div className="flex gap-3 overflow-x-auto pb-3 -mx-1 px-1 items-start">
+          {/* À classer : n'apparaît que s'il y a des orphelins */}
+          {byCategory.orphans.length > 0 && (
+            <Column title="À classer" family="Autre" count={byCategory.orphans.length} hint="Range-les en leur donnant une catégorie">
+              {byCategory.orphans.map(d => <DocCard key={d.id} doc={d} onDelete={() => handleDelete(d)} />)}
+            </Column>
+          )}
+
+          {categories.map(c => {
+            const docs = byCategory.m.get(c.name) || []
             return (
-              <div key={fam}>
-                <div className="flex items-center gap-2 mb-2 flex-wrap">
-                  <Badge className={`${familyColors[fam]} border-0 text-xs`}>{fam}</Badge>
-                  <span className="text-xs text-gray-400">{docs.length} document{docs.length > 1 ? 's' : ''}</span>
-                  <span className="text-[11px] text-gray-400">· à conserver {familyRetention[fam]}</span>
-                </div>
-                {docs.length === 0 ? (
-                  <Card className="border border-dashed border-gray-200 bg-transparent">
-                    <CardContent className="py-4 px-4 text-xs text-gray-400">
-                      Rien ici. À stocker : {cats.map(c => c.name).join(', ')}.
-                    </CardContent>
-                  </Card>
-                ) : (
-                  <div className="grid gap-2">
-                    {docs.map(doc => (
-                      <DocRow key={doc.id} doc={doc} onDelete={() => handleDelete(doc)} />
-                    ))}
-                  </div>
-                )}
-              </div>
+              <Column key={c.id} title={c.name} family={c.family} count={docs.length}
+                hint={docs.length === 0 ? `À conserver ${familyRetention[c.family]}` : undefined}
+                onDelete={() => deleteCategory(c)}>
+                {docs.map(d => <DocCard key={d.id} doc={d} onDelete={() => handleDelete(d)} />)}
+              </Column>
             )
           })}
 
-          {categories.length === 0 && (
-            <Card>
-              <CardContent className="py-12 text-center text-gray-500">
-                <FolderOpen className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="font-medium">Aucune catégorie</p>
-                <p className="text-sm mt-1 mb-4">Crée tes catégories, ou pars des recommandées pour une entreprise du bâtiment.</p>
-                <Button onClick={addRecommended} disabled={busy}>Ajouter les catégories recommandées</Button>
-              </CardContent>
-            </Card>
-          )}
+          {/* Colonne d'ajout, tout à droite */}
+          <div className="w-64 flex-shrink-0 rounded-xl border border-dashed border-gray-300 p-3 space-y-2">
+            <p className="text-xs font-semibold text-gray-500">Nouvelle catégorie</p>
+            <Input value={newCat} onChange={e => setNewCat(e.target.value)} placeholder="Ex : PV de réception"
+              className="h-9 text-sm" onKeyDown={e => e.key === 'Enter' && addCategory()} />
+            <select value={newFamily} onChange={e => setNewFamily(e.target.value as DocumentFamily)}
+              className="w-full h-9 rounded-md border border-gray-200 bg-white px-2 text-xs focus:outline-none focus:ring-2 focus:ring-primary">
+              {documentFamilies.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+            <Button size="sm" className="w-full gap-1" onClick={addCategory} disabled={busy}>
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />} Ajouter
+            </Button>
+          </div>
         </div>
+      )}
+
+      {filtered.length === 0 && documents.length > 0 && (
+        <p className="text-sm text-gray-400 -mt-2 text-center">Aucun document ne correspond à votre recherche.</p>
       )}
     </div>
   )
 }
 
-function DocRow({ doc, onDelete }: { doc: Doc; onDelete: () => void }) {
+/** Colonne du board : une catégorie (ou « À classer »). */
+function Column({ title, family, count, hint, onDelete, children }: {
+  title: string; family: string; count: number; hint?: string
+  onDelete?: () => void; children: React.ReactNode
+}) {
+  return (
+    <div className={`w-64 flex-shrink-0 rounded-xl border p-2.5 ${familyTints[family] || 'bg-gray-50 border-gray-200'}`}>
+      <div className="flex items-start justify-between gap-1 mb-2">
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-marine truncate" title={title}>{title}</p>
+          <Badge className={`${familyColors[family] || 'bg-gray-100 text-gray-600'} border-0 text-[10px] mt-1`}>{family}</Badge>
+        </div>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <span className="grid place-items-center min-w-5 h-5 px-1 rounded-full bg-white/80 text-[11px] font-semibold text-gray-500">{count}</span>
+          {onDelete && (
+            <button onClick={onDelete} title="Supprimer cette catégorie"
+              className="grid place-items-center w-5 h-5 rounded-full text-gray-400 hover:text-red-500 hover:bg-white">
+              <X className="w-3 h-3" />
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        {count === 0
+          ? <p className="text-[11px] text-gray-400 px-1 py-3 text-center">{hint || 'Vide'}</p>
+          : children}
+      </div>
+    </div>
+  )
+}
+
+/** Carte compacte : la colonne est étroite, on va à l'essentiel. */
+function DocCard({ doc, onDelete }: { doc: Doc; onDelete: () => void }) {
   const c = doc.clients
   const pr = doc.projects
   return (
-    <Card className="card-interactive border border-gray-200/80">
-      <CardContent className="p-3 flex items-center gap-3">
-        <span className="grid place-items-center w-10 h-10 rounded-lg bg-gray-50 text-gray-400 flex-shrink-0">
-          <FileText className="w-5 h-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="font-medium text-gray-900 truncate">{doc.name}</div>
-          <div className="flex items-center flex-wrap gap-2 mt-1 text-xs text-gray-500">
-            {doc.category && <Badge variant="outline" className="text-xs">{doc.category}</Badge>}
-            {c && (
-              <Link href={`/clients/${doc.client_id}`} className="flex items-center gap-1 hover:text-[#C14E33]">
-                <User className="w-3 h-3" />{clientDisplayName(c)}
-              </Link>
-            )}
-            {pr && (
-              <Link href={`/chantiers/${doc.project_id}`} className="flex items-center gap-1 hover:text-[#C14E33]">
-                <HardHat className="w-3 h-3" />{pr.title}
-              </Link>
-            )}
-            {doc.file_size ? <span>{formatFileSize(doc.file_size)}</span> : null}
-          </div>
+    <div className="rounded-lg bg-white border border-gray-200/80 p-2 hover:shadow-[var(--shadow-md)] transition-shadow">
+      <div className="flex items-start gap-2">
+        <FileText className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
+        <p className="text-xs font-medium text-gray-900 leading-snug break-words flex-1 min-w-0" title={doc.name}>{doc.name}</p>
+      </div>
+      {(c || pr) && (
+        <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1.5 text-[10px] text-gray-500">
+          {c && (
+            <Link href={`/clients/${doc.client_id}`} className="flex items-center gap-0.5 hover:text-[#C14E33] truncate">
+              <User className="w-2.5 h-2.5" />{clientDisplayName(c)}
+            </Link>
+          )}
+          {pr && (
+            <Link href={`/chantiers/${doc.project_id}`} className="flex items-center gap-0.5 hover:text-[#C14E33] truncate">
+              <HardHat className="w-2.5 h-2.5" />{pr.title}
+            </Link>
+          )}
         </div>
-        <div className="flex items-center gap-1 flex-shrink-0">
+      )}
+      <div className="flex items-center justify-between mt-1.5">
+        <span className="text-[10px] text-gray-400">{formatFileSize(doc.file_size)}</span>
+        <div className="flex items-center gap-0.5">
           {doc.signedUrl && (
-            <a href={doc.signedUrl} target="_blank" rel="noopener noreferrer"
-              className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-[#C14E33] hover:bg-gray-50" title="Télécharger / ouvrir">
-              <Download className="w-4 h-4" />
+            <a href={doc.signedUrl} target="_blank" rel="noopener noreferrer" title="Télécharger / ouvrir"
+              className="grid place-items-center w-6 h-6 rounded text-gray-400 hover:text-[#C14E33] hover:bg-gray-50">
+              <Download className="w-3.5 h-3.5" />
             </a>
           )}
-          <button onClick={onDelete}
-            className="grid place-items-center w-8 h-8 rounded-md text-gray-400 hover:text-red-500 hover:bg-gray-50" title="Supprimer">
-            <Trash2 className="w-4 h-4" />
+          <button onClick={onDelete} title="Supprimer"
+            className="grid place-items-center w-6 h-6 rounded text-gray-400 hover:text-red-500 hover:bg-gray-50">
+            <Trash2 className="w-3.5 h-3.5" />
           </button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
