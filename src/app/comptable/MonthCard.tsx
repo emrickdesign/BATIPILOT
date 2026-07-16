@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { CheckCircle2, ChevronRight, TrendingUp, Scale, FolderCheck, AlertTriangle, Copy, ExternalLink, FileSpreadsheet } from 'lucide-react'
+import { CheckCircle2, TrendingUp, Scale, FolderCheck, AlertTriangle, Copy, ExternalLink, FileSpreadsheet, Check, Paperclip, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import MonthActions, { type LastSend } from './MonthActions'
@@ -22,10 +23,54 @@ export default function MonthCard({
   lastSend: LastSend
   accountantEmail: string
 }) {
+  const router = useRouter()
   const [focus, setFocus] = useState<Focus>(null)
   const [showCa3, setShowCa3] = useState(false)
   const toggle = (f: Focus) => setFocus(c => (c === f ? null : f))
   const declaration = useMemo(() => ca3(expenses, invoices, subInvoices), [expenses, invoices, subInvoices])
+
+  // Actions directes depuis le dossier : valider une dépense, joindre un justificatif.
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [target, setTarget] = useState<{ kind: 'expense' | 'sub'; id: string } | null>(null)
+  const [busy, setBusy] = useState<string | null>(null)
+
+  async function validateExpense(id: string) {
+    setBusy(id)
+    const { error } = await createClient().from('expenses').update({ status: 'valide' }).eq('id', id)
+    setBusy(null)
+    if (error) { toast.error('Erreur'); return }
+    toast.success('Dépense validée')
+    router.refresh()
+  }
+
+  function askJustificatif(kind: 'expense' | 'sub', id: string) {
+    setTarget({ kind, id })
+    fileRef.current?.click()
+  }
+
+  async function uploadJustificatif(file: File) {
+    if (!target) return
+    setBusy(target.id)
+    try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { toast.error('Non connecté'); return }
+      // La policy storage exige l'user_id en 2e segment du chemin.
+      const safe = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+      const prefix = target.kind === 'expense' ? 'tickets' : 'st'
+      const path = `${prefix}/${user.id}/${Date.now()}-${safe}`
+      const { error: upErr } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type || undefined, upsert: false })
+      if (upErr) { toast.error('Erreur envoi du fichier'); return }
+      const table = target.kind === 'expense' ? 'expenses' : 'subcontractor_invoices'
+      const { error } = await supabase.from(table).update({ storage_path: path }).eq('id', target.id)
+      if (error) { toast.error('Erreur enregistrement'); return }
+      toast.success('Justificatif ajouté — TVA déductible')
+      router.refresh()
+    } finally {
+      setBusy(null); setTarget(null)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
 
   const s = useMemo(() => {
     const sent = invoices.filter(i => isSent(i.status))
@@ -150,25 +195,31 @@ export default function MonthCard({
           </div>
         </section>
 
-        {/* Détail déplié */}
+        {/* Détail déplié — avec les actions pour débloquer le dossier sur place */}
         {detail && (
           <div className="border-t border-gray-100 pt-3 space-y-1.5">
+            <input ref={fileRef} type="file" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) uploadJustificatif(f) }} />
+
             {detail.kind === 'achats' && detail.exp.length === 0 && detail.sub.length === 0 && (
               <p className="text-sm text-gray-400 py-2 text-center">Rien à afficher ici.</p>
             )}
             {detail.kind === 'achats' && detail.exp.map(e => (
-              <Row key={e.id} href="/depenses"
+              <Row key={e.id}
                 title={e.supplier || 'Dépense'}
                 sub={[e.expense_date ? formatDate(e.expense_date) : null, e.category, e.projects?.title].filter(Boolean).join(' · ')}
                 amount={formatCurrency(num(e.amount_ht))}
-                warn={!e.storage_path ? 'sans justificatif' : e.status === 'a_verifier' ? 'à vérifier' : undefined} />
+                busy={busy === e.id}
+                onValidate={e.status === 'a_verifier' ? () => validateExpense(e.id) : undefined}
+                onAttach={!e.storage_path ? () => askJustificatif('expense', e.id) : undefined} />
             ))}
             {detail.kind === 'achats' && detail.sub.map(i => (
-              <Row key={i.id} href="/sous-traitants"
+              <Row key={i.id}
                 title={i.company_name || 'Sous-traitant'}
                 sub={[i.issue_date ? formatDate(i.issue_date) : null, i.number ? `N° ${i.number}` : null, 'sous-traitance'].filter(Boolean).join(' · ')}
                 amount={formatCurrency(num(i.amount_ht))}
-                warn={!i.storage_path ? 'sans justificatif' : undefined} />
+                busy={busy === i.id}
+                onAttach={!i.storage_path ? () => askJustificatif('sub', i.id) : undefined} />
             ))}
             {detail.kind === 'ventes' && (detail.inv.length === 0
               ? <p className="text-sm text-gray-400 py-2 text-center">Aucune facture ici.</p>
@@ -295,16 +346,33 @@ function Op({ children }: { children: React.ReactNode }) {
   return <span className="px-1 text-2xl font-medium text-gray-400 select-none flex-shrink-0 leading-none">{children}</span>
 }
 
-function Row({ href, title, sub, amount, warn }: { href: string; title: string; sub?: string; amount: string; warn?: string }) {
-  return (
-    <Link href={href} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50 transition-colors">
+/** Ligne de détail : les actions sont ici, pour débloquer le dossier sans naviguer. */
+function Row({ href, title, sub, amount, busy, onValidate, onAttach }: {
+  href?: string; title: string; sub?: string; amount: string
+  busy?: boolean; onValidate?: () => void; onAttach?: () => void
+}) {
+  const body = (
+    <>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-medium text-gray-800 truncate">{title}</p>
         {sub && <p className="text-[11px] text-gray-400 truncate">{sub}</p>}
       </div>
-      {warn && <Badge className="bg-amber-50 text-amber-700 border-0 text-[10px] flex-shrink-0">{warn}</Badge>}
       <span className="text-sm font-semibold text-gray-900 tabular-nums flex-shrink-0">{amount}</span>
-      <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
-    </Link>
+    </>
+  )
+  return (
+    <div className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50 transition-colors">
+      {href ? <a href={href} className="flex items-center gap-3 flex-1 min-w-0">{body}</a> : body}
+      {onValidate && (
+        <Button size="sm" variant="success" className="gap-1 flex-shrink-0" onClick={onValidate} disabled={busy}>
+          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />} Valider
+        </Button>
+      )}
+      {onAttach && (
+        <Button size="sm" variant="outline" className="gap-1 flex-shrink-0 border-amber-300 text-amber-700 hover:bg-amber-50" onClick={onAttach} disabled={busy}>
+          {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Paperclip className="w-3.5 h-3.5" />} Ajouter le justificatif
+        </Button>
+      )}
+    </div>
   )
 }
