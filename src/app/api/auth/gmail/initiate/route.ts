@@ -2,10 +2,16 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveCredentials, googleRedirectUri } from '@/lib/google-oauth'
 
+// gmail.modify remplace readonly + send + labels : il couvre lecture, envoi,
+// labels ET mise à la corbeille (que readonly interdisait — /api/gmail/trash
+// ne pouvait donc pas fonctionner). Seule la suppression définitive en
+// contournant la corbeille reste hors de portée, ce qu'on ne fait nulle part.
+//
+// Surtout : gmail.readonly est un scope RESTREINT → validation Google en Tier 3
+// (pen test, ~4 500 $/an). gmail.modify est SENSIBLE → Tier 2 (~500-1 000 $).
+// Mêmes fonctionnalités, validation bien moins coûteuse le jour venu.
 const SCOPES = [
-  'https://www.googleapis.com/auth/gmail.readonly',
-  'https://www.googleapis.com/auth/gmail.send',
-  'https://www.googleapis.com/auth/gmail.labels',
+  'https://www.googleapis.com/auth/gmail.modify',
   'https://www.googleapis.com/auth/userinfo.email',
   'https://www.googleapis.com/auth/calendar.events',
 ].join(' ')
