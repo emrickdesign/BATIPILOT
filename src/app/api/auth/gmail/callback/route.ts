@@ -10,11 +10,13 @@ export async function GET(req: NextRequest) {
   const userId = searchParams.get('state')
 
   if (errorParam) {
-    console.error('Google OAuth error:', errorParam)
+    console.error('[gmail-callback] Google a refusé :', errorParam)
     return NextResponse.redirect(`${origin}/parametres/gmail?error=denied`)
   }
 
+  // Cette branche redirigeait en silence : impossible de diagnostiquer ensuite.
   if (!code || !userId) {
+    console.error('[gmail-callback] Paramètres manquants — code:', !!code, '| state(userId):', !!userId)
     return NextResponse.redirect(`${origin}/parametres/gmail?error=denied`)
   }
 
@@ -52,7 +54,8 @@ export async function GET(req: NextRequest) {
 
     const tokenText = await tokenRes.text()
     if (!tokenRes.ok) {
-      console.error('Token exchange failed:', tokenText)
+      // C'est ici qu'un client_secret erroné se manifeste (invalid_client)
+      console.error('[gmail-callback] Échange du code refusé par Google :', tokenText)
       return NextResponse.redirect(`${origin}/parametres/gmail?error=token-failed`)
     }
 
@@ -86,10 +89,12 @@ export async function GET(req: NextRequest) {
       }, { onConflict: 'user_id' })
 
     if (updateError) {
-      console.error('DB update error:', updateError)
+      // Typiquement : RLS (session absente dans le callback) ou clé étrangère
+      console.error('[gmail-callback] Enregistrement en base refusé :', updateError.message, '| code:', updateError.code)
       return NextResponse.redirect(`${origin}/parametres/gmail?error=token-failed`)
     }
 
+    console.log('[gmail-callback] OK — connecté :', gmailEmail, '| refresh_token reçu :', !!tokens.refresh_token)
     return NextResponse.redirect(`${origin}/parametres/gmail?success=connected`)
   } catch (err: any) {
     console.error('Unhandled callback error:', err)
