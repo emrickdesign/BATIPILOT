@@ -2,459 +2,655 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Textarea } from '@/components/ui/textarea'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Mail, RefreshCw, Trash2, Reply, Send, Mic, MicOff, Sparkles, Loader2, Download, UserPlus } from 'lucide-react'
-import Link from 'next/link'
+import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import Link from 'next/link'
+import ComposeWindow, { type ComposeInit } from '@/components/emails/ComposeWindow'
+import MessageView, { type FullMessage } from '@/components/emails/MessageView'
+import {
+  Mail, Inbox, Star, Clock, Send, FileText, Trash2, AlertOctagon, Tag,
+  Pencil, RefreshCw, Search, Archive, ChevronLeft, ChevronRight, Plus,
+  Loader2, Paperclip, X, Menu,
+} from 'lucide-react'
 
-const TABS = [
-  { key: 'all', label: 'Tout', categories: null },
-  { key: 'urgent', label: 'Urgents', categories: null },
-  { key: 'client', label: 'Clients', categories: ['demande_devis', 'client_a_repondre', 'relance_client'] },
-  { key: 'devis', label: 'Devis', categories: ['demande_devis'] },
-  { key: 'facture', label: 'Factures', categories: ['facture_recue'] },
-  { key: 'fournisseur', label: 'Fournisseurs', categories: ['fournisseur', 'document_admin'] },
-  { key: 'pub', label: 'Pubs', categories: ['pub_newsletter', 'spam'] },
+type MessageRow = {
+  id: string
+  threadId: string
+  labelIds: string[]
+  snippet: string
+  internalDate: string
+  from: { name: string; email: string }
+  subject: string
+  hasAttachments: boolean
+  ai: { category?: string; importance?: string; ai_summary?: string; linked_client_id?: string } | null
+}
+
+type GmailLabel = {
+  id: string
+  name: string
+  type: 'system' | 'user'
+  messagesUnread?: number
+  messagesTotal?: number
+}
+
+const SYSTEM_VIEWS = [
+  { id: 'INBOX', label: 'Boîte de réception', icon: Inbox },
+  { id: 'STARRED', label: 'Messages suivis', icon: Star },
+  { id: 'SNOOZED', label: 'En attente', icon: Clock },
+  { id: 'SENT', label: 'Messages envoyés', icon: Send },
+  { id: 'DRAFT', label: 'Brouillons', icon: FileText },
+  { id: 'SPAM', label: 'Spam', icon: AlertOctagon },
+  { id: 'TRASH', label: 'Corbeille', icon: Trash2 },
 ]
 
-const importanceBorder: Record<string, string> = {
-  urgent: 'border-l-red-500', important: 'border-l-orange-400',
-  normal: 'border-l-blue-300', faible: 'border-l-gray-200', ignorer: 'border-l-gray-100',
-}
-const categoryLabel: Record<string, string> = {
-  demande_devis: '📋 Devis', client_a_repondre: '💬 Client',
-  relance_client: '🔔 Relance', fournisseur: '📦 Fournisseur',
-  facture_recue: '🧾 Facture', document_admin: '📄 Admin',
-  pub_newsletter: '📣 Pub', spam: '🗑️ Spam',
-  personnel: '👤 Perso', a_verifier: '❓ À vérifier',
-}
+const PAGE_SIZE = 30
 
-type ImportState = {
-  open: boolean
-  phase: 'idle' | 'scanning' | 'processing' | 'done' | 'error'
-  message: string
-  found: number
-  toProcess: number
-  processed: number
-  synced: number
-}
-
-const defaultImport: ImportState = {
-  open: false, phase: 'idle', message: '', found: 0, toProcess: 0, processed: 0, synced: 0,
+/** Format Gmail : heure aujourd'hui, jour+mois cette année, date complète sinon. */
+function formatDate(internalDate: string): string {
+  const d = new Date(Number(internalDate))
+  if (Number.isNaN(d.getTime())) return ''
+  const now = new Date()
+  const sameDay = d.toDateString() === now.toDateString()
+  if (sameDay) return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+  if (d.getFullYear() === now.getFullYear())
+    return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+  return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 export default function EmailsPage() {
-  const [emails, setEmails] = useState<any[]>([])
+  const [connected, setConnected] = useState<boolean | null>(null)
+  const [view, setView] = useState('INBOX')
+  const [messages, setMessages] = useState<MessageRow[]>([])
+  const [labels, setLabels] = useState<GmailLabel[]>([])
   const [loading, setLoading] = useState(true)
-  const [syncing, setSyncing] = useState(false)
-  const [activeTab, setActiveTab] = useState('all')
-  const [connected, setConnected] = useState(false)
-  const [replyEmail, setReplyEmail] = useState<any>(null)
-  const [draft, setDraft] = useState('')
-  const [intent, setIntent] = useState('')
-  const [draftLoading, setDraftLoading] = useState(false)
-  const [sending, setSending] = useState(false)
-  const [recording, setRecording] = useState(false)
-  const [importState, setImportState] = useState<ImportState>(defaultImport)
-  const recognitionRef = useRef<any>(null)
-  const abortRef = useRef<AbortController | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [compose, setCompose] = useState<ComposeInit | null>(null)
+  const [search, setSearch] = useState('')
+  const [activeQuery, setActiveQuery] = useState('')
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const loadEmails = useCallback(async () => {
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
-    const { data: conn } = await supabase.from('gmail_connections').select('gmail_email').eq('user_id', user.id).maybeSingle()
-    setConnected(!!conn?.gmail_email)
-    const { data } = await supabase.from('emails').select('*').eq('user_id', user.id)
-      .neq('status', 'supprime').order('received_at', { ascending: false }).limit(200)
-    setEmails(data || [])
-    setLoading(false)
+  // Pagination Gmail : jetons opaques, on empile pour pouvoir revenir en arrière.
+  const [pageTokens, setPageTokens] = useState<(string | null)[]>([null])
+  const [pageIndex, setPageIndex] = useState(0)
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null)
+
+  const reqIdRef = useRef(0)
+
+  const loadLabels = useCallback(async () => {
+    try {
+      const res = await fetch('/api/gmail/labels')
+      const json = await res.json()
+      if (res.ok) setLabels(json.labels || [])
+    } catch {}
   }, [])
 
-  useEffect(() => { loadEmails() }, [loadEmails])
+  const loadMessages = useCallback(async (opts?: { silent?: boolean }) => {
+    // Chaque chargement porte un numéro : une réponse en retard ne doit jamais
+    // écraser l'affichage d'une vue plus récente.
+    const reqId = ++reqIdRef.current
+    if (opts?.silent) setRefreshing(true)
+    else setLoading(true)
 
-  // Auto-sync toutes les 5 minutes quand la page est visible
+    const qs = new URLSearchParams()
+    qs.set('maxResults', String(PAGE_SIZE))
+    if (activeQuery) qs.set('q', activeQuery)
+    else qs.append('labelIds', view)
+    const token = pageTokens[pageIndex]
+    if (token) qs.set('pageToken', token)
+
+    try {
+      const res = await fetch(`/api/gmail/messages?${qs}`)
+      const json = await res.json()
+      if (reqId !== reqIdRef.current) return
+      if (!res.ok) {
+        if (json.reconnect) setConnected(false)
+        else toast.error(json.error || 'Erreur de chargement')
+        setMessages([])
+      } else {
+        setMessages(json.messages || [])
+        setNextPageToken(json.nextPageToken || null)
+      }
+    } catch {
+      if (reqId === reqIdRef.current) toast.error('Erreur réseau')
+    }
+    if (reqId === reqIdRef.current) {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }, [view, activeQuery, pageTokens, pageIndex])
+
   useEffect(() => {
-    const interval = setInterval(async () => {
-      if (document.visibilityState !== 'visible') return
-      try {
-        const res = await fetch('/api/gmail/sync', { method: 'POST' })
-        const json = await res.json()
-        if (res.ok && json.synced > 0) {
-          toast.info(`${json.synced} nouveau${json.synced > 1 ? 'x' : ''} email${json.synced > 1 ? 's' : ''}`)
-          await loadEmails()
-        }
-      } catch {}
-    }, 5 * 60 * 1000)
-    return () => clearInterval(interval)
-  }, [loadEmails])
+    ;(async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('gmail_connections')
+        .select('gmail_email')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      const ok = !!data?.gmail_email
+      setConnected(ok)
+      if (!ok) setLoading(false)
+    })()
+  }, [])
 
-  async function handleSync() {
-    setSyncing(true)
-    try {
-      const res = await fetch('/api/gmail/sync', { method: 'POST' })
-      const json = await res.json()
-      if (!res.ok) toast.error(json.error || 'Erreur')
-      else if (json.synced === 0) toast.info(json.message || 'Pas de nouveaux emails')
-      else { toast.success(`${json.synced} email${json.synced > 1 ? 's' : ''} récupéré${json.synced > 1 ? 's' : ''}`); await loadEmails() }
-    } catch { toast.error('Erreur réseau') }
-    setSyncing(false)
+  useEffect(() => {
+    if (connected) {
+      loadMessages()
+      loadLabels()
+    }
+  }, [connected, loadMessages, loadLabels])
+
+  function changeView(next: string) {
+    setView(next)
+    setActiveQuery('')
+    setSearch('')
+    setOpenId(null)
+    setSelected(new Set())
+    setPageTokens([null])
+    setPageIndex(0)
+    setSidebarOpen(false)
   }
 
-  async function startImportAll() {
-    const ctrl = new AbortController()
-    abortRef.current = ctrl
-    setImportState({ open: true, phase: 'scanning', message: 'Connexion à Gmail...', found: 0, toProcess: 0, processed: 0, synced: 0 })
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault()
+    setActiveQuery(search.trim())
+    setOpenId(null)
+    setSelected(new Set())
+    setPageTokens([null])
+    setPageIndex(0)
+  }
+
+  /**
+   * Applique une action dans Gmail puis retire localement les messages qui ne
+   * sont plus dans la vue courante, sans attendre un rechargement complet.
+   */
+  async function runAction(ids: string[], action: string) {
+    if (!ids.length) return
+    const snapshot = messages
+    const leavesView =
+      (action === 'archive' && view === 'INBOX') ||
+      (action === 'trash') ||
+      (action === 'spam' && view !== 'SPAM') ||
+      (action === 'unspam' && view === 'SPAM') ||
+      (action === 'unstar' && view === 'STARRED')
+
+    if (leavesView) setMessages(prev => prev.filter(m => !ids.includes(m.id)))
+    else {
+      const patch: Record<string, { add?: string; remove?: string }> = {
+        star: { add: 'STARRED' }, unstar: { remove: 'STARRED' },
+        read: { remove: 'UNREAD' }, unread: { add: 'UNREAD' },
+      }
+      const p = patch[action]
+      if (p) {
+        setMessages(prev => prev.map(m => !ids.includes(m.id) ? m : {
+          ...m,
+          labelIds: p.add
+            ? [...new Set([...m.labelIds, p.add])]
+            : m.labelIds.filter(l => l !== p.remove),
+        }))
+      }
+    }
+    setSelected(new Set())
+    if (ids.includes(openId || '')) setOpenId(null)
 
     try {
-      const res = await fetch('/api/gmail/sync-all', { signal: ctrl.signal })
-      if (!res.ok || !res.body) { setImportState(s => ({ ...s, phase: 'error', message: 'Erreur serveur' })); return }
-
-      const reader = res.body.getReader()
-      const decoder = new TextDecoder()
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const text = decoder.decode(value, { stream: true })
-        for (const line of text.split('\n')) {
-          if (!line.startsWith('data: ')) continue
-          try {
-            const ev = JSON.parse(line.slice(6))
-            setImportState(s => {
-              if (ev.type === 'scanning') return { ...s, phase: 'scanning', found: ev.found, message: `Scan en cours... ${ev.found} emails trouvés` }
-              if (ev.type === 'found') return { ...s, found: ev.total, message: `${ev.total} emails dans la boîte` }
-              if (ev.type === 'toprocess') return { ...s, toProcess: ev.count, phase: 'processing', message: `${ev.count} nouveaux emails à importer` }
-              if (ev.type === 'progress') return { ...s, processed: ev.processed, synced: ev.synced, message: `Traitement ${ev.processed}/${ev.total}...` }
-              if (ev.type === 'done') return { ...s, phase: 'done', synced: ev.synced, message: ev.message || `${ev.synced} emails importés avec succès !` }
-              if (ev.type === 'error') return { ...s, phase: 'error', message: ev.message || 'Erreur' }
-              return s
-            })
-          } catch {}
-        }
+      const res = await fetch('/api/gmail/modify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, action }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      const verb: Record<string, string> = {
+        archive: 'archivé', trash: 'supprimé', spam: 'signalé comme spam',
+        unspam: 'retiré des spams', read: 'marqué comme lu', unread: 'marqué comme non lu',
       }
+      if (verb[action]) {
+        toast.success(`${ids.length} message${ids.length > 1 ? 's' : ''} ${verb[action]}${ids.length > 1 && verb[action].endsWith('é') ? 's' : ''}`)
+      }
+      loadLabels()
     } catch (e: any) {
-      if (e?.name !== 'AbortError') {
-        setImportState(s => ({ ...s, phase: 'error', message: 'Erreur réseau' }))
-      }
+      // Gmail a refusé : on remet la liste telle qu'elle était.
+      setMessages(snapshot)
+      toast.error(e?.message || 'Action impossible')
     }
   }
 
-  function cancelImport() {
-    abortRef.current?.abort()
-    setImportState(defaultImport)
-  }
-
-  async function closeImport() {
-    setImportState(defaultImport)
-    if (importState.synced > 0) await loadEmails()
-  }
-
-  async function handleTrash(email: any) {
-    const res = await fetch('/api/gmail/trash', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emailId: email.id, gmailMessageId: email.gmail_message_id }),
-    })
-    if (res.ok) { toast.success('Email supprimé'); setEmails(prev => prev.filter(e => e.id !== email.id)) }
-    else toast.error('Erreur suppression')
-  }
-
-  async function openReply(email: any) {
-    setReplyEmail(email); setDraft(''); setIntent(''); setDraftLoading(true)
+  async function createLabel() {
+    const name = window.prompt('Nom du nouveau libellé')
+    if (!name?.trim()) return
     try {
-      const res = await fetch('/api/gmail/draft', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailId: email.id }),
+      const res = await fetch('/api/gmail/labels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
       })
       const json = await res.json()
-      setDraft(json.draft || '')
-    } catch { toast.error('Erreur génération brouillon') }
-    setDraftLoading(false)
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      toast.success(`Libellé « ${name.trim()} » créé dans Gmail`)
+      loadLabels()
+    } catch (e: any) {
+      toast.error(e?.message || 'Création impossible')
+    }
   }
 
-  async function regenerateDraft() {
-    if (!replyEmail) return
-    setDraftLoading(true)
+  async function applyLabel(labelId: string) {
+    const ids = [...selected]
+    if (!ids.length) return
     try {
-      const res = await fetch('/api/gmail/draft', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ emailId: replyEmail.id, userIntent: intent }),
+      const res = await fetch('/api/gmail/modify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids, action: 'label', addLabelIds: [labelId] }),
       })
-      const json = await res.json()
-      setDraft(json.draft || '')
-    } catch { toast.error('Erreur') }
-    setDraftLoading(false)
+      if (!res.ok) throw new Error((await res.json()).error || 'Erreur')
+      toast.success('Libellé appliqué')
+      setSelected(new Set())
+      loadLabels()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erreur')
+    }
   }
 
-  async function handleSend() {
-    if (!replyEmail || !draft) return
-    setSending(true)
-    const res = await fetch('/api/gmail/send', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ emailId: replyEmail.id, to: replyEmail.from_email, body: draft }),
+  function openReply(m: FullMessage) {
+    setCompose({
+      mode: 'reply',
+      to: m.from.email,
+      recipientName: m.from.name || m.from.email,
+      subject: /^re\s*:/i.test(m.subject) ? m.subject : `Re: ${m.subject}`,
+      threadId: m.threadId,
+      inReplyTo: m.messageIdHeader,
+      references: m.references,
+      emailId: undefined,
     })
-    if (res.ok) {
-      toast.success('Email envoyé !')
-      setEmails(prev => prev.map(e => e.id === replyEmail.id ? { ...e, status: 'traite' } : e))
-      setReplyEmail(null)
-    } else {
-      const json = await res.json()
-      toast.error(json.error || 'Erreur envoi')
-    }
-    setSending(false)
+    // L'assistant IA a besoin de l'id du miroir Supabase, pas de celui de Gmail.
+    ;(async () => {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('emails')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('gmail_message_id', m.id)
+        .maybeSingle()
+      if (data?.id) setCompose(prev => (prev ? { ...prev, emailId: data.id } : prev))
+    })()
   }
 
-  function toggleVoice() {
-    if (recording) { recognitionRef.current?.stop(); setRecording(false); return }
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) { toast.error('Reconnaissance vocale non supportée'); return }
-    const r = new SR()
-    r.lang = 'fr-FR'; r.continuous = false; r.interimResults = false
-    r.onresult = (e: any) => {
-      const t = e.results[0][0].transcript
-      setIntent(prev => prev ? `${prev} ${t}` : t)
-    }
-    r.onend = () => setRecording(false)
-    r.onerror = () => { toast.error('Erreur micro'); setRecording(false) }
-    recognitionRef.current = r; r.start(); setRecording(true)
-  }
-
-  const matchTab = (t: typeof TABS[number] | undefined, e: any) => {
-    if (!t || t.key === 'all') return true
-    if (t.key === 'urgent') return e.importance === 'urgent'
-    return t.categories ? t.categories.includes(e.category) : true
-  }
-  const tab = TABS.find(t => t.key === activeTab)
-  const filtered = emails.filter(e => matchTab(tab, e))
-  const counts: Record<string, number> = {}
-  TABS.forEach(t => { counts[t.key] = emails.filter(e => matchTab(t, e)).length })
-
-  async function createProspect(email: any) {
+  async function createProspect(m: FullMessage) {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-    const name = (email.from_name || '').trim()
-    const [first, ...rest] = name.split(' ')
-    const { data: client, error } = await supabase.from('clients').insert({
-      user_id: user.id, type: 'particulier',
-      first_name: first || null, last_name: rest.join(' ') || null,
-      email: email.from_email || null, status: 'nouveau',
-    }).select().single()
-    if (error || !client) { toast.error('Erreur création prospect'); return }
-    await supabase.from('emails').update({ linked_client_id: client.id }).eq('id', email.id)
-    toast.success('Prospect créé depuis l\'email')
+    const [first, ...rest] = (m.from.name || '').trim().split(' ')
+    const { data: client, error } = await supabase
+      .from('clients')
+      .insert({
+        user_id: user.id,
+        type: 'particulier',
+        first_name: first || null,
+        last_name: rest.join(' ') || null,
+        email: m.from.email || null,
+        status: 'nouveau',
+      })
+      .select()
+      .single()
+    if (error || !client) {
+      toast.error('Erreur création prospect')
+      return
+    }
+    await supabase.from('emails').update({ linked_client_id: client.id }).eq('gmail_message_id', m.id)
     window.location.href = `/clients/${client.id}`
   }
 
-  const progressPct = importState.toProcess > 0 ? Math.round((importState.processed / importState.toProcess) * 100) : 0
+  const userLabels = labels.filter(l => l.type === 'user')
+  const inboxUnread = labels.find(l => l.id === 'INBOX')?.messagesUnread || 0
+  const allSelected = messages.length > 0 && selected.size === messages.length
 
-  if (!connected && !loading) return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Mes mails</h1>
-      <Card><CardContent className="py-12 text-center">
-        <Mail className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-        <p className="font-medium text-gray-700 mb-4">Gmail non connecté</p>
-        <Link href="/parametres/gmail"><Button>Connecter Gmail</Button></Link>
-      </CardContent></Card>
-    </div>
-  )
+  if (connected === false) {
+    return (
+      <div className="space-y-4">
+        <h1 className="text-2xl font-bold">Mes mails</h1>
+        <div className="rounded-xl border bg-white py-12 text-center">
+          <Mail className="mx-auto mb-3 h-12 w-12 text-gray-300" />
+          <p className="mb-4 font-medium text-gray-700">Gmail non connecté</p>
+          <Link href="/parametres/gmail">
+            <Button className="rounded-full bg-[#E0674C] hover:bg-[#c9563d]">Connecter Gmail</Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <h1 className="text-2xl font-bold text-gray-900">Mes mails</h1>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => startImportAll()} disabled={importState.open} className="gap-2 border-purple-200 text-purple-700 hover:bg-purple-50">
-            <Download className="w-4 h-4" />
-            Importer tout Gmail
-          </Button>
-          <Button variant="outline" onClick={handleSync} disabled={syncing} className="gap-2">
-            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-            {syncing ? 'Sync...' : 'Actualiser'}
-          </Button>
-        </div>
-      </div>
+    <div className="flex h-[calc(100vh-7rem)] overflow-hidden rounded-xl border bg-white">
+      {/* Sidebar Gmail */}
+      <aside
+        className={cn(
+          'absolute inset-y-0 left-0 z-30 w-60 flex-shrink-0 overflow-y-auto border-r bg-white p-3 transition-transform md:relative md:translate-x-0',
+          sidebarOpen ? 'translate-x-0 shadow-xl' : '-translate-x-full'
+        )}
+      >
+        <Button
+          onClick={() => setCompose({ mode: 'new' })}
+          className="mb-4 h-12 w-full justify-start gap-3 rounded-2xl bg-[#E0674C] px-5 text-sm shadow-sm hover:bg-[#c9563d]"
+        >
+          <Pencil className="h-4 w-4" />
+          Nouveau message
+        </Button>
 
-      {/* Onglets */}
-      <div className="flex gap-1 border-b overflow-x-auto">
-        {TABS.map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key)}
-            className={`px-3 py-2 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${activeTab === t.key ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            {t.label}
-            {counts[t.key] > 0 && <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-xs ${activeTab === t.key ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>{counts[t.key]}</span>}
-          </button>
-        ))}
-      </div>
+        <nav className="space-y-0.5">
+          {SYSTEM_VIEWS.map(v => {
+            const label = labels.find(l => l.id === v.id)
+            const unread = v.id === 'DRAFT' ? label?.messagesTotal : label?.messagesUnread
+            const active = view === v.id && !activeQuery
+            return (
+              <button
+                key={v.id}
+                onClick={() => changeView(v.id)}
+                className={cn(
+                  'flex w-full items-center gap-3 rounded-r-full py-1.5 pl-4 pr-3 text-sm transition-colors',
+                  active
+                    ? 'bg-[#FDE7E0] font-semibold text-[#8C2F17]'
+                    : 'text-gray-700 hover:bg-gray-100'
+                )}
+              >
+                <v.icon className="h-4 w-4 flex-shrink-0" />
+                <span className="flex-1 truncate text-left">{v.label}</span>
+                {!!unread && <span className="flex-shrink-0 text-xs font-semibold">{unread}</span>}
+              </button>
+            )
+          })}
+        </nav>
 
-      {/* Liste */}
-      {loading ? (
-        <div className="space-y-2">{[1,2,3].map(i => <div key={i} className="h-24 bg-gray-100 rounded-lg animate-pulse" />)}</div>
-      ) : filtered.length === 0 ? (
-        <Card><CardContent className="py-10 text-center text-gray-500">
-          <Mail className="w-10 h-10 mx-auto mb-2 text-gray-300" />
-          <p className="font-medium mb-1">Aucun email ici</p>
-          <p className="text-sm mb-4">Cliquez sur "Importer tout Gmail" pour charger votre historique</p>
-          <Button variant="outline" onClick={handleSync} disabled={syncing} className="gap-2">
-            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-            Charger les 48 dernières heures
-          </Button>
-        </CardContent></Card>
-      ) : (
-        <div className="space-y-2">
-          {filtered.map(email => (
-            <Card key={email.id} className={`border-l-4 transition-shadow hover:shadow-md ${importanceBorder[email.importance] || 'border-l-gray-200'} ${email.status === 'traite' ? 'opacity-60' : ''}`}>
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="font-semibold text-gray-900 text-sm">{email.from_name || email.from_email}</span>
-                      {email.category && <span className="text-xs text-gray-400">{categoryLabel[email.category]}</span>}
-                      {email.importance === 'urgent' && <Badge className="bg-red-100 text-red-700 text-xs">Urgent</Badge>}
-                      {email.status === 'traite' && <Badge className="bg-green-100 text-green-700 text-xs">Répondu</Badge>}
-                    </div>
-                    <p className="text-sm font-medium text-gray-800 truncate">{email.subject}</p>
-                    {email.ai_summary && <p className="text-xs text-gray-500 mt-1 line-clamp-2">{email.ai_summary}</p>}
-                    {email.ai_recommended_action && <p className="text-xs text-blue-600 mt-1">→ {email.ai_recommended_action}</p>}
-                  </div>
-                  <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                    <span className="text-xs text-gray-400">
-                      {email.received_at && new Date(email.received_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
-                    </span>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="outline" className="h-8 px-2 gap-1 text-xs border-blue-200 text-blue-600 hover:bg-blue-50" onClick={() => openReply(email)}>
-                        <Reply className="w-3 h-3" /> Répondre
-                      </Button>
-                      {email.linked_client_id ? (
-                        <Link href={`/clients/${email.linked_client_id}`}>
-                          <Button size="sm" variant="outline" className="h-8 px-2 gap-1 text-xs">Client</Button>
-                        </Link>
-                      ) : (
-                        <Button size="sm" variant="outline" className="h-8 px-2 gap-1 text-xs border-emerald-200 text-emerald-700 hover:bg-emerald-50" onClick={() => createProspect(email)} title="Créer un prospect depuis cet email">
-                          <UserPlus className="w-3 h-3" /> Prospect
-                        </Button>
-                      )}
-                      <Button size="sm" variant="outline" className="h-8 px-2 text-red-500 border-red-100 hover:bg-red-50" onClick={() => handleTrash(email)}>
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <div className="mt-4 border-t pt-3">
+          <div className="mb-1 flex items-center justify-between px-4">
+            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Libellés</span>
+            <button
+              onClick={createLabel}
+              title="Créer un libellé"
+              className="rounded-full p-1 text-gray-500 hover:bg-gray-100"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {userLabels.length === 0 ? (
+            <p className="px-4 py-2 text-xs text-gray-400">Aucun libellé</p>
+          ) : (
+            <nav className="space-y-0.5">
+              {userLabels.map(l => (
+                <button
+                  key={l.id}
+                  onClick={() => changeView(l.id)}
+                  className={cn(
+                    'flex w-full items-center gap-3 rounded-r-full py-1.5 pl-4 pr-3 text-sm transition-colors',
+                    view === l.id && !activeQuery
+                      ? 'bg-[#FDE7E0] font-semibold text-[#8C2F17]'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  )}
+                >
+                  <Tag className="h-4 w-4 flex-shrink-0" />
+                  <span className="flex-1 truncate text-left">{l.name}</span>
+                  {!!l.messagesUnread && (
+                    <span className="flex-shrink-0 text-xs font-semibold">{l.messagesUnread}</span>
+                  )}
+                </button>
+              ))}
+            </nav>
+          )}
         </div>
+      </aside>
+
+      {sidebarOpen && (
+        <div className="absolute inset-0 z-20 bg-black/20 md:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Dialog import complet */}
-      <Dialog open={importState.open} onOpenChange={() => {}}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Import de l'historique Gmail</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <p className="text-sm text-gray-600">{importState.message}</p>
+      {/* Colonne principale */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Recherche */}
+        <div className="flex items-center gap-2 border-b px-3 py-2">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="rounded-full p-2 text-gray-600 hover:bg-gray-100 md:hidden"
+            aria-label="Menu"
+          >
+            <Menu className="h-[18px] w-[18px]" />
+          </button>
+          <form onSubmit={submitSearch} className="flex flex-1 items-center gap-2 rounded-full bg-gray-100 px-4 py-2">
+            <Search className="h-4 w-4 flex-shrink-0 text-gray-500" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher dans les messages"
+              className="min-w-0 flex-1 bg-transparent text-sm outline-none"
+            />
+            {activeQuery && (
+              <button
+                type="button"
+                onClick={() => { setSearch(''); setActiveQuery(''); setPageTokens([null]); setPageIndex(0) }}
+                className="flex-shrink-0 rounded-full p-0.5 hover:bg-gray-200"
+                aria-label="Effacer la recherche"
+              >
+                <X className="h-4 w-4 text-gray-500" />
+              </button>
+            )}
+          </form>
+        </div>
 
-            {importState.phase === 'scanning' && (
-              <div className="flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin text-purple-600 flex-shrink-0" />
-                <div className="text-sm text-gray-500">
-                  {importState.found > 0 ? `${importState.found} emails trouvés...` : 'Analyse de votre boîte...'}
+        {openId ? (
+          <MessageView
+            messageId={openId}
+            onBack={() => setOpenId(null)}
+            onReply={openReply}
+            onAction={runAction}
+            onCreateProspect={createProspect}
+          />
+        ) : (
+          <>
+            {/* Barre d'outils */}
+            <div className="flex items-center gap-1 border-b px-3 py-1.5">
+              <input
+                type="checkbox"
+                aria-label="Tout sélectionner"
+                checked={allSelected}
+                onChange={e =>
+                  setSelected(e.target.checked ? new Set(messages.map(m => m.id)) : new Set())
+                }
+                className="mx-2 h-4 w-4 accent-[#E0674C]"
+              />
+              <button
+                onClick={() => loadMessages({ silent: true })}
+                title="Actualiser"
+                className="rounded-full p-2 text-gray-600 hover:bg-gray-100"
+              >
+                <RefreshCw className={cn('h-[18px] w-[18px]', refreshing && 'animate-spin')} />
+              </button>
+
+              {selected.size > 0 && (
+                <>
+                  <div className="mx-1 h-5 w-px bg-gray-200" />
+                  <button onClick={() => runAction([...selected], 'archive')} title="Archiver" className="rounded-full p-2 text-gray-600 hover:bg-gray-100">
+                    <Archive className="h-[18px] w-[18px]" />
+                  </button>
+                  <button onClick={() => runAction([...selected], view === 'SPAM' ? 'unspam' : 'spam')} title={view === 'SPAM' ? 'Non spam' : 'Signaler comme spam'} className="rounded-full p-2 text-gray-600 hover:bg-gray-100">
+                    <AlertOctagon className="h-[18px] w-[18px]" />
+                  </button>
+                  <button onClick={() => runAction([...selected], 'trash')} title="Supprimer" className="rounded-full p-2 text-gray-600 hover:bg-gray-100">
+                    <Trash2 className="h-[18px] w-[18px]" />
+                  </button>
+                  <button onClick={() => runAction([...selected], 'read')} title="Marquer comme lu" className="rounded-full p-2 text-gray-600 hover:bg-gray-100">
+                    <Mail className="h-[18px] w-[18px]" />
+                  </button>
+                  {userLabels.length > 0 && (
+                    <select
+                      onChange={e => { if (e.target.value) applyLabel(e.target.value); e.target.value = '' }}
+                      className="ml-1 rounded border border-gray-200 bg-white px-2 py-1 text-xs text-gray-600"
+                      defaultValue=""
+                      aria-label="Appliquer un libellé"
+                    >
+                      <option value="">Libellé…</option>
+                      {userLabels.map(l => (
+                        <option key={l.id} value={l.id}>{l.name}</option>
+                      ))}
+                    </select>
+                  )}
+                  <span className="ml-2 text-xs text-gray-500">{selected.size} sélectionné{selected.size > 1 ? 's' : ''}</span>
+                </>
+              )}
+
+              <div className="flex-1" />
+
+              <button
+                onClick={() => { setPageIndex(i => Math.max(0, i - 1)); setSelected(new Set()) }}
+                disabled={pageIndex === 0 || loading}
+                title="Page précédente"
+                className="rounded-full p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-30"
+              >
+                <ChevronLeft className="h-[18px] w-[18px]" />
+              </button>
+              <button
+                onClick={() => {
+                  if (!nextPageToken) return
+                  setPageTokens(prev => {
+                    const next = [...prev]
+                    next[pageIndex + 1] = nextPageToken
+                    return next
+                  })
+                  setPageIndex(i => i + 1)
+                  setSelected(new Set())
+                }}
+                disabled={!nextPageToken || loading}
+                title="Page suivante"
+                className="rounded-full p-2 text-gray-600 hover:bg-gray-100 disabled:opacity-30"
+              >
+                <ChevronRight className="h-[18px] w-[18px]" />
+              </button>
+            </div>
+
+            {/* Liste */}
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {loading ? (
+                <div className="divide-y">
+                  {Array.from({ length: 12 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-2.5">
+                      <div className="h-4 w-4 animate-pulse rounded bg-gray-100" />
+                      <div className="h-3 w-40 animate-pulse rounded bg-gray-100" />
+                      <div className="h-3 flex-1 animate-pulse rounded bg-gray-100" />
+                    </div>
+                  ))}
                 </div>
-              </div>
-            )}
-
-            {importState.phase === 'processing' && (
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs text-gray-500">
-                  <span>{importState.processed} / {importState.toProcess} traités</span>
-                  <span>{progressPct}%</span>
+              ) : messages.length === 0 ? (
+                <div className="py-20 text-center text-gray-500">
+                  <Mail className="mx-auto mb-2 h-10 w-10 text-gray-300" />
+                  <p className="font-medium">
+                    {activeQuery ? 'Aucun résultat' : 'Aucun message ici'}
+                  </p>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div className="bg-purple-600 h-2.5 rounded-full transition-all duration-300" style={{ width: `${progressPct}%` }} />
-                </div>
-                <p className="text-xs text-gray-400">
-                  {importState.synced} importés · Les emails récents sont analysés par IA, les anciens par mots-clés
-                </p>
-              </div>
-            )}
-
-            {importState.phase === 'done' && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                <p className="text-green-700 font-semibold text-lg">{importState.synced}</p>
-                <p className="text-green-600 text-sm">emails importés et classés</p>
-                {importState.found > 0 && <p className="text-green-500 text-xs mt-1">sur {importState.found} emails dans votre boîte</p>}
-              </div>
-            )}
-
-            {importState.phase === 'error' && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-600">
-                {importState.message}
-              </div>
-            )}
-
-            <div className="flex gap-2 pt-1">
-              {importState.phase === 'done' || importState.phase === 'error' ? (
-                <Button onClick={closeImport} className="flex-1">Fermer</Button>
               ) : (
-                <Button variant="outline" onClick={cancelImport} className="flex-1 text-gray-500">Annuler</Button>
+                <div className="divide-y">
+                  {messages.map(m => {
+                    const unread = m.labelIds.includes('UNREAD')
+                    const starred = m.labelIds.includes('STARRED')
+                    const isSelected = selected.has(m.id)
+                    return (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          setOpenId(m.id)
+                          if (unread) runAction([m.id], 'read')
+                        }}
+                        className={cn(
+                          'group flex cursor-pointer items-center gap-2 px-3 py-[7px] text-sm transition-colors',
+                          isSelected ? 'bg-[#FDE7E0]' : unread ? 'bg-white hover:shadow-md' : 'bg-gray-50/60 hover:shadow-md'
+                        )}
+                      >
+                        <input
+                          type="checkbox"
+                          aria-label={`Sélectionner : ${m.subject}`}
+                          checked={isSelected}
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => {
+                            const checked = e.target.checked
+                            setSelected(prev => {
+                              const next = new Set(prev)
+                              if (checked) next.add(m.id)
+                              else next.delete(m.id)
+                              return next
+                            })
+                          }}
+                          className="h-4 w-4 flex-shrink-0 accent-[#E0674C]"
+                        />
+                        <button
+                          onClick={e => { e.stopPropagation(); runAction([m.id], starred ? 'unstar' : 'star') }}
+                          aria-label={starred ? 'Retirer des suivis' : 'Suivre'}
+                          className="flex-shrink-0 p-0.5"
+                        >
+                          <Star className={cn('h-4 w-4', starred ? 'fill-[#F4B400] text-[#F4B400]' : 'text-gray-300 hover:text-gray-500')} />
+                        </button>
+
+                        <span className={cn('w-40 flex-shrink-0 truncate', unread ? 'font-bold text-gray-900' : 'text-gray-700')}>
+                          {m.from.name || m.from.email}
+                        </span>
+
+                        <span className="min-w-0 flex-1 truncate">
+                          <span className={cn(unread ? 'font-bold text-gray-900' : 'text-gray-700')}>
+                            {m.subject}
+                          </span>
+                          <span className="text-gray-500"> — {m.snippet}</span>
+                        </span>
+
+                        {m.ai?.importance === 'urgent' && (
+                          <span className="flex-shrink-0 rounded bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-700">
+                            Urgent
+                          </span>
+                        )}
+                        {m.hasAttachments && <Paperclip className="h-3.5 w-3.5 flex-shrink-0 text-gray-400" />}
+
+                        {/* Comme dans Gmail, les actions prennent la place de la
+                            date au survol : largeur figée pour que rien ne bouge. */}
+                        <span className="flex w-[72px] flex-shrink-0 justify-end">
+                          <span className={cn('text-xs group-hover:hidden', unread ? 'font-bold text-gray-900' : 'text-gray-500')}>
+                            {formatDate(m.internalDate)}
+                          </span>
+                          <span className="hidden items-center gap-0.5 group-hover:flex">
+                            <button
+                              onClick={e => { e.stopPropagation(); runAction([m.id], 'archive') }}
+                              title="Archiver"
+                              className="rounded-full p-1 text-gray-500 hover:bg-gray-200"
+                            >
+                              <Archive className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={e => { e.stopPropagation(); runAction([m.id], 'trash') }}
+                              title="Supprimer"
+                              className="rounded-full p-1 text-gray-500 hover:bg-gray-200"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </span>
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </>
+        )}
+      </div>
 
-      {/* Popup réponse */}
-      <Dialog open={!!replyEmail} onOpenChange={() => setReplyEmail(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-base">Répondre à {replyEmail?.from_name || replyEmail?.from_email}</DialogTitle>
-            <p className="text-sm text-gray-500 truncate">{replyEmail?.subject}</p>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700">Que voulez-vous dire ? (optionnel)</label>
-              <div className="flex gap-2">
-                <Textarea value={intent} onChange={e => setIntent(e.target.value)}
-                  placeholder="Ex: dire que je suis disponible la semaine prochaine..." rows={2} className="text-sm" />
-                <Button type="button" variant="outline" onClick={toggleVoice}
-                  className={`flex-shrink-0 h-auto px-3 ${recording ? 'bg-red-50 border-red-300 text-red-600' : ''}`}>
-                  {recording ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-                </Button>
-              </div>
-              {recording && <p className="text-xs text-red-500 animate-pulse">🎙️ Enregistrement en cours... parlez</p>}
-              <Button variant="outline" size="sm" onClick={regenerateDraft} disabled={draftLoading} className="gap-2">
-                <Sparkles className="w-4 h-4" />
-                {draftLoading ? 'Génération...' : 'Générer / Regénérer'}
-              </Button>
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-gray-700">Brouillon de réponse</label>
-              {draftLoading ? (
-                <div className="h-40 bg-gray-50 rounded-lg flex items-center justify-center">
-                  <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-                  <span className="ml-2 text-sm text-gray-400">L'IA rédige...</span>
-                </div>
-              ) : (
-                <Textarea value={draft} onChange={e => setDraft(e.target.value)} rows={8} className="text-sm"
-                  placeholder="Le brouillon IA apparaîtra ici..." />
-              )}
-            </div>
-            <div className="flex gap-3 pt-2 border-t">
-              <Button onClick={handleSend} disabled={sending || !draft || draftLoading} className="flex-1 gap-2">
-                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                {sending ? 'Envoi...' : 'Envoyer'}
-              </Button>
-              <Button variant="outline" onClick={() => setReplyEmail(null)}>Annuler</Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {compose && (
+        <ComposeWindow
+          init={compose}
+          onClose={() => setCompose(null)}
+          onSent={() => { loadMessages({ silent: true }); loadLabels() }}
+        />
+      )}
     </div>
   )
 }
