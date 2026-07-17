@@ -19,14 +19,15 @@ export function hasAppCredentials(): boolean {
  * URI de retour OAuth — DOIT être identique à l'octet près entre la demande
  * d'autorisation et l'échange du code, et être déclarée dans la console Google.
  *
- * On la dérive d'une variable d'environnement plutôt que de l'adresse de
- * navigation : sinon elle change selon l'alias Vercel utilisé (batipilot-orpin,
- * batipilot-emricks-projects…) ou le port local, et Google renvoie
- * redirect_uri_mismatch. Repli sur l'origine de la requête en local.
+ * Dérivée de l'origine de la requête : c'est la valeur observée comme correcte
+ * en production (Google reçoit bien https://batipilot-orpin.vercel.app/...).
+ * On n'utilise PAS NEXT_PUBLIC_APP_URL ici : cette variable sert aux relances
+ * et une valeur périmée casserait silencieusement la connexion Gmail.
+ * Conséquence : chaque alias/port depuis lequel on se connecte doit être
+ * déclaré dans la console Google.
  */
 export function googleRedirectUri(origin: string): string {
-  const base = (process.env.NEXT_PUBLIC_APP_URL || origin).replace(/\/+$/, '')
-  return `${base}/api/auth/gmail/callback`
+  return `${origin.replace(/\/+$/, '')}/api/auth/gmail/callback`
 }
 
 /** Credentials à utiliser : ceux de la connexion (ancien système) sinon ceux de l'app. */
