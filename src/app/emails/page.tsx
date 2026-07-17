@@ -345,7 +345,10 @@ export default function EmailsPage() {
         </Button>
 
         <nav className="space-y-0.5">
-          {SYSTEM_VIEWS.map(v => {
+          {/* SNOOZED n'est pas un libellé système documenté : selon le compte,
+              Gmail le renvoie ou non. On n'affiche que les vues qui existent
+              vraiment côté Gmail, une fois les libellés chargés. */}
+          {SYSTEM_VIEWS.filter(v => !labels.length || labels.some(l => l.id === v.id)).map(v => {
             const label = labels.find(l => l.id === v.id)
             const unread = v.id === 'DRAFT' ? label?.messagesTotal : label?.messagesUnread
             const active = view === v.id && !activeQuery
