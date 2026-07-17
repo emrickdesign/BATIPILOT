@@ -284,6 +284,13 @@ export async function createLabel(accessToken: string, name: string): Promise<Gm
   })
 }
 
+export async function renameLabel(accessToken: string, id: string, name: string): Promise<GmailLabel> {
+  return gmailFetch(`/labels/${id}`, accessToken, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  })
+}
+
 export async function deleteLabel(accessToken: string, id: string): Promise<void> {
   await gmailFetch(`/labels/${id}`, accessToken, { method: 'DELETE' })
 }
