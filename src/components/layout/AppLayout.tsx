@@ -282,9 +282,13 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         </div>
       )}
 
-      {/* Main content */}
+      {/* Main content.
+          min-w-0 : sans lui, un élément flex refuse de descendre sous la largeur
+          de son contenu. main s'élargissait donc au lieu de contraindre la page,
+          et un contenu large (la liste des mails) faisait défiler la page entière
+          vers la droite au lieu de se tronquer. */}
       <main className={cn(
-        'flex-1 pt-14 md:pt-0 min-h-screen bg-app-bg transition-[margin] duration-200 ease-out',
+        'flex-1 min-w-0 pt-14 md:pt-0 min-h-screen bg-app-bg transition-[margin] duration-200 ease-out',
         collapsed ? 'md:ml-[72px]' : 'md:ml-60'
       )}>
         <div className="p-4 md:p-8">

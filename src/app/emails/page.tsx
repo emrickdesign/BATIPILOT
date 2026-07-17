@@ -13,7 +13,7 @@ import {
   Mail, Inbox, Star, Clock, Send, FileText, Trash2, AlertOctagon, Tag,
   Pencil, RefreshCw, Search, Archive, ChevronLeft, ChevronRight, Plus,
   Paperclip, X, Menu, ChevronDown, ChevronUp, Mails, Bookmark, Settings2,
-  HardHat,
+  HardHat, MailOpen,
 } from 'lucide-react'
 
 type MessageRow = {
@@ -640,8 +640,10 @@ export default function EmailsPage() {
                 </button>
               </div>
 
-              {/* Liste */}
-              <div className="min-h-0 flex-1 overflow-y-auto">
+              {/* Liste. overflow-x-hidden explicite : un conteneur dont un axe
+                  n'est pas « visible » bascule l'autre axe en « auto », ce qui
+                  rouvrirait un défilement horizontal. */}
+              <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden">
                 {loading ? (
                   <div className="divide-y">
                     {Array.from({ length: 12 }).map((_, i) => (
@@ -721,7 +723,7 @@ export default function EmailsPage() {
 
                           {/* Comme dans Gmail, les actions prennent la place de
                               la date au survol : largeur figée, rien ne bouge. */}
-                          <span className="flex w-[72px] flex-shrink-0 justify-end">
+                          <span className="flex w-[92px] flex-shrink-0 justify-end">
                             <span className={cn('truncate text-xs group-hover:hidden', unread ? 'font-bold text-gray-900' : 'text-gray-500')}>
                               {formatDate(m.internalDate)}
                             </span>
@@ -739,6 +741,13 @@ export default function EmailsPage() {
                                 className="rounded-full p-1 text-gray-500 hover:bg-gray-200"
                               >
                                 <Trash2 className="h-4 w-4" />
+                              </button>
+                              <button
+                                onClick={e => { e.stopPropagation(); runAction([m.id], unread ? 'read' : 'unread') }}
+                                title={unread ? 'Marquer comme lu' : 'Marquer comme non lu'}
+                                className="rounded-full p-1 text-gray-500 hover:bg-gray-200"
+                              >
+                                {unread ? <MailOpen className="h-4 w-4" /> : <Mail className="h-4 w-4" />}
                               </button>
                             </span>
                           </span>
