@@ -95,6 +95,8 @@ export default function EmailsPage() {
   const [nextPageToken, setNextPageToken] = useState<string | null>(null)
 
   const reqIdRef = useRef(0)
+  // Dernier état connu de la boîte : sert à ne recharger que si Gmail a bougé.
+  const lastHistoryIdRef = useRef<string | null>(null)
 
   const loadLabels = useCallback(async () => {
     try {
@@ -164,18 +166,45 @@ export default function EmailsPage() {
 
   /**
    * Rafraîchissement périodique : c'est ce qui fait remonter tout seuls les
-   * nouveaux messages et les libellés créés depuis Gmail. On s'abstient dès que
-   * l'utilisateur est en train de faire quelque chose (sélection, rédaction,
-   * page suivante), pour ne jamais lui bouger la liste sous les doigts.
+   * nouveaux messages et les libellés créés depuis Gmail.
+   *
+   * On interroge d'abord `historyId` (1 unité de quota) et on ne recharge la
+   * liste que s'il a bougé — recharger à l'aveugle coûterait ~170 unités par
+   * tour pour rien la plupart du temps. La création d'un libellé n'apparaît pas
+   * forcément dans l'historique, d'où le rechargement des libellés tous les
+   * quelques tours quoi qu'il arrive.
+   *
+   * Et on s'abstient dès que l'utilisateur fait quelque chose (sélection,
+   * rédaction, lecture, page suivante) : jamais bouger la liste sous ses doigts.
    */
   useEffect(() => {
     if (!connected) return
-    const tick = () => {
+    let ticks = 0
+
+    const tick = async () => {
       if (document.visibilityState !== 'visible') return
-      loadLabels()
       const busy = selected.size > 0 || compose !== null || pageIndex !== 0 || openId !== null
-      if (!busy) loadMessages({ silent: true })
+      ticks++
+
+      // Tous les 4 tours (~2 min) : les libellés, que historyId ne couvre pas.
+      if (ticks % 4 === 0) loadLabels()
+
+      if (busy) return
+      try {
+        const res = await fetch('/api/gmail/state')
+        if (!res.ok) return
+        const { historyId } = await res.json()
+        if (!historyId || historyId === lastHistoryIdRef.current) return
+        // Premier relevé : on note la référence sans recharger inutilement.
+        const first = lastHistoryIdRef.current === null
+        lastHistoryIdRef.current = historyId
+        if (!first) {
+          loadMessages({ silent: true })
+          loadLabels()
+        }
+      } catch {}
     }
+
     const interval = setInterval(tick, POLL_MS)
     // Revenir sur l'onglet doit rafraîchir tout de suite, sans attendre le tour.
     document.addEventListener('visibilitychange', tick)

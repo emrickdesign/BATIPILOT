@@ -168,6 +168,17 @@ function decodeEntities(s: string): string {
     .replace(/&nbsp;/g, ' ')
 }
 
+/* --------------------------------- Profil ---------------------------------- */
+
+export async function getProfile(accessToken: string): Promise<{
+  emailAddress: string
+  messagesTotal: number
+  threadsTotal: number
+  historyId: string
+}> {
+  return gmailFetch('/profile', accessToken)
+}
+
 /* ---------------------------------- Liste --------------------------------- */
 
 export async function listMessages(params: {
