@@ -28,9 +28,11 @@ export async function GET(req: NextRequest) {
   }
 
   const redirectUri = googleRedirectUri(req.nextUrl.origin)
-  // Tracé : en cas de redirect_uri_mismatch, c'est CETTE valeur qu'il faut
-  // déclarer dans la console Google, au caractère près.
-  console.log('[gmail-oauth] redirect_uri envoyée à Google :', redirectUri)
+  // Tracé : en cas de redirect_uri_mismatch, l'URI doit être déclarée au
+  // caractère près SUR LE CLIENT correspondant à ce client_id (piège classique
+  // quand plusieurs clients OAuth coexistent dans la console).
+  console.log('[gmail-oauth] redirect_uri:', redirectUri, '| client_id:', clientId,
+    '| source:', connection?.client_id ? 'connexion (ancien système)' : 'variable env')
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
