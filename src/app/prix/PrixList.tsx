@@ -26,6 +26,8 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
   // Replié par défaut : on arrive sur une vue d'ensemble, pas sur un mur de prix.
   const [openIds, setOpenIds] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
+  const [unitFilter, setUnitFilter] = useState<string>('')   // '' = toutes
+  const [sansPrixOnly, setSansPrixOnly] = useState(false)
 
   function toggle(id: string) {
     setOpenIds(prev => {
@@ -87,6 +89,13 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
     }
   }
 
+  // Unités réellement présentes : un filtre ne propose que ce qui existe
+  const unitsPresent = useMemo(() => {
+    const s = new Set<string>()
+    for (const c of categories) for (const i of c.price_items) if (i.is_active) s.add(i.unit)
+    return UNITS.filter(u => s.has(u))
+  }, [categories])
+
   const visibleCats = useMemo(() => {
     const q = search.trim().toLowerCase()
     return categories
@@ -94,15 +103,23 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
         ...c,
         price_items: c.price_items
           .filter(i => i.is_active)
+          .filter(i => !unitFilter || i.unit === unitFilter)
+          .filter(i => !sansPrixOnly || !(Number(i.unit_price_ht) > 0))
           .filter(i => !q || i.name.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)),
       }))
       .filter(c => c.price_items.length > 0)
-  }, [categories, search])
+  }, [categories, search, unitFilter, sansPrixOnly])
+
+  const nbSansPrix = useMemo(
+    () => categories.reduce((t, c) => t + c.price_items.filter(i => i.is_active && !(Number(i.unit_price_ht) > 0)).length, 0),
+    [categories],
+  )
 
   const totalItems = visibleCats.reduce((t, c) => t + c.price_items.length, 0)
   const allOpen = visibleCats.length > 0 && visibleCats.every(c => openIds.has(c.id))
-  // Une recherche ouvre tout : sinon on chercherait à l'aveugle dans des cartes fermées
-  const searching = search.trim().length > 0
+  // Recherche ou filtre actif : on déplie, sinon on chercherait à l'aveugle
+  const searching = search.trim().length > 0 || !!unitFilter || sansPrixOnly
+  const filtering = !!unitFilter || sansPrixOnly || searching
 
   function toggleAll() {
     setOpenIds(allOpen ? new Set() : new Set(visibleCats.map(c => c.id)))
@@ -133,13 +150,33 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
         </Button>
       </div>
 
-      {search && (
+      {/* Filtres : par unité (ce qui se vend à l'heure, à la journée, au m²…) */}
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <Chip active={!unitFilter && !sansPrixOnly} onClick={() => { setUnitFilter(''); setSansPrixOnly(false) }}>
+          Tout
+        </Chip>
+        {unitsPresent.map(u => (
+          <Chip key={u} active={unitFilter === u} onClick={() => setUnitFilter(unitFilter === u ? '' : u)}>
+            {UNIT_LABELS[u]}
+          </Chip>
+        ))}
+        {nbSansPrix > 0 && (
+          <Chip active={sansPrixOnly} onClick={() => setSansPrixOnly(v => !v)} tone="warn">
+            À fixer ({nbSansPrix})
+          </Chip>
+        )}
+      </div>
+
+      {filtering && (
         <p className="text-xs text-gray-400">
           {totalItems} prestation{totalItems > 1 ? 's' : ''} dans {visibleCats.length} catégorie{visibleCats.length > 1 ? 's' : ''}
         </p>
       )}
 
-      <div className="grid md:grid-cols-2 gap-3 items-start">
+      {/* Colonnes fluides plutôt qu'une grille : en grille, ouvrir une carte
+          allongeait toute la ligne et créait de grands trous. Ici chaque carte
+          se replace d'elle-même et l'ensemble reste compact. */}
+      <div className="columns-1 md:columns-2 xl:columns-3 gap-3 [column-fill:_balance]">
         {visibleCats.map(cat => {
           const open = searching || openIds.has(cat.id)
           const prices = cat.price_items.map(i => Number(i.unit_price_ht) || 0).filter(p => p > 0)
@@ -148,7 +185,7 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
           const sansPrix = cat.price_items.filter(i => !(Number(i.unit_price_ht) > 0)).length
 
           return (
-            <Card key={cat.id} className="border border-gray-200/80 overflow-hidden">
+            <Card key={cat.id} className="border border-gray-200/80 overflow-hidden mb-3 break-inside-avoid">
               {/* En-tête cliquable : l'essentiel se lit sans ouvrir */}
               <button onClick={() => toggle(cat.id)} disabled={searching}
                 className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors disabled:cursor-default">
@@ -229,9 +266,23 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
         })}
       </div>
 
-      {visibleCats.length === 0 && search && (
-        <p className="text-sm text-gray-400 text-center py-6">Aucune prestation ne correspond à « {search} ».</p>
+      {visibleCats.length === 0 && filtering && (
+        <p className="text-sm text-gray-400 text-center py-6">
+          Aucune prestation ne correspond{search ? ` à « ${search} »` : ' à ce filtre'}.
+        </p>
       )}
     </div>
   )
+}
+
+function Chip({ active, onClick, children, tone }: {
+  active: boolean; onClick: () => void; children: React.ReactNode; tone?: 'warn'
+}) {
+  const base = 'px-3 py-1.5 rounded-full text-xs font-medium border transition-colors'
+  const cls = active
+    ? tone === 'warn'
+      ? 'border-amber-300 bg-amber-100 text-amber-700'
+      : 'border-primary bg-accent text-primary'
+    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+  return <button type="button" onClick={onClick} className={`${base} ${cls}`}>{children}</button>
 }
