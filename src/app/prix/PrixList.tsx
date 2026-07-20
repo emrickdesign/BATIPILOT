@@ -215,12 +215,15 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
               {open && (
                 <CardContent className="px-3 pb-3 pt-0 bg-white border-t border-primary/20">
                   <div className="space-y-0.5 pt-2">
-                    {cat.price_items.map(item => {
+                    {cat.price_items.map((item, idx) => {
                       const isEditing = editingId === item.id
                       const isBusy = busyId === item.id
+                      // Rayures pastel : une ligne sur deux, pour suivre une
+                      // longue liste sans perdre la ligne des yeux.
+                      const zebra = idx % 2 === 1 ? 'bg-accent/25' : 'bg-transparent'
                       return (
                         <div key={item.id}
-                          className={`group flex items-center gap-2 py-2 px-2 rounded-lg transition-colors ${isEditing ? 'bg-accent/60' : 'hover:bg-gray-50'} ${isBusy ? 'opacity-50' : ''}`}>
+                          className={`group flex items-center gap-2 py-2 px-2 rounded-lg transition-colors ${isEditing ? 'bg-accent/70' : `${zebra} hover:bg-accent/50`} ${isBusy ? 'opacity-50' : ''}`}>
                           {isEditing ? (
                             <>
                               <Input autoFocus value={draft.name}
