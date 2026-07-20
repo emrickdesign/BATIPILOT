@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
-  Ruler, TrendingUp, AlertTriangle, FileSignature, Plus, Trash2, Save, Loader2, Users, Wand2, RotateCcw,
+  Ruler, TrendingUp, AlertTriangle, FileSignature, Plus, Trash2, Save, Loader2, Users, Wand2, RotateCcw, Check,
 } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import {
@@ -30,6 +30,33 @@ export default function ChiffrageEditor({
   const [margeCible, setMargeCible] = useState(initial.main_oeuvre?.marge_cible_pct || 0)
   const [saving, setSaving] = useState(false)
   const [dirty, setDirty] = useState(false)
+  // Lignes déjà versées dans la base de prix (évite le doublon au double-clic)
+  const [addedToPrix, setAddedToPrix] = useState<Set<number>>(new Set())
+
+  /**
+   * Une ligne « prix estimé » = un trou dans la base de prix de l'artisan.
+   * On la lui propose en un clic : sa base se construit au fil des chantiers.
+   */
+  async function ajouterAuxPrix(i: number, l: Ligne) {
+    if (!l.designation.trim()) { toast.error('Donnez un nom à la ligne d\'abord'); return }
+    try {
+      const res = await fetch('/api/prix/sauvegarder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          categories: [{
+            name: l.categorie?.trim() || 'Depuis une analyse de plan',
+            items: [{ name: l.designation, unit: l.unite, price: l.prix_unitaire_ht }],
+          }],
+        }),
+      })
+      if (!res.ok) { toast.error('Erreur lors de l\'ajout'); return }
+      setAddedToPrix(prev => new Set(prev).add(i))
+      toast.success(`« ${l.designation} » ajouté à vos prix`)
+    } catch {
+      toast.error('Erreur réseau')
+    }
+  }
 
   const coutMo = useMemo(() => mo.reduce((t, l) => t + moCost(l), 0), [mo])
   const totaux = useMemo(() => recomputeTotaux(lignes, coutMo), [lignes, coutMo])
@@ -190,7 +217,19 @@ export default function ChiffrageEditor({
                     <div className="flex items-center gap-1.5 px-1">
                       <Input value={l.categorie} onChange={e => setLigne(i, { categorie: e.target.value })}
                         placeholder="Catégorie" className="h-6 text-[11px] text-gray-400 border-0 px-0 focus-visible:ring-1 w-28" />
-                      {l.source_prix === 'estime' && <Badge variant="outline" className="text-[9px] text-amber-600 border-amber-300 px-1">estimé</Badge>}
+                      {l.source_prix === 'estime' && (
+                        addedToPrix.has(i) ? (
+                          <Badge className="bg-[#E9F2DB] text-[#3F7A2E] border-0 text-[9px] px-1 gap-0.5">
+                            <Check className="w-2.5 h-2.5" /> dans mes prix
+                          </Badge>
+                        ) : (
+                          <button onClick={() => ajouterAuxPrix(i, l)}
+                            title="Ce prix est estimé : l'ajouter à votre base de prix"
+                            className="inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 transition-colors">
+                            <Plus className="w-2.5 h-2.5" /> estimé — ajouter à mes prix
+                          </button>
+                        )
+                      )}
                       {margeLigne !== null && (
                         <span className={`text-[10px] font-medium ${margeLigne < 0 ? 'text-red-600' : 'text-gray-400'}`}>{margeLigne}% marge</span>
                       )}

@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { useMemo, useState } from 'react'
+import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Pencil, Trash2, Check, X, Tag } from 'lucide-react'
+import { Pencil, Trash2, Check, X, Tag, ChevronDown, Search, Layers } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -22,6 +22,18 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
   const [editingId, setEditingId] = useState<string | null>(null)
   const [draft, setDraft] = useState<{ name: string; unit: string; price: string }>({ name: '', unit: 'u', price: '' })
   const [busyId, setBusyId] = useState<string | null>(null)
+
+  // Replié par défaut : on arrive sur une vue d'ensemble, pas sur un mur de prix.
+  const [openIds, setOpenIds] = useState<Set<string>>(new Set())
+  const [search, setSearch] = useState('')
+
+  function toggle(id: string) {
+    setOpenIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
 
   function startEdit(item: Item) {
     setEditingId(item.id)
@@ -75,11 +87,28 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
     }
   }
 
-  const visibleCats = categories
-    .map(c => ({ ...c, price_items: c.price_items.filter(i => i.is_active) }))
-    .filter(c => c.price_items.length > 0)
+  const visibleCats = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    return categories
+      .map(c => ({
+        ...c,
+        price_items: c.price_items
+          .filter(i => i.is_active)
+          .filter(i => !q || i.name.toLowerCase().includes(q) || c.name.toLowerCase().includes(q)),
+      }))
+      .filter(c => c.price_items.length > 0)
+  }, [categories, search])
 
-  if (!visibleCats.length) {
+  const totalItems = visibleCats.reduce((t, c) => t + c.price_items.length, 0)
+  const allOpen = visibleCats.length > 0 && visibleCats.every(c => openIds.has(c.id))
+  // Une recherche ouvre tout : sinon on chercherait à l'aveugle dans des cartes fermées
+  const searching = search.trim().length > 0
+
+  function toggleAll() {
+    setOpenIds(allOpen ? new Set() : new Set(visibleCats.map(c => c.id)))
+  }
+
+  if (!categories.some(c => c.price_items.some(i => i.is_active))) {
     return (
       <Card>
         <CardContent className="py-12 text-center">
@@ -92,86 +121,117 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
   }
 
   return (
-    <div className="space-y-4">
-      {visibleCats.map(cat => (
-        <Card key={cat.id}>
-          <CardHeader className="pb-2 pt-4 px-4">
-            <CardTitle className="text-base font-semibold text-gray-800">{cat.name}</CardTitle>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="space-y-1">
-              {cat.price_items.map(item => {
-                const isEditing = editingId === item.id
-                const isBusy = busyId === item.id
-                return (
-                  <div
-                    key={item.id}
-                    className={`group flex items-center gap-2 py-2 px-3 rounded-lg transition-colors ${isEditing ? 'bg-[#FBEDE7]' : 'hover:bg-gray-50'} ${isBusy ? 'opacity-50' : ''}`}
-                  >
-                    {isEditing ? (
-                      <>
-                        <Input
-                          autoFocus
-                          value={draft.name}
-                          onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
-                          onKeyDown={e => { if (e.key === 'Enter') saveEdit(cat.id, item); if (e.key === 'Escape') setEditingId(null) }}
-                          className="h-8 text-sm flex-1"
-                          placeholder="Nom de la prestation"
-                        />
-                        <select
-                          value={draft.unit}
-                          onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))}
-                          className="h-8 text-xs border border-gray-200 rounded px-1 bg-white"
-                        >
-                          {UNITS.map(u => <option key={u} value={u}>{UNIT_LABELS[u]}</option>)}
-                        </select>
-                        <div className="flex items-center gap-1">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={draft.price}
-                            onChange={e => setDraft(d => ({ ...d, price: e.target.value }))}
-                            onKeyDown={e => { if (e.key === 'Enter') saveEdit(cat.id, item); if (e.key === 'Escape') setEditingId(null) }}
-                            className="h-8 w-24 text-sm text-right"
-                            placeholder="0.00"
-                          />
-                          <span className="text-xs text-gray-400">€ HT</span>
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="relative flex-1 min-w-[200px]">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          <Input value={search} onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher une prestation…" className="pl-9" />
+        </div>
+        <Button variant="outline" onClick={toggleAll} className="gap-1.5">
+          <Layers className="w-4 h-4" /> {allOpen ? 'Tout replier' : 'Tout ouvrir'}
+        </Button>
+      </div>
+
+      {search && (
+        <p className="text-xs text-gray-400">
+          {totalItems} prestation{totalItems > 1 ? 's' : ''} dans {visibleCats.length} catégorie{visibleCats.length > 1 ? 's' : ''}
+        </p>
+      )}
+
+      <div className="grid md:grid-cols-2 gap-3 items-start">
+        {visibleCats.map(cat => {
+          const open = searching || openIds.has(cat.id)
+          const prices = cat.price_items.map(i => Number(i.unit_price_ht) || 0).filter(p => p > 0)
+          const min = prices.length ? Math.min(...prices) : 0
+          const max = prices.length ? Math.max(...prices) : 0
+          const sansPrix = cat.price_items.filter(i => !(Number(i.unit_price_ht) > 0)).length
+
+          return (
+            <Card key={cat.id} className="border border-gray-200/80 overflow-hidden">
+              {/* En-tête cliquable : l'essentiel se lit sans ouvrir */}
+              <button onClick={() => toggle(cat.id)} disabled={searching}
+                className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors disabled:cursor-default">
+                <span className="grid place-items-center w-9 h-9 rounded-xl bg-accent text-primary flex-shrink-0">
+                  <Tag className="w-4 h-4" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="font-semibold text-marine truncate">{cat.name}</p>
+                  <p className="text-[11px] text-gray-400">
+                    {cat.price_items.length} prestation{cat.price_items.length > 1 ? 's' : ''}
+                    {prices.length > 0 && ` · ${formatCurrency(min)}${max !== min ? ` – ${formatCurrency(max)}` : ''}`}
+                  </p>
+                </div>
+                {sansPrix > 0 && (
+                  <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] flex-shrink-0">{sansPrix} sans prix</Badge>
+                )}
+                <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+              </button>
+
+              {open && (
+                <CardContent className="px-3 pb-3 pt-0 border-t border-gray-100">
+                  <div className="space-y-0.5 pt-2">
+                    {cat.price_items.map(item => {
+                      const isEditing = editingId === item.id
+                      const isBusy = busyId === item.id
+                      return (
+                        <div key={item.id}
+                          className={`group flex items-center gap-2 py-2 px-2 rounded-lg transition-colors ${isEditing ? 'bg-accent/60' : 'hover:bg-gray-50'} ${isBusy ? 'opacity-50' : ''}`}>
+                          {isEditing ? (
+                            <>
+                              <Input autoFocus value={draft.name}
+                                onChange={e => setDraft(d => ({ ...d, name: e.target.value }))}
+                                onKeyDown={e => { if (e.key === 'Enter') saveEdit(cat.id, item); if (e.key === 'Escape') setEditingId(null) }}
+                                className="h-8 text-sm flex-1" placeholder="Nom de la prestation" />
+                              <select value={draft.unit} onChange={e => setDraft(d => ({ ...d, unit: e.target.value }))}
+                                className="h-8 text-xs border border-gray-200 rounded px-1 bg-white">
+                                {UNITS.map(u => <option key={u} value={u}>{UNIT_LABELS[u]}</option>)}
+                              </select>
+                              <Input type="number" step="0.01" value={draft.price}
+                                onChange={e => setDraft(d => ({ ...d, price: e.target.value }))}
+                                onKeyDown={e => { if (e.key === 'Enter') saveEdit(cat.id, item); if (e.key === 'Escape') setEditingId(null) }}
+                                className="h-8 w-20 text-sm text-right" placeholder="0.00" />
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-[#3F7A2E] hover:bg-[#E9F2DB]" onClick={() => saveEdit(cat.id, item)}>
+                                <Check className="w-4 h-4" />
+                              </Button>
+                              <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400" onClick={() => setEditingId(null)}>
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <div className="min-w-0 flex-1">
+                                <span className="text-sm font-medium text-gray-900">{item.name}</span>
+                                {item.description && <span className="text-xs text-gray-400 ml-2">{item.description}</span>}
+                              </div>
+                              <Badge variant="outline" className="text-[10px] flex-shrink-0">{UNIT_LABELS[item.unit] || item.unit}</Badge>
+                              <span className={`font-semibold text-sm w-20 text-right flex-shrink-0 tabular-nums ${item.unit_price_ht > 0 ? 'text-gray-900' : 'text-amber-600'}`}>
+                                {item.unit_price_ht > 0 ? formatCurrency(item.unit_price_ht) : 'à fixer'}
+                              </span>
+                              <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-[#C14E33]" onClick={() => startEdit(item)}>
+                                  <Pencil className="w-3.5 h-3.5" />
+                                </Button>
+                                <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-red-600" onClick={() => remove(cat.id, item)}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </div>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-[#3F7A2E] hover:text-[#3F7A2E] hover:bg-[#E9F2DB]" onClick={() => saveEdit(cat.id, item)}>
-                          <Check className="w-4 h-4" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 text-gray-400 hover:text-gray-600" onClick={() => setEditingId(null)}>
-                          <X className="w-4 h-4" />
-                        </Button>
-                      </>
-                    ) : (
-                      <>
-                        <div className="min-w-0 flex-1">
-                          <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                          {item.description && <span className="text-xs text-gray-400 ml-2">{item.description}</span>}
-                        </div>
-                        <Badge variant="outline" className="text-xs flex-shrink-0">{UNIT_LABELS[item.unit] || item.unit}</Badge>
-                        <span className="font-semibold text-sm text-gray-900 w-20 text-right flex-shrink-0">
-                          {item.unit_price_ht > 0 ? formatCurrency(item.unit_price_ht) : '—'}
-                        </span>
-                        <span className="text-xs text-gray-400 flex-shrink-0">HT</span>
-                        <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-[#C14E33]" onClick={() => startEdit(item)}>
-                            <Pencil className="w-3.5 h-3.5" />
-                          </Button>
-                          <Button size="icon" variant="ghost" className="h-7 w-7 text-gray-400 hover:text-red-600" onClick={() => remove(cat.id, item)}>
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </div>
-                      </>
-                    )}
+                      )
+                    })}
                   </div>
-                )
-              })}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+                </CardContent>
+              )}
+            </Card>
+          )
+        })}
+      </div>
+
+      {visibleCats.length === 0 && search && (
+        <p className="text-sm text-gray-400 text-center py-6">Aucune prestation ne correspond à « {search} ».</p>
+      )}
     </div>
   )
 }
