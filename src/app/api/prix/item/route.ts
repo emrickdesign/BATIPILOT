@@ -10,14 +10,19 @@ export async function PATCH(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
-    const { id, name, unit, unit_price_ht, description } = await req.json()
+    const { id, name, unit, unit_price_ht, supplier_cost, description } = await req.json()
     if (!id) return NextResponse.json({ error: 'id manquant' }, { status: 400 })
 
-    const updates: Record<string, any> = {}
+    const updates: Record<string, unknown> = {}
     if (name !== undefined) updates.name = String(name).trim()
     if (description !== undefined) updates.description = description ? String(description).trim() : null
     if (unit !== undefined && ALLOWED_UNITS.includes(unit)) updates.unit = unit
     if (unit_price_ht !== undefined) updates.unit_price_ht = parseFloat(unit_price_ht) || 0
+    // Coût de revient : sert à la marge réelle et au chiffrage des plans
+    if (supplier_cost !== undefined) {
+      const c = parseFloat(supplier_cost)
+      updates.supplier_cost = Number.isFinite(c) && c > 0 ? c : null
+    }
 
     if (!Object.keys(updates).length) return NextResponse.json({ error: 'Rien à modifier' }, { status: 400 })
 

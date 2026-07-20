@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Tag, Upload, Sparkles } from 'lucide-react'
 import SeedPrixButton from './SeedPrixButton'
-import PrixList from './PrixList'
+import PrixList, { type PrixCategory } from './PrixList'
 
 export default async function PrixPage() {
   const supabase = await createClient()
@@ -70,7 +70,7 @@ export default async function PrixPage() {
           </Card>
         </div>
       ) : (
-        <PrixList initialCategories={(categories as { id: string; name: string; price_items: { id: string; name: string; description: string | null; unit: string; unit_price_ht: number; is_active: boolean }[] }[]) || []} />
+        <PrixList initialCategories={(categories as unknown as PrixCategory[]) || []} />
       )}
     </div>
   )
