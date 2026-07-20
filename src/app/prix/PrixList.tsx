@@ -117,9 +117,11 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
 
   const totalItems = visibleCats.reduce((t, c) => t + c.price_items.length, 0)
   const allOpen = visibleCats.length > 0 && visibleCats.every(c => openIds.has(c.id))
-  // Recherche ou filtre actif : on déplie, sinon on chercherait à l'aveugle
-  const searching = search.trim().length > 0 || !!unitFilter || sansPrixOnly
-  const filtering = !!unitFilter || sansPrixOnly || searching
+  // Seule la recherche déplie : on cherche une prestation précise, la voir est
+  // le but. Un filtre, lui, sert à balayer — les cartes restent fermées et on
+  // ouvre ce qu'on veut.
+  const searching = search.trim().length > 0
+  const filtering = searching || !!unitFilter || sansPrixOnly
 
   function toggleAll() {
     setOpenIds(allOpen ? new Set() : new Set(visibleCats.map(c => c.id)))
@@ -186,15 +188,20 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
 
           return (
             <Card key={cat.id} className="border border-gray-200/80 overflow-hidden mb-3 break-inside-avoid">
-              {/* En-tête cliquable : l'essentiel se lit sans ouvrir */}
+              {/* En-tête cliquable : l'essentiel se lit sans ouvrir.
+                  Ouvert, il se teinte pour se détacher de la liste blanche. */}
               <button onClick={() => toggle(cat.id)} disabled={searching}
-                className="w-full text-left px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors disabled:cursor-default">
-                <span className="grid place-items-center w-9 h-9 rounded-xl bg-accent text-primary flex-shrink-0">
+                className={`w-full text-left px-4 py-3 flex items-center gap-3 transition-colors disabled:cursor-default ${
+                  open ? 'bg-accent/70 hover:bg-accent' : 'hover:bg-gray-50'
+                }`}>
+                <span className={`grid place-items-center w-9 h-9 rounded-xl flex-shrink-0 ${
+                  open ? 'bg-primary text-primary-foreground' : 'bg-accent text-primary'
+                }`}>
                   <Tag className="w-4 h-4" />
                 </span>
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-marine truncate">{cat.name}</p>
-                  <p className="text-[11px] text-gray-400">
+                  <p className={`text-[11px] ${open ? 'text-primary/80' : 'text-gray-400'}`}>
                     {cat.price_items.length} prestation{cat.price_items.length > 1 ? 's' : ''}
                     {prices.length > 0 && ` · ${formatCurrency(min)}${max !== min ? ` – ${formatCurrency(max)}` : ''}`}
                   </p>
@@ -202,11 +209,11 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
                 {sansPrix > 0 && (
                   <Badge className="bg-amber-100 text-amber-700 border-0 text-[10px] flex-shrink-0">{sansPrix} sans prix</Badge>
                 )}
-                <ChevronDown className={`w-4 h-4 text-gray-400 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+                <ChevronDown className={`w-4 h-4 flex-shrink-0 transition-transform ${open ? 'rotate-180 text-primary' : 'text-gray-400'}`} />
               </button>
 
               {open && (
-                <CardContent className="px-3 pb-3 pt-0 border-t border-gray-100">
+                <CardContent className="px-3 pb-3 pt-0 bg-white border-t border-primary/20">
                   <div className="space-y-0.5 pt-2">
                     {cat.price_items.map(item => {
                       const isEditing = editingId === item.id
