@@ -244,9 +244,14 @@ export default function PrixList({ initialCategories }: { initialCategories: Cat
                             </>
                           ) : (
                             <>
+                              {/* Une ligne pour le titre, une pour le sous-titre :
+                                  tronqués plutôt que repliés (le titre complet
+                                  reste lisible au survol). */}
                               <div className="min-w-0 flex-1">
-                                <span className="text-sm font-medium text-gray-900">{item.name}</span>
-                                {item.description && <span className="text-xs text-gray-400 ml-2">{item.description}</span>}
+                                <p className="text-sm font-medium text-gray-900 truncate" title={item.name}>{item.name}</p>
+                                {item.description && (
+                                  <p className="text-xs text-gray-400 truncate" title={item.description}>{item.description}</p>
+                                )}
                               </div>
                               <Badge variant="outline" className="text-[10px] flex-shrink-0">{UNIT_LABELS[item.unit] || item.unit}</Badge>
                               <span className={`font-semibold text-sm w-20 text-right flex-shrink-0 tabular-nums ${item.unit_price_ht > 0 ? 'text-gray-900' : 'text-amber-600'}`}>
