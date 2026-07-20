@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { ArrowLeft, ExternalLink, FileText } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { normalizeResult } from '@/lib/plans'
-import AnalyseResult from '../AnalyseResult'
+import ChiffrageEditor from '../ChiffrageEditor'
 
 export default async function AnalysePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -14,11 +14,16 @@ export default async function AnalysePage({ params }: { params: Promise<{ id: st
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const { data } = await supabase
-    .from('plan_analyses')
-    .select('id, created_at, demande, result, raw_ai_output, plan_uploads(storage_path, original_filename, file_type)')
-    .eq('id', id).eq('user_id', user.id)
-    .maybeSingle()
+  const [{ data }, { data: emps }] = await Promise.all([
+    supabase
+      .from('plan_analyses')
+      .select('id, created_at, demande, result, raw_ai_output, plan_uploads(storage_path, original_filename, file_type)')
+      .eq('id', id).eq('user_id', user.id)
+      .maybeSingle(),
+    // Les vrais salariés alimentent le calcul de main-d'œuvre
+    supabase.from('employees').select('id, full_name, hourly_cost')
+      .eq('user_id', user.id).eq('active', true).order('full_name'),
+  ])
 
   if (!data) return notFound()
 
@@ -79,7 +84,22 @@ export default async function AnalysePage({ params }: { params: Promise<{ id: st
         </Card>
       )}
 
-      <AnalyseResult result={result} />
+      {/* Les réponses données avant chiffrage (étape 3) */}
+      {result.questions && result.questions.length > 0 && (
+        <Card className="border-gray-200">
+          <CardContent className="p-4 space-y-2">
+            <p className="text-[11px] font-semibold text-gray-400 uppercase">Précisions données</p>
+            {result.questions.filter(q => q.reponse).map((q, i) => (
+              <div key={i} className="text-sm">
+                <p className="text-gray-500">{q.question}</p>
+                <p className="text-gray-800 font-medium">{q.reponse}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <ChiffrageEditor analyseId={data.id} initial={result} employees={(emps || []) as { id: string; full_name: string; hourly_cost: number | null }[]} />
     </div>
   )
 }

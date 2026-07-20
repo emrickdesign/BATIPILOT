@@ -31,6 +31,21 @@ export type Totaux = {
   marge_estimee_pct: number
 }
 
+/** Une affectation de main-d'œuvre : un salarié (ou un profil libre) sur n jours. */
+export type MoLigne = {
+  employee_id: string | null
+  nom: string
+  jours: number
+  heures_par_jour: number
+  cout_horaire: number
+}
+
+export type MainOeuvre = {
+  lignes: MoLigne[]
+  /** Marge cible en % appliquée aux lignes chiffrées (0 = pas d'application). */
+  marge_cible_pct: number
+}
+
 export type Result = {
   comprehension: string
   hypotheses: string[]
@@ -38,6 +53,23 @@ export type Result = {
   lignes: Ligne[]
   totaux: Totaux
   remarques: string[]
+  /** Questions posées par l'IA avant chiffrage et réponses de l'artisan (étape 3). */
+  questions?: { question: string; reponse: string }[]
+  main_oeuvre?: MainOeuvre
+}
+
+export const moCost = (l: MoLigne) => (Number(l.jours) || 0) * (Number(l.heures_par_jour) || 0) * (Number(l.cout_horaire) || 0)
+export const moTotal = (mo?: MainOeuvre) => (mo?.lignes || []).reduce((t, l) => t + moCost(l), 0)
+
+/**
+ * Prix de vente déduit d'un coût et d'une marge cible.
+ * On raisonne en marge SUR LE PRIX DE VENTE (marge commerciale), pas en
+ * coefficient sur le coût : 30% de marge => coût / 0,70.
+ */
+export function prixDepuisMarge(cout: number, margePct: number): number {
+  const m = Math.min(Math.max(Number(margePct) || 0, 0), 95)
+  if (!cout) return 0
+  return Math.round((cout / (1 - m / 100)) * 100) / 100
 }
 
 /** Ligne de la galerie (jointure plan_analyses + plan_uploads). */
@@ -95,6 +127,18 @@ export function normalizeResult(raw: unknown): Result {
     marge_estimee_pct: num(t.marge_estimee_pct),
   }
 
+  const mo = r.main_oeuvre
+  const main_oeuvre: MainOeuvre = {
+    lignes: Array.isArray(mo?.lignes) ? mo.lignes.map(l => ({
+      employee_id: l?.employee_id ?? null,
+      nom: String(l?.nom || 'Intervenant'),
+      jours: num(l?.jours),
+      heures_par_jour: num(l?.heures_par_jour) || 7,
+      cout_horaire: num(l?.cout_horaire),
+    })) : [],
+    marge_cible_pct: num(mo?.marge_cible_pct),
+  }
+
   return {
     comprehension: String(r.comprehension || ''),
     hypotheses: Array.isArray(r.hypotheses) ? r.hypotheses.map(String) : [],
@@ -107,5 +151,9 @@ export function normalizeResult(raw: unknown): Result {
     lignes,
     totaux,
     remarques: Array.isArray(r.remarques) ? r.remarques.map(String) : [],
+    questions: Array.isArray(r.questions) ? r.questions.map(q => ({
+      question: String(q?.question || ''), reponse: String(q?.reponse || ''),
+    })) : [],
+    main_oeuvre,
   }
 }
