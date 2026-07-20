@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
-import { Upload, Mic, MicOff, Sparkles, Loader2, FileText, Ruler, TrendingUp, AlertTriangle, FileSignature, RotateCcw, ArrowLeft } from 'lucide-react'
+import { Upload, Sparkles, Loader2, FileText, Ruler, TrendingUp, AlertTriangle, FileSignature, RotateCcw, ArrowLeft, HelpCircle } from 'lucide-react'
 import QuestionsStep, { type Question } from './QuestionsStep'
+import DictationButton from '@/components/DictationButton'
 import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
 
@@ -31,13 +32,11 @@ type Result = {
 export default function PlansPage() {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
-  const recognitionRef = useRef<any>(null)
 
   const [file, setFile] = useState<File | null>(null)
   const [preview, setPreview] = useState<string | null>(null)
   const [demande, setDemande] = useState('')
   const [hauteur, setHauteur] = useState('2.5')
-  const [recording, setRecording] = useState(false)
   const [analysing, setAnalysing] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
 
@@ -48,7 +47,6 @@ export default function PlansPage() {
 
   async function lirePlan() {
     if (!file) { toast.error('Importez d\'abord un plan'); return }
-    if (recording) { recognitionRef.current?.stop(); setRecording(false) }
     setReading(true)
     const fd = new FormData()
     fd.append('file', file)
@@ -89,26 +87,9 @@ export default function PlansPage() {
     }
   }
 
-  function toggleVoice() {
-    if (recording) { recognitionRef.current?.stop(); setRecording(false); return }
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-    if (!SR) { toast.error('Reconnaissance vocale non supportée par ce navigateur'); return }
-    const r = new SR()
-    r.lang = 'fr-FR'; r.continuous = true; r.interimResults = false
-    r.onresult = (e: any) => {
-      let txt = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) txt += e.results[i][0].transcript + ' '
-      setDemande(prev => (prev ? prev + ' ' : '') + txt.trim())
-    }
-    r.onend = () => setRecording(false)
-    r.onerror = () => { toast.error('Erreur micro'); setRecording(false) }
-    recognitionRef.current = r; r.start(); setRecording(true)
-  }
-
   async function analyse(reps?: { question: string; reponse: string }[]) {
     if (!file) { toast.error('Importez d\'abord un plan'); return }
     if (!demande.trim()) { toast.error('Décrivez les travaux (au clavier ou au micro)'); return }
-    if (recording) { recognitionRef.current?.stop(); setRecording(false) }
     setAnalysing(true)
     setResult(null)
     const fd = new FormData()
@@ -215,25 +196,16 @@ export default function PlansPage() {
           <CardTitle className="text-base flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">2</span> Vos travaux</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4 space-y-3">
-          <div className="relative">
+          <div className="flex items-start gap-2">
             <Textarea
               value={demande}
               onChange={e => setDemande(e.target.value)}
-              rows={4}
-              placeholder="Décrivez ou dictez : « Je rénove toute la salle de bain, je refais le carrelage sol et mur, je pose un meuble vasque et une douche, je fais du placo sur les cloisons... »"
-              className="pr-12"
+              rows={6}
+              placeholder="Dictez tout ce que vous savez : les pièces concernées, les travaux, les matériaux voulus, l'état de l'existant, les contraintes d'accès… Plus vous en dites, plus le chiffrage sera juste. Vous pouvez faire des pauses, la dictée continue."
+              className="flex-1"
             />
-            <Button
-              type="button"
-              size="icon"
-              onClick={toggleVoice}
-              className={`absolute top-2 right-2 h-9 w-9 rounded-full ${recording ? 'bg-red-500 hover:bg-red-600 animate-pulse' : 'bg-gray-900 hover:bg-gray-700'}`}
-              title={recording ? 'Arrêter' : 'Dicter'}
-            >
-              {recording ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
-            </Button>
+            <DictationButton value={demande} onChange={setDemande} />
           </div>
-          {recording && <p className="text-xs text-red-500 flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" /> Enregistrement en cours… parlez normalement</p>}
           <div className="flex items-center gap-2 text-sm">
             <label className="text-gray-500">Hauteur sous plafond :</label>
             <input
@@ -246,13 +218,24 @@ export default function PlansPage() {
       </Card>
 
       {/* BOUTON ANALYSER */}
-      <Button onClick={lirePlan} disabled={reading || analysing || !file} className="w-full h-12 text-base gap-2">
-        {reading
-          ? <><Loader2 className="w-5 h-5 animate-spin" /> Lecture du plan…</>
-          : analysing
+      {/* Deux sorties : chiffrer tout de suite, ou faire creuser l'IA d'abord */}
+      <div className="flex flex-col sm:flex-row gap-2">
+        <Button variant="outline" onClick={lirePlan} disabled={reading || analysing || !file}
+          className="flex-1 h-12 text-base gap-2">
+          {reading
+            ? <><Loader2 className="w-5 h-5 animate-spin" /> Lecture du plan…</>
+            : <><HelpCircle className="w-5 h-5" /> Me poser des questions d&apos;abord</>}
+        </Button>
+        <Button onClick={() => analyse([])} disabled={reading || analysing || !file}
+          className="flex-1 h-12 text-base gap-2">
+          {analysing
             ? <><Loader2 className="w-5 h-5 animate-spin" /> Chiffrage en cours…</>
-            : <><Sparkles className="w-5 h-5" /> Analyser le plan</>}
-      </Button>
+            : <><Sparkles className="w-5 h-5" /> Analyser directement</>}
+        </Button>
+      </div>
+      <p className="text-[11px] text-gray-400 text-center -mt-2">
+        « Me poser des questions » fait relire votre plan et votre description à l&apos;IA : elle creuse ce qui manque avant de chiffrer.
+      </p>
       </>
       )}
 
