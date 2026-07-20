@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import Link from 'next/link'
 import { Upload, Mic, MicOff, Sparkles, Loader2, FileText, Ruler, TrendingUp, AlertTriangle, FileSignature, RotateCcw, ArrowLeft } from 'lucide-react'
+import QuestionsStep, { type Question } from './QuestionsStep'
 import { toast } from 'sonner'
 import { formatCurrency } from '@/lib/utils'
 
@@ -39,6 +40,36 @@ export default function PlansPage() {
   const [recording, setRecording] = useState(false)
   const [analysing, setAnalysing] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
+
+  // Parcours en 2 temps : l'IA lit le plan et pose ses questions, puis chiffre.
+  const [lecture, setLecture] = useState<{ lecture: string; pieces: string[]; questions: Question[] } | null>(null)
+  const [reponses, setReponses] = useState<string[]>([])
+  const [reading, setReading] = useState(false)
+
+  async function lirePlan() {
+    if (!file) { toast.error('Importez d\'abord un plan'); return }
+    if (recording) { recognitionRef.current?.stop(); setRecording(false) }
+    setReading(true)
+    const fd = new FormData()
+    fd.append('file', file)
+    fd.append('demande', demande)
+    try {
+      const res = await fetch('/api/plans/questions', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok || !json.questions?.length) {
+        // Pas de questions exploitables : on ne bloque pas, on chiffre directement
+        toast.info(json.error || 'Passage direct au chiffrage')
+        await analyse([])
+        return
+      }
+      setLecture({ lecture: json.lecture, pieces: json.pieces_detectees || [], questions: json.questions })
+      setReponses(new Array(json.questions.length).fill(''))
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setReading(false)
+    }
+  }
 
   function pickFile(f: File | undefined) {
     if (!f) return
@@ -74,7 +105,7 @@ export default function PlansPage() {
     recognitionRef.current = r; r.start(); setRecording(true)
   }
 
-  async function analyse() {
+  async function analyse(reps?: { question: string; reponse: string }[]) {
     if (!file) { toast.error('Importez d\'abord un plan'); return }
     if (!demande.trim()) { toast.error('Décrivez les travaux (au clavier ou au micro)'); return }
     if (recording) { recognitionRef.current?.stop(); setRecording(false) }
@@ -84,6 +115,8 @@ export default function PlansPage() {
     fd.append('file', file)
     fd.append('demande', demande)
     fd.append('hauteur_mur', hauteur)
+    const payload = reps ?? (lecture?.questions || []).map((q, i) => ({ question: q.question, reponse: reponses[i] || '' })).filter(r => r.reponse.trim())
+    if (payload.length) fd.append('reponses', JSON.stringify(payload))
     try {
       const res = await fetch('/api/plans/analyser', { method: 'POST', body: fd })
       const json = await res.json()
@@ -130,6 +163,20 @@ export default function PlansPage() {
         <p className="text-sm text-gray-500">Importez un plan, décrivez les travaux, et obtenez un métré chiffré avec votre marge.</p>
       </div>
 
+      {/* Étape 2 : l'IA a lu le plan, elle pose ses questions */}
+      {lecture ? (
+        <QuestionsStep
+          lecture={lecture.lecture}
+          pieces={lecture.pieces}
+          questions={lecture.questions}
+          reponses={reponses}
+          setReponses={setReponses}
+          analysing={analysing}
+          onAnalyser={() => analyse()}
+          onSkip={() => analyse([])}
+        />
+      ) : (
+      <>
       {/* 1. IMPORT DU PLAN */}
       <Card>
         <CardHeader className="pb-2 pt-4 px-4">
@@ -199,9 +246,15 @@ export default function PlansPage() {
       </Card>
 
       {/* BOUTON ANALYSER */}
-      <Button onClick={analyse} disabled={analysing || !file} className="w-full h-12 text-base gap-2">
-        {analysing ? <><Loader2 className="w-5 h-5 animate-spin" /> Analyse du plan en cours…</> : <><Sparkles className="w-5 h-5" /> Analyser le plan selon ma demande</>}
+      <Button onClick={lirePlan} disabled={reading || analysing || !file} className="w-full h-12 text-base gap-2">
+        {reading
+          ? <><Loader2 className="w-5 h-5 animate-spin" /> Lecture du plan…</>
+          : analysing
+            ? <><Loader2 className="w-5 h-5 animate-spin" /> Chiffrage en cours…</>
+            : <><Sparkles className="w-5 h-5" /> Analyser le plan</>}
       </Button>
+      </>
+      )}
 
       {analysing && (
         <Card><CardContent className="py-6 text-center text-sm text-gray-500 space-y-1">

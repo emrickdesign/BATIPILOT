@@ -17,6 +17,14 @@ export async function POST(req: NextRequest) {
     const hauteurMur = String(formData.get('hauteur_mur') || '2.5')
     const clientId = String(formData.get('client_id') || '') || null
     const projectId = String(formData.get('project_id') || '') || null
+    // Réponses aux questions posées par l'IA après lecture du plan (étape 3)
+    let reponses: { question: string; reponse: string }[] = []
+    try {
+      const raw = String(formData.get('reponses') || '')
+      if (raw) reponses = (JSON.parse(raw) as { question?: unknown; reponse?: unknown }[])
+        .map(r => ({ question: String(r?.question || ''), reponse: String(r?.reponse || '') }))
+        .filter(r => r.question && r.reponse)
+    } catch { /* pas de réponses : on chiffre avec la seule demande */ }
     if (!file || file.size === 0) return NextResponse.json({ error: 'Plan manquant' }, { status: 400 })
     if (!demande) return NextResponse.json({ error: 'Décrivez les travaux à réaliser' }, { status: 400 })
 
@@ -27,13 +35,16 @@ export async function POST(req: NextRequest) {
     // Charger la base de prix de l'artisan (pour matcher les prix réels + marge)
     const { data: cats } = await supabase
       .from('price_categories')
-      .select('name, price_items(name, unit, unit_price_ht, is_active)')
+      .select('name, price_items(name, unit, unit_price_ht, supplier_cost, is_active)')
       .eq('user_id', user.id)
 
+    // On transmet aussi le coût de revient quand l'artisan l'a renseigné : l'IA
+    // ne doit jamais inventer un coût là où on connaît le vrai.
     const priceLines: string[] = []
     for (const c of cats || []) {
-      for (const it of ((c.price_items as any[]) || []).filter(i => i.is_active)) {
-        priceLines.push(`${c.name} > ${it.name} | ${it.unit} | ${it.unit_price_ht}€ HT`)
+      for (const it of ((c.price_items as { name: string; unit: string; unit_price_ht: number; supplier_cost: number | null; is_active: boolean }[]) || []).filter(i => i.is_active)) {
+        const cout = Number(it.supplier_cost) > 0 ? ` | coût de revient ${it.supplier_cost}€` : ''
+        priceLines.push(`${c.name} > ${it.name} | ${it.unit} | vente ${it.unit_price_ht}€ HT${cout}`)
       }
     }
     const baseDePrix = priceLines.length
@@ -51,7 +62,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Le plan doit être un PDF ou une image (PNG/JPG).' }, { status: 415 })
     }
 
-    const prompt = buildPrompt(demande, hauteurMur, baseDePrix)
+    const prompt = buildPrompt(demande, hauteurMur, baseDePrix, reponses)
 
     let message: Awaited<ReturnType<typeof anthropic.messages.create>>
     try {
@@ -80,6 +91,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Réponse IA invalide — réessayez.' }, { status: 422 })
     }
     const result = normalizeResult(parsed)
+    result.questions = reponses  // conservées : on doit pouvoir relire sur quoi le chiffrage repose
 
     // ─── Persistance : le plan et son analyse survivent au rafraîchissement ───
     // Le fichier part dans le bucket documents (policy : <dossier>/<user_id>/…)
@@ -127,11 +139,16 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function buildPrompt(demande: string, hauteurMur: string, baseDePrix: string): string {
+function buildPrompt(demande: string, hauteurMur: string, baseDePrix: string, reponses: { question: string; reponse: string }[] = []): string {
+  const precisions = reponses.length
+    ? `\nPRÉCISIONS DONNÉES PAR L'ARTISAN (réponses à tes questions — elles font FOI, respecte-les strictement) :\n${reponses.map(r => `- ${r.question}\n  → ${r.reponse}`).join('\n')}\n`
+    : ''
+
   return `Tu es un métreur-chiffreur expert du bâtiment. Tu analyses un PLAN 2D coté (les cotes sont en CENTIMÈTRES sauf indication contraire : ex "405" = 4,05 m, "240/215" = largeur/hauteur d'une ouverture en cm).
 
 DEMANDE DE L'ARTISAN (dictée, peut être approximative) :
 "${demande}"
+${precisions}
 
 HYPOTHÈSE HAUTEUR SOUS PLAFOND : ${hauteurMur} m (sauf si le plan indique autre chose).
 
