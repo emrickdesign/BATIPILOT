@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { normalizeResult } from '@/lib/plans'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -14,6 +15,8 @@ export async function POST(req: NextRequest) {
     const file = formData.get('file') as File | null
     const demande = String(formData.get('demande') || '').trim()
     const hauteurMur = String(formData.get('hauteur_mur') || '2.5')
+    const clientId = String(formData.get('client_id') || '') || null
+    const projectId = String(formData.get('project_id') || '') || null
     if (!file || file.size === 0) return NextResponse.json({ error: 'Plan manquant' }, { status: 400 })
     if (!demande) return NextResponse.json({ error: 'Décrivez les travaux à réaliser' }, { status: 400 })
 
@@ -70,14 +73,54 @@ export async function POST(req: NextRequest) {
     const jsonMatch = rawText.match(/```json\n?([\s\S]*?)\n?```/) || rawText.match(/(\{[\s\S]*\})/)
     if (!jsonMatch) return NextResponse.json({ error: 'Analyse impossible — le plan est peut-être illisible.', raw: rawText.slice(0, 300) }, { status: 422 })
 
-    let parsed: any
+    let parsed: unknown
     try {
       parsed = JSON.parse(jsonMatch[1] || jsonMatch[0])
     } catch {
       return NextResponse.json({ error: 'Réponse IA invalide — réessayez.' }, { status: 422 })
     }
+    const result = normalizeResult(parsed)
 
-    return NextResponse.json({ success: true, data: parsed })
+    // ─── Persistance : le plan et son analyse survivent au rafraîchissement ───
+    // Le fichier part dans le bucket documents (policy : <dossier>/<user_id>/…)
+    const safe = (file.name || 'plan').replace(/[^a-zA-Z0-9.\-_]/g, '_')
+    const storagePath = `plans/${user.id}/${Date.now()}-${safe}`
+    await supabase.storage.from('documents').upload(storagePath, buffer, {
+      contentType: file.type || undefined, upsert: false,
+    })
+
+    const { data: upload } = await supabase.from('plan_uploads').insert({
+      user_id: user.id,
+      client_id: clientId,
+      project_id: projectId,
+      storage_path: storagePath,
+      original_filename: file.name || 'plan',
+      file_type: file.type || null,
+      title: result.comprehension?.slice(0, 120) || 'Analyse de plan',
+      analysis_status: 'done',
+    }).select('id').single()
+
+    const { data: analyse, error: aErr } = await supabase.from('plan_analyses').insert({
+      user_id: user.id,
+      plan_upload_id: upload?.id ?? null,
+      ai_summary: result.comprehension || null,
+      demande,
+      hauteur_mur: Number(hauteurMur) || null,
+      raw_ai_output: parsed as object,   // trace de ce que l'IA a réellement répondu
+      result,                            // état courant, éditable ensuite
+      total_ht: result.totaux.total_ht,
+      marge_eur: result.totaux.marge_estimee_eur,
+      marge_pct: result.totaux.marge_estimee_pct,
+      nb_lignes: result.lignes.length,
+    }).select('id').single()
+
+    if (aErr) {
+      // L'analyse a réussi : on la rend quand même plutôt que de la perdre
+      console.error('[plans] Sauvegarde impossible :', aErr.message)
+      return NextResponse.json({ success: true, data: result, saved: false })
+    }
+
+    return NextResponse.json({ success: true, id: analyse.id, data: result, saved: true })
   } catch (err: any) {
     console.error('Plan analyse error:', err)
     return NextResponse.json({ error: err?.message || 'Erreur serveur' }, { status: 500 })
