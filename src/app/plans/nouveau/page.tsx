@@ -135,107 +135,128 @@ export default function PlansPage() {
   const t = result?.totaux
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-5 animate-fade-up">
       <Link href="/plans">
-        <Button variant="ghost" size="sm" className="gap-1"><ArrowLeft className="w-4 h-4" /> Toutes les analyses</Button>
+        <Button variant="ghost" size="sm" className="gap-1 -ml-2"><ArrowLeft className="w-4 h-4" /> Toutes les analyses</Button>
       </Link>
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Analyser un plan</h1>
-        <p className="text-sm text-gray-500">Importez un plan, décrivez les travaux, et obtenez un métré chiffré avec votre marge.</p>
+        <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Analyser un plan</h1>
+        <p className="text-gray-500 mt-1 text-sm">
+          Déposez le plan, dites ce que vous voulez faire, obtenez un métré chiffré avec votre marge.
+        </p>
       </div>
 
       {/* Étape 2 : l'IA a lu le plan, elle pose ses questions */}
       {lecture ? (
-        <QuestionsStep
-          lecture={lecture.lecture}
-          pieces={lecture.pieces}
-          questions={lecture.questions}
-          reponses={reponses}
-          setReponses={setReponses}
-          analysing={analysing}
-          onAnalyser={() => analyse()}
-          onSkip={() => analyse([])}
-        />
+        <div className="max-w-3xl">
+          <QuestionsStep
+            lecture={lecture.lecture}
+            pieces={lecture.pieces}
+            questions={lecture.questions}
+            reponses={reponses}
+            setReponses={setReponses}
+            analysing={analysing}
+            onAnalyser={() => analyse()}
+            onSkip={() => analyse([])}
+          />
+        </div>
       ) : (
       <>
-      {/* 1. IMPORT DU PLAN */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-base flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">1</span> Le plan</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div
-            onClick={() => fileRef.current?.click()}
-            onDrop={e => { e.preventDefault(); pickFile(e.dataTransfer.files[0]) }}
-            onDragOver={e => e.preventDefault()}
-            className="border-2 border-dashed border-gray-300 rounded-xl p-5 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50/30 transition-all"
-          >
-            {preview ? (
-              <img src={preview} alt="Plan" className="max-h-72 mx-auto rounded-lg shadow object-contain" />
-            ) : file ? (
-              <div className="space-y-1 py-3">
-                <FileText className="w-10 h-10 text-blue-500 mx-auto" />
-                <p className="text-sm font-medium text-gray-800">{file.name}</p>
-                <p className="text-xs text-gray-400">Cliquez pour changer</p>
-              </div>
-            ) : (
-              <div className="space-y-2 py-3">
-                <Upload className="w-9 h-9 text-gray-400 mx-auto" />
-                <p className="font-medium text-gray-700">Glissez votre plan ici</p>
-                <p className="text-sm text-gray-400">PDF, PNG ou JPG — plan coté de préférence</p>
-              </div>
-            )}
-          </div>
-          <input ref={fileRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={e => pickFile(e.target.files?.[0])} />
-        </CardContent>
-      </Card>
+      {/* Le plan à gauche, la description à droite : on occupe la largeur dispo */}
+      <div className="grid lg:grid-cols-2 gap-4 items-start">
+        <Card className="border border-gray-200/80">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-[15px] font-heading flex items-center gap-2">
+              <span className="grid place-items-center w-6 h-6 rounded-full bg-accent text-primary text-xs font-bold">1</span>
+              Votre plan
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-5">
+            <div
+              onClick={() => fileRef.current?.click()}
+              onDrop={e => { e.preventDefault(); pickFile(e.dataTransfer.files[0]) }}
+              onDragOver={e => e.preventDefault()}
+              className="border-2 border-dashed border-gray-300 rounded-xl p-5 text-center cursor-pointer hover:border-primary hover:bg-accent/30 transition-all min-h-[260px] grid place-items-center"
+            >
+              {preview ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={preview} alt="Plan" className="max-h-[320px] mx-auto rounded-lg shadow object-contain" />
+              ) : file ? (
+                <div className="space-y-1">
+                  <FileText className="w-10 h-10 text-primary mx-auto" />
+                  <p className="text-sm font-medium text-gray-800">{file.name}</p>
+                  <p className="text-xs text-gray-400">Cliquez pour changer</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <span className="grid place-items-center w-12 h-12 rounded-2xl bg-accent text-primary mx-auto">
+                    <Upload className="w-6 h-6" />
+                  </span>
+                  <p className="font-semibold text-marine">Glissez votre plan ici</p>
+                  <p className="text-sm text-gray-400">PDF, PNG ou JPG — coté de préférence</p>
+                </div>
+              )}
+            </div>
+            <input ref={fileRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={e => pickFile(e.target.files?.[0])} />
+          </CardContent>
+        </Card>
 
-      {/* 2. DEMANDE */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-base flex items-center gap-2"><span className="w-5 h-5 rounded-full bg-gray-900 text-white text-xs flex items-center justify-center">2</span> Vos travaux</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-3">
-          <div className="flex items-start gap-2">
-            <Textarea
-              value={demande}
-              onChange={e => setDemande(e.target.value)}
-              rows={6}
-              placeholder="Dictez tout ce que vous savez : les pièces concernées, les travaux, les matériaux voulus, l'état de l'existant, les contraintes d'accès… Plus vous en dites, plus le chiffrage sera juste. Vous pouvez faire des pauses, la dictée continue."
-              className="flex-1"
-            />
-            <DictationButton value={demande} onChange={setDemande} />
-          </div>
-          <div className="flex items-center gap-2 text-sm">
-            <label className="text-gray-500">Hauteur sous plafond :</label>
-            <input
-              type="number" step="0.05" value={hauteur} onChange={e => setHauteur(e.target.value)}
-              className="w-20 border border-gray-200 rounded px-2 py-1 text-sm"
-            />
-            <span className="text-gray-400">m</span>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* BOUTON ANALYSER */}
-      {/* Deux sorties : chiffrer tout de suite, ou faire creuser l'IA d'abord */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <Button variant="outline" onClick={lirePlan} disabled={reading || analysing || !file}
-          className="flex-1 h-12 text-base gap-2">
-          {reading
-            ? <><Loader2 className="w-5 h-5 animate-spin" /> Lecture du plan…</>
-            : <><HelpCircle className="w-5 h-5" /> Me poser des questions d&apos;abord</>}
-        </Button>
-        <Button onClick={() => analyse([])} disabled={reading || analysing || !file}
-          className="flex-1 h-12 text-base gap-2">
-          {analysing
-            ? <><Loader2 className="w-5 h-5 animate-spin" /> Chiffrage en cours…</>
-            : <><Sparkles className="w-5 h-5" /> Analyser directement</>}
-        </Button>
+        <Card className="border border-gray-200/80">
+          <CardHeader className="pb-2 pt-4 px-5">
+            <CardTitle className="text-[15px] font-heading flex items-center gap-2">
+              <span className="grid place-items-center w-6 h-6 rounded-full bg-accent text-primary text-xs font-bold">2</span>
+              Ce que vous voulez faire
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="px-5 pb-5 space-y-3">
+            <div className="relative">
+              <Textarea
+                value={demande}
+                onChange={e => setDemande(e.target.value)}
+                rows={9}
+                placeholder="Dictez tout ce que vous savez : les pièces concernées, les travaux, les matériaux voulus, l'état de l'existant, les contraintes d'accès…&#10;&#10;Plus vous en dites, plus le chiffrage sera juste. Vous pouvez faire des pauses, la dictée continue."
+                className="pr-14 resize-none"
+              />
+              <div className="absolute top-2 right-2">
+                <DictationButton value={demande} onChange={setDemande} />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-sm border-t border-gray-100 pt-3">
+              <label className="text-gray-500">Hauteur sous plafond</label>
+              <input
+                type="number" step="0.05" value={hauteur} onChange={e => setHauteur(e.target.value)}
+                className="w-20 h-9 border border-gray-200 rounded-md px-2 text-sm"
+              />
+              <span className="text-gray-400">m</span>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-      <p className="text-[11px] text-gray-400 text-center -mt-2">
-        « Me poser des questions » fait relire votre plan et votre description à l&apos;IA : elle creuse ce qui manque avant de chiffrer.
-      </p>
+
+      {/* Actions : posées dans un bandeau, pas flottantes dans le vide */}
+      <Card className="border border-gray-200/80 bg-gray-50/60">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={lirePlan} disabled={reading || analysing || !file}
+              className="flex-1 h-12 text-[15px] gap-2 bg-white">
+              {reading
+                ? <><Loader2 className="w-5 h-5 animate-spin" /> Lecture du plan…</>
+                : <><HelpCircle className="w-5 h-5" /> Me poser des questions pour une meilleure analyse</>}
+            </Button>
+            <Button onClick={() => analyse([])} disabled={reading || analysing || !file}
+              className="flex-1 h-12 text-[15px] gap-2 shadow-sm">
+              {analysing
+                ? <><Loader2 className="w-5 h-5 animate-spin" /> Chiffrage en cours…</>
+                : <><Sparkles className="w-5 h-5" /> Analyser</>}
+            </Button>
+          </div>
+          <p className="text-[11px] text-gray-400 text-center">
+            {!file
+              ? 'Déposez d’abord un plan pour lancer l’analyse.'
+              : 'L’IA relit votre plan et votre description, puis creuse ce qui manque avant de chiffrer.'}
+          </p>
+        </CardContent>
+      </Card>
       </>
       )}
 
