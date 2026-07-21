@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { LogIn, LogOut, Coffee, Play, MapPin, Loader2, ReceiptText, Navigation } from 'lucide-react'
+import { LogIn, LogOut, Coffee, Play, MapPin, Loader2, ReceiptText, Navigation, Camera, X } from 'lucide-react'
 import { presenceShort, presenceColors } from '@/lib/pointage'
 import { employeeInitials } from '@/lib/equipe'
 import type { PresenceType } from '@/types'
@@ -55,6 +55,49 @@ export default function PointageClient({
   const [finProb, setFinProb] = useState('')
   const [finMat, setFinMat] = useState('')
 
+  // Photo du chantier (→ compte-rendu client)
+  const [finPhoto, setFinPhoto] = useState<File | null>(null)
+  const [finPhotoUrl, setFinPhotoUrl] = useState<string | null>(null)
+  const finPhotoRef = useRef<HTMLInputElement>(null)
+  const quickPhotoRef = useRef<HTMLInputElement>(null)
+  const [photoBusy, setPhotoBusy] = useState(false)
+
+  const AV_TO_PCT: Record<string, number> = { '25 %': 25, '50 %': 50, '75 %': 75, 'Terminé': 100 }
+
+  function pickFinPhoto(f: File | null) {
+    setFinPhoto(f)
+    setFinPhotoUrl(prev => { if (prev) URL.revokeObjectURL(prev); return f ? URL.createObjectURL(f) : null })
+  }
+
+  // Crée un point d'avancement (site_updates), avec ou sans photo (upload dans le bucket documents).
+  async function createSiteUpdate(file: File | null, progress: number | null, note: string | null) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { toast.error('Non connecté'); return false }
+    let path: string | null = null
+    if (file && file.size > 0) {
+      const safe = file.name.replace(/[^a-zA-Z0-9.\-_]/g, '_') || 'photo.jpg'
+      path = `comptes-rendus/${user.id}/${Date.now()}-${safe}`
+      const { error: upErr } = await supabase.storage.from('documents').upload(path, file, { contentType: file.type || 'image/jpeg', upsert: false })
+      if (upErr) { toast.error('Envoi de la photo impossible'); return false }
+    }
+    const { error } = await supabase.from('site_updates').insert({
+      user_id: user.id, project_id: projectId || null, employee_id: employeeId || null,
+      progress, note: note?.trim() || null, photo_path: path,
+    })
+    if (error) { if (path) await supabase.storage.from('documents').remove([path]); toast.error('Enregistrement impossible'); return false }
+    return true
+  }
+
+  // Photo rapide (hors fin de journée) → compte-rendu.
+  async function submitQuickPhoto(f: File) {
+    if (!projectId) { toast.error('Choisissez d’abord un chantier'); return }
+    setPhotoBusy(true)
+    const ok = await createSiteUpdate(f, null, null)
+    setPhotoBusy(false)
+    if (ok) { toast.success('Photo ajoutée au compte-rendu 📸'); router.refresh() }
+  }
+
   const empById = useMemo(() => new Map(employees.map(e => [e.id, e])), [employees])
   const notPointed = useMemo(() => {
     const pointed = new Set(events.filter(e => e.type === 'arrivee' && e.employee_id).map(e => e.employee_id))
@@ -86,7 +129,16 @@ export default function PointageClient({
     if (finProb.trim()) parts.push(`Problème : ${finProb.trim()}`)
     if (finMat.trim()) parts.push(`Matériel manquant : ${finMat.trim()}`)
     await record('depart', parts.join(' · '))
-    setShowFin(false); setFinAv(''); setFinNote(''); setFinProb(''); setFinMat('')
+    // Point d'avancement pour le compte-rendu client (photo + % + note visible client).
+    if (finPhoto || finAv || finNote.trim()) {
+      const ok = await createSiteUpdate(
+        finPhoto,
+        finAv ? AV_TO_PCT[finAv] ?? null : null,
+        finNote.trim() || (finAv ? `Avancement : ${finAv}` : null),
+      ).catch(() => false)
+      if (finPhoto && ok) toast.success('Photo ajoutée au compte-rendu 📸')
+    }
+    setShowFin(false); setFinAv(''); setFinNote(''); setFinProb(''); setFinMat(''); pickFinPhoto(null)
   }
 
   const AVANCEMENT = ['25 %', '50 %', '75 %', 'Terminé']
@@ -142,6 +194,16 @@ export default function PointageClient({
         })}
       </div>
 
+      {/* Photo du chantier (→ compte-rendu client) */}
+      <input ref={quickPhotoRef} type="file" accept="image/*" capture="environment" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) submitQuickPhoto(f); if (quickPhotoRef.current) quickPhotoRef.current.value = '' }} />
+      <button onClick={() => quickPhotoRef.current?.click()} disabled={photoBusy || busy !== null}
+        className="card-interactive w-full flex items-center justify-center gap-2.5 rounded-2xl border border-gray-200/80 bg-white py-4 px-4 font-semibold text-marine disabled:opacity-60">
+        {photoBusy ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5 text-primary" strokeWidth={2.1} />}
+        Photo du chantier
+        <span className="text-xs font-normal text-gray-400">— pour le compte-rendu client</span>
+      </button>
+
       {/* Fin de journée (§13.2) */}
       {!showFin ? (
         <Button onClick={() => setShowFin(true)} className="w-full h-12 gap-2 bg-marine hover:bg-marine/90"><LogOut className="w-5 h-5" /> Je pars du chantier — fin de journée</Button>
@@ -169,6 +231,22 @@ export default function PointageClient({
               <div className="space-y-1"><label className="text-xs font-medium text-gray-500">Matériel manquant</label>
                 <Input value={finMat} onChange={e => setFinMat(e.target.value)} placeholder="Ex : 2 sacs de colle" /></div>
             </div>
+            {/* Photo du jour pour le compte-rendu */}
+            <input ref={finPhotoRef} type="file" accept="image/*" capture="environment" className="hidden"
+              onChange={e => pickFinPhoto(e.target.files?.[0] ?? null)} />
+            {finPhotoUrl ? (
+              <div className="relative w-full h-40 rounded-xl overflow-hidden border border-gray-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={finPhotoUrl} alt="Photo du chantier" className="w-full h-full object-cover" />
+                <button type="button" onClick={() => pickFinPhoto(null)}
+                  className="absolute top-2 right-2 grid place-items-center w-8 h-8 rounded-full bg-black/50 text-white hover:bg-black/70"><X className="w-4 h-4" /></button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => finPhotoRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border-2 border-dashed border-gray-300 py-4 text-sm font-medium text-gray-500 hover:border-primary hover:text-primary transition-colors">
+                <Camera className="w-5 h-5" /> Ajouter une photo du chantier
+              </button>
+            )}
             <Link href={`/tickets${projectId ? `?project=${projectId}` : ''}`}>
               <Button type="button" variant="outline" className="gap-2"><ReceiptText className="w-4 h-4" /> Ajouter un ticket dépense</Button>
             </Link>

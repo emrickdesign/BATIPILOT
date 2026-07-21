@@ -81,6 +81,10 @@ export interface Project {
   start_date?: string
   end_date?: string
   notes?: string
+  is_outdoor?: boolean
+  latitude?: number | null
+  longitude?: number | null
+  geocoded_at?: string | null
   created_at: string
   clients?: Client
 }
@@ -173,6 +177,18 @@ export interface PresenceEvent {
   photo_path?: string | null
   note?: string | null
   occurred_at: string
+  created_at: string
+}
+
+export interface SiteUpdate {
+  id: string
+  user_id: string
+  project_id: string
+  employee_id?: string | null
+  update_date: string
+  photo_path?: string | null
+  progress?: number | null
+  note?: string | null
   created_at: string
 }
 

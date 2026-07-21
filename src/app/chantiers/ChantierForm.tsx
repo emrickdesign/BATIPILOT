@@ -32,6 +32,7 @@ export default function ChantierForm({ project }: { project?: Project }) {
   const [clients, setClients] = useState<ClientOption[]>([])
   const [clientId, setClientId] = useState<string>(project?.client_id || searchParams.get('client') || '')
   const [status, setStatus] = useState<ProjectStatus>(project?.status || 'a_planifier')
+  const [isOutdoor, setIsOutdoor] = useState<boolean>(project?.is_outdoor ?? false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -64,12 +65,18 @@ export default function ChantierForm({ project }: { project?: Project }) {
       start_date: (data.get('start_date') as string) || null,
       end_date: (data.get('end_date') as string) || null,
       status,
+      is_outdoor: isOutdoor,
       description: (data.get('description') as string) || null,
       notes: (data.get('notes') as string) || null,
     }
+    // Si l'adresse change, on réinitialise le géocodage pour qu'il soit recalculé.
+    const addressChanged = (payload.address || '') !== (project?.address || '')
 
     if (isEdit) {
-      const { error } = await supabase.from('projects').update(payload).eq('id', project!.id)
+      const updatePayload = addressChanged
+        ? { ...payload, latitude: null, longitude: null, geocoded_at: null }
+        : payload
+      const { error } = await supabase.from('projects').update(updatePayload).eq('id', project!.id)
       if (error) { toast.error('Erreur lors de la modification'); setLoading(false); return }
       toast.success('Chantier modifié !')
       router.push(`/chantiers/${project!.id}`)
@@ -141,6 +148,16 @@ export default function ChantierForm({ project }: { project?: Project }) {
             <Input id="end_date" name="end_date" type="date" defaultValue={project?.end_date || ''} className="w-full sm:w-[150px]" />
           </div>
         </div>
+        <button type="button" onClick={() => setIsOutdoor(v => !v)}
+          className={`mt-3 flex items-start gap-3 w-full text-left rounded-xl border p-3 transition-colors ${isOutdoor ? 'border-primary/40 bg-primary/[0.04]' : 'border-gray-200 hover:border-gray-300'}`}>
+          <span className={`mt-0.5 grid place-items-center w-5 h-5 rounded-md border-2 flex-shrink-0 transition-colors ${isOutdoor ? 'bg-primary border-primary text-white' : 'border-gray-300'}`}>
+            {isOutdoor && <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none"><path d="M2.5 6.5l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+          </span>
+          <span>
+            <span className="block text-sm font-medium text-marine">Chantier extérieur / exposé aux intempéries</span>
+            <span className="block text-xs text-gray-500 mt-0.5">Active l&apos;alerte météo : BatiPilot vous prévient et propose de décaler si pluie, gel ou vent fort est prévu les jours planifiés.</span>
+          </span>
+        </button>
       </FormSection>
 
       {/* Description & notes côte à côte */}

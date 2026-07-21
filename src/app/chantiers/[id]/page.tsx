@@ -12,6 +12,8 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Project, ProjectStatus } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
 import StatusSelect from '../StatusSelect'
+import MateriauxSection, { type MaterialRow } from './MateriauxSection'
+import { buildNeeds, type QuoteLineLite } from '@/lib/materiaux'
 
 const num = (v: unknown) => Number(v) || 0
 
@@ -69,6 +71,35 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
   const coutSousTraitance = (subInvoices || []).reduce((s, i) => s + (num(i.amount_ht) || num(i.amount_ttc) / 1.2), 0)
   const marge = revenuSigne - coutDepensesHt - coutMainOeuvre - coutSousTraitance
   const margePct = revenuSigne > 0 ? Math.round((marge / revenuSigne) * 100) : null
+
+  // ── Besoins matériaux : dérivés des lignes de devis acceptés + suivi d'achat ──
+  const acceptedQuotes = (quotes || []).filter(q => isSigned(q.status))
+  type QLRaw = { id: string; quote_id: string; price_item_id: string | null; designation: string; quantity: number | null; unit: string | null; price_items: { supply_included: boolean; supplier_cost: number | null } | null }
+  const [{ data: quoteLinesRaw }, { data: procRaw }] = await Promise.all([
+    acceptedQuotes.length
+      ? supabase.from('quote_lines').select('id,quote_id,price_item_id,designation,quantity,unit,price_items(supply_included,supplier_cost)').in('quote_id', acceptedQuotes.map(q => q.id))
+      : Promise.resolve({ data: [] }),
+    supabase.from('procurement_items').select('label_key,label,unit,quantity,supplier,cost_ht,purchased,manual').eq('project_id', id),
+  ])
+  const lines: QuoteLineLite[] = ((quoteLinesRaw || []) as unknown as QLRaw[]).map(l => ({
+    id: l.id, quote_id: l.quote_id, price_item_id: l.price_item_id, designation: l.designation,
+    quantity: l.quantity, unit: l.unit,
+    price_item: l.price_items ? { supply_included: l.price_items.supply_included, supplier_cost: l.price_items.supplier_cost } : null,
+  }))
+  const needs = buildNeeds(acceptedQuotes.map(q => ({ id: q.id, quote_number: q.quote_number, status: q.status })), lines)
+  type ProcRow = { label_key: string; label: string; unit: string | null; quantity: number | null; supplier: string | null; cost_ht: number | null; purchased: boolean; manual: boolean }
+  const procRows = (procRaw || []) as ProcRow[]
+  const procByKey = new Map(procRows.map(r => [r.label_key, r]))
+  const materialRows: MaterialRow[] = needs.map(n => {
+    const st = procByKey.get(n.key)
+    return { ...n, purchased: st?.purchased ?? false, supplier: st?.supplier ?? null, cost_ht: st?.cost_ht ?? null, manual: false }
+  })
+  for (const r of procRows) {
+    if (r.manual && !needs.some(n => n.key === r.label_key)) {
+      materialRows.push({ key: r.label_key, label: r.label, unit: r.unit, quantity: Number(r.quantity) || 0, estCostHt: 0, quotes: [], uncertain: false, purchased: r.purchased, supplier: r.supplier, cost_ht: r.cost_ht, manual: true })
+    }
+  }
+  materialRows.sort((a, b) => a.label.localeCompare(b.label, 'fr'))
 
   // Bloc équipe
   const assignedIds = [...new Set((assignments || []).map(a => a.employee_id))]
@@ -305,6 +336,9 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         </CardContent>
       </Card>
       </div>
+
+      {/* Besoins matériaux (dérivés des devis acceptés) */}
+      <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
 
       {/* Plans liés */}
       {!!plans?.length && (

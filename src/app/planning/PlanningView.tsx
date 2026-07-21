@@ -8,11 +8,13 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, CalendarDays, HardHat, Users2, X, AlertTriangle, UserCheck, ArrowRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, HardHat, Users2, X, AlertTriangle, UserCheck, ArrowRight, CloudRain, CalendarClock } from 'lucide-react'
 import { employeeInitials } from '@/lib/equipe'
+import type { DayWeather } from '@/lib/meteo'
+import type { WeatherAlert } from './page'
 
 export type PlanningViewMode = 'jour' | 'semaine' | 'mois'
-type ProjectRow = { id: string; title: string; status: string; address?: string | null }
+type ProjectRow = { id: string; title: string; status: string; address?: string | null; is_outdoor?: boolean | null }
 type EmployeeRow = { id: string; full_name: string; color: string }
 type AssignmentRow = { id: string; employee_id: string; project_id: string; date: string; start_hour: number; end_hour: number }
 
@@ -87,14 +89,18 @@ function EmployeeBar({ emp, a, busy, onChange, onRemove }: {
 
 export default function PlanningView({
   view, days, anchor, prevDate, nextDate, projects, employees, assignments,
+  weather = {}, weatherAlerts = [],
 }: {
   view: PlanningViewMode; days: string[]; anchor: string; prevDate: string; nextDate: string
   projects: ProjectRow[]; employees: EmployeeRow[]; assignments: AssignmentRow[]
+  weather?: Record<string, Record<string, DayWeather>>
+  weatherAlerts?: WeatherAlert[]
 }) {
   const router = useRouter()
   const [items, setItems] = useState<AssignmentRow[]>(assignments)
   const [busy, setBusy] = useState(false)
   const [selDay, setSelDay] = useState<string | null>(null)
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
 
   // Resync après router.refresh()
   const [syncedFrom, setSyncedFrom] = useState(assignments)
@@ -151,6 +157,42 @@ export default function PlanningView({
     setItems(prev => prev.map(x => (x.id === a.id ? { ...x, start_hour: s, end_hour: e } : x)))
     const { error } = await createClient().from('assignments').update({ start_hour: s, end_hour: e }).eq('id', a.id)
     if (error) toast.error('Erreur horaire')
+  }
+
+  // Décale toute l'équipe d'un chantier d'un jour (météo) vers un jour clément.
+  async function reschedule(projectId: string, fromDate: string, toDate: string) {
+    setBusy(true)
+    const supabase = createClient()
+    const source = items.filter(a => a.project_id === projectId && a.date === fromDate)
+    const alreadyOnTarget = new Set(items.filter(a => a.project_id === projectId && a.date === toDate).map(a => a.employee_id))
+    let ok = 0
+    for (const a of source) {
+      if (alreadyOnTarget.has(a.employee_id)) {
+        // Déjà affecté au jour cible → on supprime le doublon (contrainte unique emp+proj+date).
+        const { error } = await supabase.from('assignments').delete().eq('id', a.id)
+        if (!error) { setItems(prev => prev.filter(x => x.id !== a.id)); ok++ }
+      } else {
+        const { error } = await supabase.from('assignments').update({ date: toDate }).eq('id', a.id)
+        if (!error) { setItems(prev => prev.map(x => (x.id === a.id ? { ...x, date: toDate } : x))); ok++ }
+      }
+    }
+    setBusy(false)
+    if (ok > 0) { toast.success(`Chantier décalé au ${toDate.split('-').reverse().slice(0, 2).join('/')}`); router.refresh() }
+    else toast.error('Rien à décaler')
+  }
+
+  const visibleAlerts = weatherAlerts.filter(a => !dismissed.has(`${a.projectId}|${a.date}`))
+
+  // Petite pastille météo pour une cellule chantier×jour (chantiers extérieurs uniquement).
+  const WeatherBadge = ({ projectId, date }: { projectId: string; date: string }) => {
+    const dw = weather[projectId]?.[date]
+    if (!dw) return null
+    return (
+      <span title={`${dw.label} — min ${Math.round(dw.tMin)}° / max ${Math.round(dw.tMax)}°`}
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${dw.bad ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-500'}`}>
+        <span aria-hidden>{dw.emoji}</span>{dw.label}
+      </span>
+    )
   }
 
   // Chip salarié affecté (semaine / mois)
@@ -235,7 +277,49 @@ export default function PlanningView({
         <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${sansEquipe.length > 0 ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`}>
           <HardHat className="w-3.5 h-3.5" /> {sansEquipe.length} chantier{sansEquipe.length > 1 ? 's' : ''} sans équipe
         </span>
+        <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium ${visibleAlerts.length > 0 ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-500'}`}>
+          <CloudRain className="w-3.5 h-3.5" /> {visibleAlerts.length} alerte{visibleAlerts.length > 1 ? 's' : ''} météo
+        </span>
       </div>
+
+      {/* Alertes météo → replanification (chantiers extérieurs) */}
+      {visibleAlerts.length > 0 && (
+        <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden ring-1 ring-sky-100">
+          <div className="bg-gradient-to-r from-sky-50 to-transparent px-4 py-2.5 border-b border-sky-100 flex items-center gap-2">
+            <CloudRain className="w-4 h-4 text-sky-600" />
+            <h3 className="text-sm font-semibold text-marine">Météo défavorable sur des chantiers extérieurs planifiés</h3>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {visibleAlerts.map(al => (
+              <div key={`${al.projectId}|${al.date}`} className="flex items-center gap-3 px-4 py-3 flex-wrap">
+                <span className="text-xl leading-none" aria-hidden>{al.emoji}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-800">
+                    <Link href={`/chantiers/${al.projectId}`} className="font-semibold hover:text-primary">{al.projectTitle}</Link>
+                    <span className="text-gray-500"> · {al.detail} </span>
+                    <span className="font-medium capitalize">{al.dateLabel}</span>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    {al.nbAffectes} salarié{al.nbAffectes > 1 ? 's' : ''} affecté{al.nbAffectes > 1 ? 's' : ''} ce jour-là
+                    {al.suggestLabel ? <> · prochain jour clément : <span className="font-medium text-emerald-600 capitalize">{al.suggestLabel}</span></> : <> · aucun jour clément dans les 7 jours</>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {al.suggestDate && (
+                    <Button size="sm" disabled={busy} onClick={() => reschedule(al.projectId, al.date, al.suggestDate!)}>
+                      <CalendarClock className="w-3.5 h-3.5 mr-1.5" /> Décaler au {al.suggestLabel}
+                    </Button>
+                  )}
+                  <Button variant="ghost" size="sm" className="text-gray-400 hover:text-gray-700"
+                    onClick={() => setDismissed(prev => new Set(prev).add(`${al.projectId}|${al.date}`))}>
+                    Ignorer
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {projects.length === 0 ? (
         <EmptyState icon={<HardHat className="w-12 h-12 mx-auto mb-3 text-gray-300" />}
@@ -266,6 +350,7 @@ export default function PlanningView({
                   </div>
                   {days.map(d => (
                     <div key={d} className={`p-2 border-l border-gray-100 min-h-[76px] ${d === todayIso ? 'bg-primary/[0.03]' : ''}`}>
+                      {weather[p.id]?.[d] && <div className="mb-1"><WeatherBadge projectId={p.id} date={d} /></div>}
                       <div className="flex flex-wrap gap-1.5">
                         {(cellMap.get(`${p.id}|${d}`) || []).map(a => <Chip key={a.id} a={a} date={d} />)}
                       </div>
@@ -289,7 +374,10 @@ export default function PlanningView({
                     <div className="flex items-center gap-2.5 mb-3">
                       <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><HardHat className="w-4 h-4" /></span>
                       <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate">{p.title}</Link>
-                      <span className="text-xs text-gray-400 ml-auto">{rows.length} affecté{rows.length > 1 ? 's' : ''}</span>
+                      <span className="ml-auto flex items-center gap-2">
+                        <WeatherBadge projectId={p.id} date={days[0]} />
+                        <span className="text-xs text-gray-400">{rows.length} affecté{rows.length > 1 ? 's' : ''}</span>
+                      </span>
                     </div>
 
                     {/* Axe des heures */}
