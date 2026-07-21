@@ -4,10 +4,8 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { CheckCircle, Clock, XCircle } from 'lucide-react'
 import SignatureForm from './SignatureForm'
-
-const unitLabels: Record<string, string> = {
-  m2: 'm²', ml: 'ml', u: 'unité', forfait: 'forfait', h: 'heure', j: 'jour', piece: 'pièce'
-}
+import DocFrame from './DocFrame'
+import { buildDocData, renderDocument } from '@/lib/doc-templates'
 
 export default async function SignaturePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -141,145 +139,15 @@ export default async function SignaturePage({ params }: { params: Promise<{ id: 
   }
   if (!document) return notFound()
 
-  const docNumber = docType === 'devis' ? document.quote_number : document.invoice_number
-  const clientName = client?.type === 'professionnel'
-    ? (client.company_name || 'Client')
-    : `${client?.first_name || ''} ${client?.last_name || ''}`.trim() || 'Client'
-
-  const prestataireLines = [
-    company?.address,
-    company?.siret ? `SIRET : ${company.siret}` : null,
-    [company?.phone, company?.email].filter(Boolean).join(' · ') || null,
-  ].filter(Boolean) as string[]
-
-  const clientInfoLines = [
-    client?.type === 'professionnel' && client?.siret ? `SIRET : ${client.siret}` : null,
-    client?.phone || null,
-    client?.email || null,
-    client?.billing_address || null,
-  ].filter(Boolean) as string[]
+  const templateId = (company?.template_style as { template_id?: string } | null)?.template_id
+  const docData = buildDocData(docType, document, company, client, lines)
+  const docHtml = renderDocument(templateId, docData)
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
-      <div className="max-w-2xl mx-auto space-y-4">
-        <div className="flex items-center gap-3">
-          {company?.logo_url && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={company.logo_url} alt={company.trade_name || ''} className="w-10 h-10 rounded-lg object-cover" />
-          )}
-          <p className="font-bold text-gray-900 text-lg">{company?.trade_name || 'Votre entreprise'}</p>
-        </div>
-
-        <Card>
-          <CardContent className="p-5 space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold">
-                  {docType === 'devis' ? 'Devis' : 'Facture'}
-                </p>
-                <p className="font-mono text-sm text-gray-500">{docNumber}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold text-gray-900">{formatCurrency(document.total_ttc)}</p>
-                <p className="text-xs text-gray-400">TTC</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm border-t border-b py-3">
-              <div>
-                <p className="text-[11px] font-semibold text-gray-400 mb-1">PRESTATAIRE</p>
-                <p className="font-medium text-gray-900">{company?.trade_name || ''}</p>
-                {prestataireLines.map((l, i) => <p key={i} className="text-gray-500 text-xs">{l}</p>)}
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold text-gray-400 mb-1">CLIENT</p>
-                <p className="font-medium text-gray-900">{clientName}</p>
-                {clientInfoLines.map((l, i) => <p key={i} className="text-gray-500 text-xs">{l}</p>)}
-              </div>
-            </div>
-
-            <div className="text-sm text-gray-600 grid grid-cols-2 gap-2">
-              <div>Date : <span className="font-medium text-gray-900">{formatDate(document.issue_date)}</span></div>
-              {docType === 'devis' && document.valid_until && (
-                <div>Validité : <span className="font-medium text-gray-900">{formatDate(document.valid_until)}</span></div>
-              )}
-              {docType === 'facture' && document.due_date && (
-                <div>Échéance : <span className="font-medium text-gray-900">{formatDate(document.due_date)}</span></div>
-              )}
-            </div>
-
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left px-3 py-2 font-medium text-gray-600">Désignation</th>
-                    <th className="text-right px-2 py-2 font-medium text-gray-600 w-14">Qté</th>
-                    <th className="text-right px-2 py-2 font-medium text-gray-600 w-12">TVA</th>
-                    <th className="text-right px-3 py-2 font-medium text-gray-600 w-24">Total HT</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {lines.map((l: any) => (
-                    <tr key={l.id}>
-                      <td className="px-3 py-2">
-                        <div className="font-medium text-gray-900">{l.designation}</div>
-                        {l.description && <div className="text-xs text-gray-400">{l.description}</div>}
-                      </td>
-                      <td className="text-right px-2 py-2 text-gray-600">{l.quantity} {unitLabels[l.unit] || l.unit}</td>
-                      <td className="text-right px-2 py-2 text-gray-500">{l.vat_rate}%</td>
-                      <td className="text-right px-3 py-2 font-semibold text-gray-900">{formatCurrency(l.total_ht)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="flex justify-end">
-              <div className="w-64 space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Total HT</span>
-                  <span className="font-medium">{formatCurrency(document.subtotal_ht)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">TVA</span>
-                  <span>{formatCurrency(document.total_vat)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-base border-t pt-1">
-                  <span>Total TTC</span>
-                  <span>{formatCurrency(document.total_ttc)}</span>
-                </div>
-                {docType === 'devis' && document.deposit_amount > 0 && (
-                  <div className="flex justify-between text-blue-600 border-t pt-1">
-                    <span>Acompte demandé ({document.deposit_percent}%)</span>
-                    <span className="font-semibold">{formatCurrency(document.deposit_amount)}</span>
-                  </div>
-                )}
-                {docType === 'facture' && document.deposit_already_paid > 0 && (
-                  <div className="flex justify-between text-gray-500">
-                    <span>Acompte versé</span>
-                    <span>- {formatCurrency(document.deposit_already_paid)}</span>
-                  </div>
-                )}
-                {docType === 'facture' && (
-                  <div className="flex justify-between font-bold text-blue-700 border-t pt-1">
-                    <span>Reste à payer</span>
-                    <span>{formatCurrency(document.amount_due)}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {document.notes && (
-              <div className="text-sm text-gray-500 border-t pt-3">
-                <p className="font-medium text-gray-700 mb-1">{docType === 'devis' ? 'Modalités :' : 'Notes :'}</p>
-                <p className="whitespace-pre-line">{document.notes}</p>
-              </div>
-            )}
-            {document.legal_mentions && (
-              <div className="text-xs text-gray-400 border-t pt-3">{document.legal_mentions}</div>
-            )}
-          </CardContent>
-        </Card>
+      <div className="max-w-[880px] mx-auto space-y-4">
+        {/* Le document rendu dans le modèle choisi par l'entreprise — c'est ce que le client signe */}
+        <DocFrame html={docHtml} />
 
         {status === 'signee' && (
           <Card className="border-green-200 bg-green-50">

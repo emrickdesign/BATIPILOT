@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { PREDEFINED_TEMPLATES } from '@/lib/pdf-templates'
+import { DOC_TEMPLATES } from '@/lib/doc-templates'
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,7 +10,8 @@ export async function POST(req: NextRequest) {
     if (!user) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
     const { template_id, primary_color } = await req.json()
-    if (!template_id || !PREDEFINED_TEMPLATES[template_id]) {
+    // Nouveaux modèles HTML (azur, via…) ou anciens (compat).
+    if (!template_id || (!DOC_TEMPLATES[template_id] && !PREDEFINED_TEMPLATES[template_id])) {
       return NextResponse.json({ error: 'template_id invalide' }, { status: 400 })
     }
 
