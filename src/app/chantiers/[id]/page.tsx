@@ -45,7 +45,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     supabase.from('expenses').select('id,supplier,amount_ttc,amount_ht,category,expense_date').eq('project_id', id).neq('status', 'archive').order('created_at', { ascending: false }),
     supabase.from('time_entries').select('hours,employee_id').eq('project_id', id),
     supabase.from('employees').select('id,full_name,role,color,hourly_cost').eq('user_id', user.id),
-    supabase.from('assignments').select('employee_id').eq('project_id', id),
+    supabase.from('assignments').select('employee_id,start_hour,end_hour').eq('project_id', id),
     supabase.from('vehicle_logs').select('vehicle_id').eq('project_id', id),
     supabase.from('vehicles').select('id,name,plate').eq('user_id', user.id),
     supabase.from('subcontractor_invoices').select('amount_ht,amount_ttc,status').eq('project_id', id).eq('user_id', user.id),
@@ -56,6 +56,10 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
 
   const totalDepenses = (expenses || []).reduce((s, e) => s + num(e.amount_ttc), 0)
   const totalHeures = (timeEntries || []).reduce((s, t) => s + num(t.hours), 0)
+  // Dérive prévu vs pointé : heures planifiées (affectations, défaut 8h–17h) vs heures pointées.
+  const heuresPlanifiees = (assignments || []).reduce((s, a: { start_hour?: number | null; end_hour?: number | null }) =>
+    s + Math.max(0, (num(a.end_hour) || 17) - (num(a.start_hour) || 8)), 0) || num(p.planned_hours)
+  const derive = totalHeures - heuresPlanifiees
   const empCost = new Map((employees || []).map(e => [e.id, num(e.hourly_cost)]))
   const empById = new Map((employees || []).map(e => [e.id, e]))
 
@@ -207,7 +211,15 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
             </div>
           )}
           <div className="flex flex-wrap gap-4 text-sm pt-1">
-            <span className="flex items-center gap-1.5 text-gray-600"><Clock className="w-4 h-4 text-gray-400" />{totalHeures.toFixed(1).replace('.0', '')} h déclarées</span>
+            <span className="flex items-center gap-1.5 text-gray-600"><Clock className="w-4 h-4 text-gray-400" />{totalHeures.toFixed(1).replace('.0', '')} h pointées</span>
+            {heuresPlanifiees > 0 && (
+              <span className="flex items-center gap-1.5 text-gray-600">
+                {heuresPlanifiees.toFixed(1).replace('.0', '')} h planifiées
+                <span className={`font-semibold ${derive > 0 ? 'text-rose-600' : 'text-[#3F7A2E]'}`}>
+                  ({derive > 0 ? '+' : ''}{derive.toFixed(1).replace('.0', '')} h)
+                </span>
+              </span>
+            )}
             {projVehicles.length > 0 && (
               <span className="flex items-center gap-1.5 text-gray-600"><Truck className="w-4 h-4 text-gray-400" />{projVehicles.map(v => v!.name + (v!.plate ? ` (${v!.plate})` : '')).join(', ')}</span>
             )}
