@@ -112,6 +112,15 @@ export default function ChantiersList({ projects }: { projects: ChantierCard[] }
                     </div>
                   </div>
                 </div>
+
+                {(project.progress ?? 0) > 0 && (
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <div className="h-1.5 flex-1 rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-[#3F7A2E]" style={{ width: `${project.progress}%` }} />
+                    </div>
+                    <span className="text-[11px] font-medium text-gray-500 tabular-nums">{project.progress} %</span>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </Link>

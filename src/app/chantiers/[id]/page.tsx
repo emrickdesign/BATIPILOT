@@ -13,6 +13,7 @@ import type { Project, ProjectStatus } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
 import StatusSelect from '../StatusSelect'
 import MateriauxSection, { type MaterialRow } from './MateriauxSection'
+import AvancementControl from './AvancementControl'
 import { buildNeeds, type QuoteLineLite } from '@/lib/materiaux'
 
 const num = (v: unknown) => Number(v) || 0
@@ -162,6 +163,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
             <div className="flex items-center gap-2 text-sm"><Calendar className="w-4 h-4 text-gray-400" /><span className="text-gray-700">{p.start_date ? formatDate(p.start_date) : '?'} → {p.end_date ? formatDate(p.end_date) : '?'}</span></div>
           )}
           {p.description && <div className="pt-2 border-t border-gray-100"><p className="text-sm text-gray-700 whitespace-pre-line">{p.description}</p></div>}
+          <AvancementControl projectId={id} initial={p.progress} />
         </CardContent>
       </Card>
 
