@@ -252,21 +252,24 @@ export default function SousTraitantsList({ subs, meta }: { subs: Subcontractor[
 }
 
 function KpiCard({ icon, label, value, tone }: { icon: React.ReactNode; label: string; value: string; tone: 'neutral' | 'ok' | 'warn' | 'danger' }) {
-  const toneCls = {
-    neutral: 'text-gray-500 bg-gray-100',
-    ok: 'text-emerald-600 bg-emerald-50',
-    warn: 'text-amber-600 bg-amber-50',
-    danger: 'text-red-600 bg-red-50',
+  const t = {
+    neutral: { bg: 'linear-gradient(140deg,#2F6BE8,#1E56A0)', glow: 'rgba(47,107,232,.35)' },
+    ok: { bg: 'linear-gradient(140deg,#4E9331,#356420)', glow: 'rgba(76,111,24,.35)' },
+    warn: { bg: 'linear-gradient(140deg,#C9820F,#9A5E07)', glow: 'rgba(199,125,14,.35)' },
+    danger: { bg: 'linear-gradient(140deg,#CA4133,#A02A1F)', glow: 'rgba(192,57,43,.35)' },
   }[tone]
   return (
-    <Card>
-      <CardContent className="p-4">
+    <div className="relative overflow-hidden rounded-xl p-4 text-white transition-all duration-200 hover:-translate-y-1"
+      style={{ background: t.bg, boxShadow: `0 14px 30px -16px ${t.glow}` }}>
+      <div aria-hidden className="absolute -top-10 -right-8 w-32 h-32 rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle,rgba(255,255,255,.20),transparent 70%)' }} />
+      <div className="relative">
         <div className="flex items-center gap-2 mb-1">
-          <span className={`grid place-items-center w-7 h-7 rounded-lg ${toneCls}`}>{icon}</span>
-          <span className="text-xs text-gray-500">{label}</span>
+          <span className="grid place-items-center w-7 h-7 rounded-lg bg-white/20 text-white backdrop-blur-sm">{icon}</span>
+          <span className="text-xs text-white/80">{label}</span>
         </div>
-        <p className="text-2xl font-bold text-gray-900 tabular-nums">{value}</p>
-      </CardContent>
-    </Card>
+        <p className="text-2xl font-bold text-white tabular-nums">{value}</p>
+      </div>
+    </div>
   )
 }

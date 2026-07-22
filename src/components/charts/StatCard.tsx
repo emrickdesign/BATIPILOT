@@ -1,14 +1,16 @@
 import type { LucideIcon } from 'lucide-react'
 import GaugeRing from './GaugeRing'
 
-// Tons sémantiques chauds — carte KPI dégradée + glow coloré (ADN Potentieel)
+// Tons sémantiques chauds — carte KPI PLEINE couleur, texte blanc (ADN Potentieel).
+// base → deep = dégradé du fond ; glow = ombre colorée. Anciennes clés conservées
+// (fg/chip/tint/bd) pour compat, mais le rendu n'utilise plus que base/deep/glow.
 export const STAT_TONES = {
-  green: { fg: '#3F7A2E', chipA: '#6AA636', chipB: '#3F7A2E', tintA: '#E9F2DB', tintB: '#F6FAEF', glow: 'rgba(76,111,24,.22)', bd: '#DDE9C9' },
-  coral: { fg: '#C14E33', chipA: '#F09A80', chipB: '#D0562F', tintA: '#FCE5DC', tintB: '#FEF5F0', glow: 'rgba(224,103,76,.26)', bd: '#F4D7CA' },
-  amber: { fg: '#8A5A08', chipA: '#E2A536', chipB: '#C77D0E', tintA: '#FBEFD4', tintB: '#FEF9EE', glow: 'rgba(199,125,14,.22)', bd: '#F0E1C0' },
-  terre: { fg: '#8A4B24', chipA: '#BC824F', chipB: '#8A4B24', tintA: '#F4E7D8', tintB: '#FBF5ED', glow: 'rgba(138,75,36,.20)', bd: '#EAD9C7' },
-  blue: { fg: '#1F5FAE', chipA: '#5B95F8', chipB: '#2F6BE8', tintA: '#E3ECFB', tintB: '#F1F6FE', glow: 'rgba(47,107,232,.22)', bd: '#CFDDF6' },
-  red: { fg: '#C0392B', chipA: '#E06A5A', chipB: '#C0392B', tintA: '#FBE0DA', tintB: '#FEF2EF', glow: 'rgba(192,57,43,.22)', bd: '#F1D2CB' },
+  green: { base: '#4E9331', deep: '#356420', glow: 'rgba(76,111,24,.35)', fg: '#3F7A2E', chipA: '#6AA636', chipB: '#3F7A2E', tintA: '#E9F2DB', tintB: '#F6FAEF', bd: '#DDE9C9' },
+  coral: { base: '#D65A34', deep: '#B23F22', glow: 'rgba(224,103,76,.38)', fg: '#C14E33', chipA: '#F09A80', chipB: '#D0562F', tintA: '#FCE5DC', tintB: '#FEF5F0', bd: '#F4D7CA' },
+  amber: { base: '#C9820F', deep: '#9A5E07', glow: 'rgba(199,125,14,.35)', fg: '#8A5A08', chipA: '#E2A536', chipB: '#C77D0E', tintA: '#FBEFD4', tintB: '#FEF9EE', bd: '#F0E1C0' },
+  terre: { base: '#96542A', deep: '#6E3A1B', glow: 'rgba(138,75,36,.34)', fg: '#8A4B24', chipA: '#BC824F', chipB: '#8A4B24', tintA: '#F4E7D8', tintB: '#FBF5ED', bd: '#EAD9C7' },
+  blue: { base: '#2F6BE8', deep: '#1E56A0', glow: 'rgba(47,107,232,.35)', fg: '#1F5FAE', chipA: '#5B95F8', chipB: '#2F6BE8', tintA: '#E3ECFB', tintB: '#F1F6FE', bd: '#CFDDF6' },
+  red: { base: '#CA4133', deep: '#A02A1F', glow: 'rgba(192,57,43,.35)', fg: '#C0392B', chipA: '#E06A5A', chipB: '#C0392B', tintA: '#FBE0DA', tintB: '#FEF2EF', bd: '#F1D2CB' },
 } as const
 export type StatTone = keyof typeof STAT_TONES
 
@@ -46,50 +48,49 @@ export default function StatCard({ label, value, icon: Icon, tone, delta, gauge,
   const t = STAT_TONES[tone]
   const sp = spark ? sparkPath(spark, 120, 40, 5) : null
   const uid = `sp-${label.replace(/\W/g, '')}-${tone}`
-  const deltaCls = delta?.dir === 'up' ? 'bg-[#E9F2DB] text-[#3F7A2E]'
-    : delta?.dir === 'down' ? 'bg-[#FBE0DA] text-[#C0392B]' : 'bg-white/70 text-gray-500'
+  const deltaCls = delta?.dir === 'up' ? 'bg-white/25 text-white'
+    : delta?.dir === 'down' ? 'bg-black/20 text-white' : 'bg-white/15 text-white'
   return (
     <div
-      className="group relative h-full min-h-[152px] overflow-hidden rounded-xl border p-4 transition-all duration-200 hover:-translate-y-1"
+      className="group relative h-full min-h-[152px] overflow-hidden rounded-xl p-4 text-white transition-all duration-200 hover:-translate-y-1"
       style={{
-        borderColor: t.bd,
-        background: `linear-gradient(150deg, ${t.tintA} 0%, ${t.tintB} 58%, #ffffff 100%)`,
-        boxShadow: `0 14px 32px -16px ${t.glow}`,
+        background: `linear-gradient(140deg, ${t.base} 0%, ${t.deep} 100%)`,
+        boxShadow: `0 16px 34px -16px ${t.glow}`,
       }}
     >
-      <div aria-hidden className="absolute -top-10 -right-8 w-36 h-36 rounded-full pointer-events-none opacity-90"
-        style={{ background: `radial-gradient(circle, ${t.glow}, transparent 70%)` }} />
+      {/* Lueur claire en haut-droite pour le relief */}
+      <div aria-hidden className="absolute -top-12 -right-10 w-40 h-40 rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle, rgba(255,255,255,.22), transparent 70%)' }} />
       <div className="relative">
         <div className="flex items-start justify-between mb-3">
-          <span className="grid place-items-center w-9 h-9 rounded-lg text-white shadow-[0_4px_10px_-3px_rgba(40,25,10,.35)] flex-shrink-0"
-            style={{ background: `linear-gradient(135deg, ${t.chipA}, ${t.chipB})` }}>
+          <span className="grid place-items-center w-9 h-9 rounded-lg bg-white/20 text-white flex-shrink-0 backdrop-blur-sm">
             <Icon className="w-[18px] h-[18px]" strokeWidth={2} />
           </span>
           {gauge !== undefined ? (
-            <GaugeRing value={gauge} size={42} strokeWidth={5} trackColor="rgba(40,25,10,.10)" fillColor={t.chipB}>
-              <span className="text-[10px] font-bold" style={{ color: t.fg }}>{gauge}%</span>
+            <GaugeRing value={gauge} size={42} strokeWidth={5} trackColor="rgba(255,255,255,.30)" fillColor="#ffffff">
+              <span className="text-[10px] font-bold text-white">{gauge}%</span>
             </GaugeRing>
           ) : delta ? (
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm ${deltaCls}`}>{delta.text}</span>
           ) : null}
         </div>
-        <div className="text-[26px] font-bold text-marine leading-none tracking-tight tabular-nums">{value}</div>
-        <div className="text-[12.5px] text-gray-600 mt-1.5 font-medium">{label}</div>
+        <div className="text-[26px] font-bold text-white leading-none tracking-tight tabular-nums">{value}</div>
+        <div className="text-[12.5px] text-white/85 mt-1.5 font-medium">{label}</div>
         {sp ? (
           <div className="-mx-4 -mb-4 mt-3">
             <svg className="w-full h-14 block" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden>
               <defs>
                 <linearGradient id={uid} x1="0" x2="0" y1="0" y2="1">
-                  <stop offset="0" stopColor={t.chipB} stopOpacity="0.28" />
-                  <stop offset="1" stopColor={t.chipB} stopOpacity="0" />
+                  <stop offset="0" stopColor="#ffffff" stopOpacity="0.35" />
+                  <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
                 </linearGradient>
               </defs>
               <path d={sp.area} fill={`url(#${uid})`} />
-              <path d={sp.line} fill="none" stroke={t.chipB} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+              <path d={sp.line} fill="none" stroke="#ffffff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
             </svg>
           </div>
         ) : note ? (
-          <div className="text-[11px] text-gray-500 mt-2 leading-tight">{note}</div>
+          <div className="text-[11px] text-white/70 mt-2 leading-tight">{note}</div>
         ) : null}
       </div>
     </div>

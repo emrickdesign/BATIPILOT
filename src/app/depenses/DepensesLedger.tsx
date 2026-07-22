@@ -342,10 +342,10 @@ export default function DepensesLedger({
       {expenses.length > 0 && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <Stat label={`Total${sourceFilter !== 'tous' ? ` (${expenseSourceLabels[sourceFilter]})` : ''}`} value={formatCurrency(total)} tile="bg-rose-100 text-rose-600" icon={<TrendingDown className="w-4 h-4" />} />
-            <Stat label="Ce mois" value={formatCurrency(thisMonth)} tile="bg-accent text-primary" icon={<Wallet className="w-4 h-4" />} />
-            <button type="button" onClick={() => setSourceFilter('ticket')} className="text-left"><Stat label="Tickets à valider" value={String(aValider)} tile="bg-amber-100 text-amber-600" icon={<ReceiptText className="w-4 h-4" />} interactive /></button>
-            <Stat label="Sans justificatif" value={String(sansJustif)} tile="bg-gray-100 text-gray-500" icon={<Search className="w-4 h-4" />} />
+            <Stat label={`Total${sourceFilter !== 'tous' ? ` (${expenseSourceLabels[sourceFilter]})` : ''}`} value={formatCurrency(total)} tone="red" icon={<TrendingDown className="w-4 h-4" />} />
+            <Stat label="Ce mois" value={formatCurrency(thisMonth)} tone="coral" icon={<Wallet className="w-4 h-4" />} />
+            <button type="button" onClick={() => setSourceFilter('ticket')} className="text-left w-full"><Stat label="Tickets à valider" value={String(aValider)} tone="amber" icon={<ReceiptText className="w-4 h-4" />} interactive /></button>
+            <Stat label="Sans justificatif" value={String(sansJustif)} tone="slate" icon={<Search className="w-4 h-4" />} />
           </div>
           <div className="grid md:grid-cols-3 gap-3">
             <Breakdown title="Par catégorie" rows={byCategory} total={total} />
@@ -477,15 +477,27 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <div className="space-y-1"><Label className="text-xs text-gray-500">{label}</Label>{children}</div>
 }
 
-function Stat({ label, value, tile, icon, interactive }: { label: string; value: string; tile: string; icon: React.ReactNode; interactive?: boolean }) {
+const STAT_BG: Record<string, string> = {
+  red: 'linear-gradient(140deg,#CA4133,#A02A1F)',
+  coral: 'linear-gradient(140deg,#D65A34,#B23F22)',
+  amber: 'linear-gradient(140deg,#C9820F,#9A5E07)',
+  slate: 'linear-gradient(140deg,#64748B,#475569)',
+}
+const STAT_GLOW: Record<string, string> = {
+  red: 'rgba(192,57,43,.35)', coral: 'rgba(224,103,76,.38)', amber: 'rgba(199,125,14,.35)', slate: 'rgba(71,85,105,.32)',
+}
+function Stat({ label, value, tone, icon, interactive }: { label: string; value: string; tone: string; icon: React.ReactNode; interactive?: boolean }) {
   return (
-    <Card className={`border border-gray-200/80 ${interactive ? 'card-interactive h-full' : ''}`}>
-      <CardContent className="p-3">
-        <span className={`grid place-items-center w-8 h-8 rounded-lg ${tile}`}>{icon}</span>
-        <div className="text-xl font-bold text-[#0F172A] mt-2 leading-none">{value}</div>
-        <div className="text-[11px] text-gray-500 mt-1">{label}</div>
-      </CardContent>
-    </Card>
+    <div className={`relative overflow-hidden rounded-xl p-3 text-white transition-all duration-200 ${interactive ? 'hover:-translate-y-1 h-full' : ''}`}
+      style={{ background: STAT_BG[tone] || STAT_BG.slate, boxShadow: `0 14px 30px -16px ${STAT_GLOW[tone] || STAT_GLOW.slate}` }}>
+      <div aria-hidden className="absolute -top-10 -right-8 w-32 h-32 rounded-full pointer-events-none"
+        style={{ background: 'radial-gradient(circle,rgba(255,255,255,.20),transparent 70%)' }} />
+      <div className="relative">
+        <span className="grid place-items-center w-8 h-8 rounded-lg bg-white/20 text-white backdrop-blur-sm">{icon}</span>
+        <div className="text-xl font-bold text-white mt-2 leading-none">{value}</div>
+        <div className="text-[11px] text-white/80 mt-1">{label}</div>
+      </div>
+    </div>
   )
 }
 
