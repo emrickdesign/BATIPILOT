@@ -644,8 +644,10 @@ export function buildDocData(
   // Ventilation de la TVA par taux, à partir du taux de chaque ligne (une ligne
   // = un taux). Base HT = total_ht ligne (remise déjà déduite). Indispensable
   // dès qu'un devis/facture mélange 10 % et 20 % : le document doit détailler.
+  // Les lignes « option » sont exclues du document (le document = périmètre validé).
+  const billedLines = lines.filter(l => !l.is_option)
   const vatMap = new Map<number, { base: number; vat: number }>()
-  for (const l of lines) {
+  for (const l of billedLines) {
     const rate = Number(l.vat_rate) || 0
     const base = Number(l.total_ht) || 0
     const cur = vatMap.get(rate) || { base: 0, vat: 0 }
@@ -687,7 +689,7 @@ export function buildDocData(
       siret: s(cl.siret) || undefined,
       vat: s(cl.vat_number) || undefined,
     },
-    lines: [...lines]
+    lines: [...billedLines]
       .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0))
       .map((l, i) => ({
         n: i + 1,

@@ -45,7 +45,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   if (!invoice) return NextResponse.json({ error: 'Erreur création facture' }, { status: 500 })
 
-  const lines = (quote.quote_lines as any[]).map((l: any, i: number) => ({
+  const lines = (quote.quote_lines as any[]).filter((l: any) => !l.is_option).map((l: any, i: number) => ({
     invoice_id: invoice.id,
     quote_line_id: l.id,
     designation: l.designation,

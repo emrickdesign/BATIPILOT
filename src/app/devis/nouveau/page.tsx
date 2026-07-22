@@ -131,13 +131,14 @@ function DevisForm() {
       total_ht: item?.unit_price_ht || 0,
       sort_order: lines.length,
       needs_verification: false,
+      is_option: false,
     }
     setLines(prev => [...prev, newLine])
     setShowSearch(false)
     setSearchQuery('')
   }
 
-  function updateLine(tempId: string, field: string, value: string | number) {
+  function updateLine(tempId: string, field: string, value: string | number | boolean) {
     setLines(prev => prev.map(l => {
       if (l.tempId !== tempId) return l
       const updated = { ...l, [field]: value }
@@ -150,9 +151,13 @@ function DevisForm() {
     setLines(prev => prev.filter(l => l.tempId !== tempId))
   }
 
-  const subtotalHT = lines.reduce((s, l) => s + l.total_ht, 0)
-  const totalVAT = lines.reduce((s, l) => s + l.total_ht * l.vat_rate / 100, 0)
+  // Les lignes « option » sont proposées mais exclues du total du devis.
+  const baseLines = lines.filter(l => !l.is_option)
+  const optionLines = lines.filter(l => l.is_option)
+  const subtotalHT = baseLines.reduce((s, l) => s + l.total_ht, 0)
+  const totalVAT = baseLines.reduce((s, l) => s + l.total_ht * l.vat_rate / 100, 0)
   const totalTTC = subtotalHT + totalVAT
+  const optionsHT = optionLines.reduce((s, l) => s + l.total_ht, 0)
   const depositAmount = depositPercent ? totalTTC * parseFloat(depositPercent) / 100 : 0
 
   async function handleSave(status: 'brouillon' | 'pret') {
@@ -205,6 +210,7 @@ function DevisForm() {
         discount_percent: l.discount_percent,
         total_ht: l.total_ht,
         sort_order: i,
+        is_option: l.is_option || false,
       }))
     )
 
@@ -301,7 +307,7 @@ function DevisForm() {
       >
         <div className="space-y-2">
           {lines.map((line) => (
-            <div key={line.tempId} className="border border-gray-200 rounded-lg p-3 space-y-2">
+            <div key={line.tempId} className={`border rounded-lg p-3 space-y-2 ${line.is_option ? 'border-dashed border-amber-300 bg-amber-50/40' : 'border-gray-200'}`}>
               <div className="flex items-start gap-2">
                 <GripVertical className="w-4 h-4 text-gray-300 mt-2 flex-shrink-0" />
                 <div className="flex-1 space-y-2">
@@ -374,6 +380,13 @@ function DevisForm() {
                     {formatCurrency(line.total_ht)}
                   </span>
                   <span className="text-xs text-gray-400">HT</span>
+                  <button
+                    onClick={() => updateLine(line.tempId, 'is_option', !line.is_option)}
+                    className={`mt-1 text-[11px] px-1.5 py-0.5 rounded border ${line.is_option ? 'border-amber-400 bg-amber-100 text-amber-700' : 'border-gray-200 text-gray-400 hover:text-gray-600'}`}
+                    title="Une option est proposée au client mais n'est pas comptée dans le total"
+                  >
+                    {line.is_option ? '✓ Option' : 'Option'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -463,6 +476,12 @@ function DevisForm() {
                 <div className="flex justify-between text-blue-600">
                   <span>Acompte ({depositPercent}%)</span>
                   <span className="font-semibold">{formatCurrency(depositAmount)}</span>
+                </div>
+              )}
+              {optionsHT > 0 && (
+                <div className="flex justify-between text-amber-600 border-t border-dashed border-amber-200 pt-2 mt-2">
+                  <span>Options proposées (hors total) — {optionLines.length} ligne{optionLines.length > 1 ? 's' : ''}</span>
+                  <span className="font-semibold">+ {formatCurrency(optionsHT)} HT</span>
                 </div>
               )}
             </div>

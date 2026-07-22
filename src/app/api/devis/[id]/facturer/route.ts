@@ -41,7 +41,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (quote.status !== 'accepte' && quote.status !== 'transforme')
     return NextResponse.json({ error: 'Le devis doit être accepté' }, { status: 400 })
 
-  const qLines = ((quote.quote_lines as QLineRow[]) || [])
+  // Les lignes « option » ne sont pas facturées (hors marché validé).
+  const qLines = ((quote.quote_lines as QLineRow[]) || []).filter(l => !(l as { is_option?: boolean }).is_option)
   const marketHt = Number(quote.subtotal_ht) || qLines.reduce((s, l) => s + (Number(l.total_ht) || 0), 0)
   if (marketHt <= 0) return NextResponse.json({ error: 'Devis sans montant' }, { status: 400 })
 

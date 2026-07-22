@@ -275,6 +275,8 @@ export interface QuoteLine {
   total_ht: number
   sort_order: number
   needs_verification: boolean
+  /** Ligne d'option/variante : proposée au client, exclue du total du devis. */
+  is_option?: boolean
 }
 
 export interface Quote {

@@ -53,7 +53,9 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
     .maybeSingle()
 
   const client = quote.clients as any
-  const lines = (quote.quote_lines as any[]).sort((a, b) => a.sort_order - b.sort_order)
+  const allLines = (quote.quote_lines as any[]).sort((a, b) => a.sort_order - b.sort_order)
+  const lines = allLines.filter(l => !l.is_option)
+  const optionLines = allLines.filter(l => l.is_option)
   const clientName = client?.type === 'professionnel'
     ? client.company_name
     : `${client?.first_name || ''} ${client?.last_name || ''}`.trim() || 'Client'
@@ -165,6 +167,20 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
               </tbody>
             </table>
           </div>
+
+          {optionLines.length > 0 && (
+            <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/40 p-3">
+              <p className="text-xs font-semibold text-amber-700 mb-2">Options proposées (non comprises dans le total)</p>
+              <div className="space-y-1">
+                {optionLines.map((l: any) => (
+                  <div key={l.id} className="flex justify-between text-sm">
+                    <span className="text-gray-700">{l.designation} <span className="text-gray-400">· {l.quantity} {unitLabels[l.unit] || l.unit}</span></span>
+                    <span className="font-medium text-gray-900">+ {formatCurrency(l.total_ht)} HT</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Totaux */}
           <div className="flex justify-end">
