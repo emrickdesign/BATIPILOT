@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Package, Download, Plus, HelpCircle, Check } from 'lucide-react'
+import { Package, Download, Plus, HelpCircle, Check, FileText } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { fmtUnit, labelKey } from '@/lib/materiaux'
 
@@ -89,6 +89,55 @@ export default function MateriauxSection({
     URL.revokeObjectURL(url)
   }
 
+  async function printBonCommande() {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: co } = user
+      ? await supabase.from('companies').select('trade_name,address,phone,email,siret').eq('user_id', user.id).single()
+      : { data: null }
+
+    // À commander = ce qui n'est pas encore acheté (sinon tout). Groupé par fournisseur.
+    const toOrder = rows.filter(r => !r.purchased)
+    const list = toOrder.length ? toOrder : rows
+    const groups = new Map<string, MaterialRow[]>()
+    for (const r of list) {
+      const k = r.supplier?.trim() || 'Fournisseur à définir'
+      groups.set(k, [...(groups.get(k) || []), r])
+    }
+    const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    const today = new Date().toLocaleDateString('fr-FR')
+    const sections = [...groups.entries()].map(([supplier, items]) => `
+      <h3>${esc(supplier)}</h3>
+      <table><thead><tr><th>Matériau</th><th class="q">Quantité</th><th>Unité</th></tr></thead><tbody>
+      ${items.map(r => `<tr><td>${esc(r.label)}</td><td class="q">${esc(r.quantity)}</td><td>${esc(fmtUnit(r.unit))}</td></tr>`).join('')}
+      </tbody></table>`).join('')
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Bon de commande — ${esc(projectTitle)}</title>
+    <style>
+      body{font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;max-width:800px;margin:24px auto;padding:0 24px;font-size:13px}
+      .head{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #1a1a1a;padding-bottom:12px;margin-bottom:16px}
+      h1{font-size:22px;margin:0}
+      h3{margin:18px 0 6px;font-size:14px;background:#f2f2f2;padding:6px 10px;border-radius:4px}
+      table{width:100%;border-collapse:collapse;margin-bottom:8px}
+      th,td{border:1px solid #ddd;padding:6px 10px;text-align:left}
+      th{background:#fafafa;font-size:11px;text-transform:uppercase;color:#555}
+      .q{text-align:right;width:110px}
+      .meta{color:#666;font-size:12px;text-align:right}
+      @media print{body{margin:0}}
+    </style></head><body>
+    <div class="head">
+      <div><strong style="font-size:16px">${esc(co?.trade_name || 'Votre entreprise')}</strong><br>
+      ${esc(co?.address || '')}<br>${esc(co?.phone || '')} ${co?.email ? '· ' + esc(co.email) : ''}${co?.siret ? '<br>SIRET : ' + esc(co.siret) : ''}</div>
+      <div class="meta"><h1>Bon de commande</h1>Chantier : ${esc(projectTitle)}<br>Date : ${esc(today)}</div>
+    </div>
+    ${sections || '<p>Aucun matériau à commander.</p>'}
+    <p style="margin-top:24px;color:#888;font-size:11px">Merci de confirmer disponibilité et délai de livraison.</p>
+    <script>window.onload=function(){window.print()}</script>
+    </body></html>`
+    const w = window.open('', '_blank')
+    if (!w) { toast.error('Autorisez les pop-ups pour imprimer le bon de commande'); return }
+    w.document.write(html); w.document.close()
+  }
+
   const empty = rows.length === 0
 
   return (
@@ -100,7 +149,8 @@ export default function MateriauxSection({
         </CardTitle>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setAdding(a => !a)}><Plus className="w-4 h-4 mr-1" /> Matériau</Button>
-          {!empty && <Button variant="outline" size="sm" onClick={exportCsv}><Download className="w-4 h-4 mr-1" /> Bon de commande</Button>}
+          {!empty && <Button variant="outline" size="sm" onClick={printBonCommande}><FileText className="w-4 h-4 mr-1" /> Bon de commande</Button>}
+          {!empty && <Button variant="ghost" size="sm" onClick={exportCsv} title="Export CSV"><Download className="w-4 h-4" /></Button>}
         </div>
       </CardHeader>
       <CardContent className="px-4 pb-4">
