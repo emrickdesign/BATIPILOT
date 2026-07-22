@@ -323,6 +323,14 @@ export interface Invoice {
   amount_due: number
   legal_mentions?: string
   pdf_url?: string
+  /** Facturation de situation / avancement + retenue de garantie. */
+  billed_percent?: number | null
+  situation_number?: number | null
+  market_total_ht?: number | null
+  retention_pct?: number | null
+  retention_amount?: number | null
+  retention_released?: boolean | null
+  retention_release_date?: string | null
   created_at: string
   clients?: Client
 }

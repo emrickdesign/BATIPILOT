@@ -96,6 +96,8 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
         quoteNumber={quote.quote_number}
         quoteTitle={quote.title}
         companyName={company?.trade_name}
+        marketHt={Number(quote.subtotal_ht) || 0}
+        marketTtc={Number(quote.total_ttc) || 0}
       />
 
       <SignatureStatus signature={signature} />

@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Download, Send, CheckCircle, XCircle, FileText, Loader2, Mail, MessageCircle, HardHat } from 'lucide-react'
+import { Download, Send, CheckCircle, XCircle, Loader2, Mail, MessageCircle, HardHat } from 'lucide-react'
+import FacturationPanel from './FacturationPanel'
 
 function formatWhatsApp(phone: string) {
   let p = phone.replace(/[\s\-.()]/g, '')
@@ -15,7 +16,7 @@ function formatWhatsApp(phone: string) {
 }
 
 export default function QuoteActions({
-  quoteId, status, clientId, clientEmail, clientPhone, projectId, quoteNumber, quoteTitle, companyName,
+  quoteId, status, clientId, clientEmail, clientPhone, projectId, quoteNumber, quoteTitle, companyName, marketHt, marketTtc,
 }: {
   quoteId: string
   status: string
@@ -27,6 +28,8 @@ export default function QuoteActions({
   quoteNumber: string
   quoteTitle?: string
   companyName?: string
+  marketHt: number
+  marketTtc: number
 }) {
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
@@ -75,15 +78,6 @@ export default function QuoteActions({
       `Bonjour,\n\nJe vous transmets votre devis ${quoteNumber}${quoteTitle ? ` pour : ${quoteTitle}` : ''}.\n\nN'hésitez pas à me contacter pour toute question.\n\nCordialement,\n${companyName || ''}`
     )
     window.open(`https://wa.me/${phone}?text=${msg}`, '_blank')
-  }
-
-  async function handleTransformInvoice() {
-    setLoading('facture')
-    const res = await fetch(`/api/devis/${quoteId}/transformer`, { method: 'POST' })
-    const data = await res.json()
-    if (data.invoiceId) { toast.success('Facture créée !'); router.push(`/factures/${data.invoiceId}`) }
-    else { toast.error('Erreur lors de la transformation') }
-    setLoading(null)
   }
 
   async function handleCreateChantier() {
@@ -142,7 +136,7 @@ export default function QuoteActions({
       {status === 'accepte' && (
         <div className="rounded-xl border border-green-200 bg-green-50/60 p-3">
           <p className="text-sm font-semibold text-green-800 mb-2">Devis accepté 🎉 — prochaines étapes</p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 items-start">
             {projectId ? (
               <Link href={`/chantiers/${projectId}`}>
                 <Button variant="outline" className="gap-2"><HardHat className="w-4 h-4" /> Voir le chantier</Button>
@@ -152,9 +146,7 @@ export default function QuoteActions({
                 {loading === 'chantier' ? <Loader2 className="w-4 h-4 animate-spin" /> : <HardHat className="w-4 h-4" />} Créer le chantier (à planifier)
               </Button>
             )}
-            <Button className="gap-2 bg-purple-600 hover:bg-purple-700" onClick={handleTransformInvoice} disabled={!!loading}>
-              {loading === 'facture' ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />} Créer la facture
-            </Button>
+            <FacturationPanel quoteId={quoteId} marketHt={marketHt} marketTtc={marketTtc} />
           </div>
         </div>
       )}

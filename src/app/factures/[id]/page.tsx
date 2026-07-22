@@ -73,6 +73,12 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
               <Badge className={`${statusColors[dispStatus]} border-0 text-xs`}>
                 {statusLabels[dispStatus]}
               </Badge>
+              {invoice.type && invoice.type !== 'complete' && (
+                <Badge className="bg-purple-100 text-purple-700 border-0 text-xs">
+                  {invoice.type === 'acompte' ? 'Acompte' : invoice.type === 'solde' ? 'Solde' : `Situation n°${invoice.situation_number || ''}`}
+                  {invoice.billed_percent ? ` · ${invoice.billed_percent} %` : ''}
+                </Badge>
+              )}
             </div>
             <h1 className="text-xl font-bold text-gray-900">{clientName}</h1>
           </div>
@@ -149,7 +155,10 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
               {invoice.deposit_already_paid > 0 && (
                 <div className="flex justify-between text-gray-500"><span>Acompte versé</span><span>- {formatCurrency(invoice.deposit_already_paid)}</span></div>
               )}
-              <div className="flex justify-between font-bold text-blue-700 border-t pt-1"><span>Reste à payer</span><span>{formatCurrency(invoice.amount_due)}</span></div>
+              {invoice.retention_amount > 0 && (
+                <div className="flex justify-between text-orange-600"><span>Retenue de garantie ({invoice.retention_pct} %)</span><span>- {formatCurrency(invoice.retention_amount)}</span></div>
+              )}
+              <div className="flex justify-between font-bold text-blue-700 border-t pt-1"><span>Net à payer</span><span>{formatCurrency(invoice.amount_due)}</span></div>
             </div>
           </div>
           {invoice.legal_mentions && <div className="text-xs text-gray-400 border-t pt-3">{invoice.legal_mentions}</div>}
