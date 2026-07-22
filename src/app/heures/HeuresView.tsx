@@ -242,7 +242,11 @@ export default function HeuresView({
       const hc = empById.get(e)?.hourly_cost; if (hc) cost += h * Number(hc)
       if ((statusMap[k] || 'declare') === 'declare') aVerifier++
     }
-    return { grand, cost, perEmp, perProj, aVerifier }
+    // Heures supplémentaires : au-delà de 35 h/semaine par salarié.
+    const perEmpSup = new Map<string, number>()
+    let supTotal = 0
+    for (const [e, h] of perEmp) { const sup = Math.max(0, h - 35); if (sup > 0) { perEmpSup.set(e, sup); supTotal += sup } }
+    return { grand, cost, perEmp, perEmpSup, supTotal, perProj, aVerifier }
   }, [hours, empById, statusMap])
 
   // Contrôle h/véhicules (semaine)
@@ -438,11 +442,17 @@ export default function HeuresView({
                       <div key={id} className="flex items-center gap-2 text-sm">
                         <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: e.color }} />
                         <span className="flex-1 truncate text-gray-700">{e.full_name}</span>
+                        {totals.perEmpSup.get(id) && <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 rounded px-1.5 py-0.5">+{totals.perEmpSup.get(id)!.toFixed(1).replace('.0', '')} h sup</span>}
                         <span className="font-medium tabular-nums">{h.toFixed(1).replace('.0', '')} h</span>
                         {cost > 0 && <span className="text-gray-400 tabular-nums w-20 text-right">{formatCurrency(cost)}</span>}
                       </div>
                     )
                   })}
+                  {totals.supTotal > 0 && (
+                    <div className="pt-1.5 mt-1 border-t border-gray-100 text-[11px] text-amber-700">
+                      {totals.supTotal.toFixed(1).replace('.0', '')} h supplémentaires cette semaine (au-delà de 35 h/salarié).
+                    </div>
+                  )}
                 </div>
               </CardContent></Card>
               <Card className="border border-gray-200/80"><CardContent className="p-4">
