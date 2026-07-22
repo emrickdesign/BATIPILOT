@@ -52,6 +52,21 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     supabase.from('subcontractor_invoices').select('amount_ht,amount_ttc,status').eq('project_id', id).eq('user_id', user.id),
   ])
 
+  // Album photo : images des documents + photos de pointage, URLs signées.
+  const [{ data: photoDocs }, { data: presPhotos }] = await Promise.all([
+    supabase.from('documents').select('storage_path,created_at').eq('project_id', id).or('file_type.ilike.image/%,category.eq.photo').order('created_at', { ascending: false }).limit(30),
+    supabase.from('presence_events').select('photo_path,occurred_at').eq('project_id', id).not('photo_path', 'is', null).order('occurred_at', { ascending: false }).limit(30),
+  ])
+  const photoPaths = [
+    ...((photoDocs || []) as { storage_path: string }[]).map(d => d.storage_path),
+    ...((presPhotos || []) as { photo_path: string }[]).map(p => p.photo_path),
+  ].filter(Boolean)
+  let photoUrls: string[] = []
+  if (photoPaths.length) {
+    const { data: signed } = await supabase.storage.from('documents').createSignedUrls(photoPaths, 3600)
+    photoUrls = (signed || []).map(s => s.signedUrl).filter(Boolean) as string[]
+  }
+
   // Réception de chantier (PV) + éventuelle demande de signature associée.
   const reception = (await supabase.from('project_receptions').select('*').eq('project_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle()).data
   const receptionSig = reception
@@ -241,6 +256,26 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         initial={reception as Reception | null}
         signatureId={receptionSig?.id ?? null}
       />
+
+      {/* Album photo (documents images + pointages) */}
+      {photoUrls.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><Camera className="w-4 h-4 text-gray-400" /> Album photo <span className="text-sm font-normal text-gray-400">· {photoUrls.length}</span></CardTitle>
+            <Link href={`/documents?project=${id}`}><Button variant="ghost" size="sm">Tout voir</Button></Link>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+              {photoUrls.map((u, i) => (
+                <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="block aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt={`Photo ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                </a>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
       </div>
 
       {/* Colonne latérale : localisation + magasins + notes */}
