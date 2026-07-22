@@ -43,9 +43,11 @@ export type DocData = {
   client: DocParty
   lines: DocLine[]
   subtotalHt: number
-  vatRate: number
+  vatRate: number            // taux principal (rétro-compat / mono-taux)
   totalVat: number
   totalTtc: number
+  /** Ventilation de la TVA par taux — obligatoire dès qu'un document mélange plusieurs taux. */
+  vatBreakdown?: { rate: number; base: number; vat: number }[]
   vatNote?: string           // "TVA non applicable, art. 293 B du CGI."
   modalites?: string         // conditions de règlement (multi-lignes)
   cgv?: string               // note CGV du pied
@@ -55,6 +57,7 @@ export type DocData = {
 
 const eurFmt = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' })
 export const fmtEur = (n: number) => eurFmt.format(Number(n) || 0)
+const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100
 
 /** Échappement HTML : toutes les données dynamiques passent par là. */
 export function esc(v: unknown): string {
@@ -70,6 +73,25 @@ const UNIT_LABELS: Record<string, string> = {
   m2: 'm²', ml: 'ml', u: 'u', forfait: 'forfait', h: 'h', j: 'j', piece: 'pièce',
 }
 export const unitLabel = (u?: string) => (u ? UNIT_LABELS[u] || u : '')
+
+/** Lignes de TVA à afficher : ventilation par taux si fournie, sinon un seul taux. */
+function vatLines(d: DocData): { rate: number; base: number; vat: number }[] {
+  const b = d.vatBreakdown?.filter(x => x.vat > 0 || x.base > 0)
+  if (b && b.length) return b
+  return [{ rate: d.vatRate, base: d.subtotalHt, vat: d.totalVat }]
+}
+/** Rangées TVA pour les modèles à tableau (<tr><td>). */
+function vatRowsTable(d: DocData): string {
+  const rows = vatLines(d)
+  const multi = rows.length > 1
+  return rows.map(r => `<tr><td>TVA ${esc(r.rate)} %${multi ? ` <span style="opacity:.55;font-weight:400">(sur ${fmtEur(r.base)} HT)</span>` : ''}</td><td>${fmtEur(r.vat)}</td></tr>`).join('')
+}
+/** Rangées TVA pour les modèles à divs (.totals-row). */
+function vatRowsDiv(d: DocData): string {
+  const rows = vatLines(d)
+  const multi = rows.length > 1
+  return rows.map(r => `<div class="totals-row"><div>TVA ${esc(r.rate)} %${multi ? ` <span style="opacity:.55">(sur ${fmtEur(r.base)} HT)</span>` : ''}</div><div>${fmtEur(r.vat)}</div></div>`).join('')
+}
 
 /* ─── Modèle AZUR — noir & blanc, encadré, minimal ────────────────────── */
 
@@ -172,7 +194,7 @@ ${d.objet ? `<section class="object-line"><strong>Objet :</strong><span>${esc(d.
 ${d.modalites ? `<div class="payment-block"><div class="payment-title"><span class="payment-icon"></span><span>Modalités de règlement</span></div>${nl2br(d.modalites)}</div>` : ''}
 ${d.vatNote ? `<div class="legal-note"><span class="info-icon">i</span><span>${esc(d.vatNote)}</span></div>` : ''}
 </div><div>
-<table class="totals-table"><tr><td>Total HT</td><td>${fmtEur(d.subtotalHt)}</td></tr><tr><td>TVA (${esc(d.vatRate)} %)</td><td>${fmtEur(d.totalVat)}</td></tr><tr class="grand-total"><td>Total TTC</td><td>${fmtEur(d.totalTtc)}</td></tr></table>
+<table class="totals-table"><tr><td>Total HT</td><td>${fmtEur(d.subtotalHt)}</td></tr>${vatRowsTable(d)}<tr class="grand-total"><td>Total TTC</td><td>${fmtEur(d.totalTtc)}</td></tr></table>
 <div class="signature-box"><strong>${d.docType === 'devis' ? 'Bon pour accord' : 'Merci de votre confiance'}</strong>Date, cachet et signature du client</div>
 </div></section>
 <footer class="footer">${footerLegal}</footer>
@@ -298,7 +320,7 @@ ${d.modalites ? `<div class="small-card"><div class="small-card-title"><span cla
 ${d.vatNote ? `<div class="small-card"><div class="small-card-title"><span class="icon-circle">⚖</span>Mention légale</div>${esc(d.vatNote)}</div>` : ''}
 </div>
 <div>
-<div class="totals"><div class="totals-row"><div>TOTAL HT</div><div>${fmtEur(d.subtotalHt)}</div></div><div class="totals-row"><div>TVA (${esc(d.vatRate)} %)</div><div>${fmtEur(d.totalVat)}</div></div><div class="totals-row grand-total"><div>TOTAL TTC</div><div>${fmtEur(d.totalTtc)}</div></div></div>
+<div class="totals"><div class="totals-row"><div>TOTAL HT</div><div>${fmtEur(d.subtotalHt)}</div></div>${vatRowsDiv(d)}<div class="totals-row grand-total"><div>TOTAL TTC</div><div>${fmtEur(d.totalTtc)}</div></div></div>
 ${rightBox}
 </div>
 </section>
@@ -384,7 +406,7 @@ table{width:100%;border-collapse:collapse}
 ${d.objet ? `<section class="object"><strong>Objet ${d.docType === 'devis' ? 'du devis' : 'de la facture'}</strong><span>${esc(d.objet)}</span></section>` : ''}
 <table class="items"><thead><tr><th class="num">N°</th><th class="desc">Désignation</th><th class="qty">Qté</th><th class="price">P.U. HT</th><th class="total">Total HT</th></tr></thead><tbody>${rows}</tbody></table>
 <section class="below-table"><div class="small-note">Les prix sont exprimés en euros.</div>
-<table class="totals"><tr><td>Total HT</td><td>${fmtEur(d.subtotalHt)}</td></tr><tr><td>TVA (${esc(d.vatRate)}%)</td><td>${fmtEur(d.totalVat)}</td></tr><tr class="grand"><td>Total TTC</td><td>${fmtEur(d.totalTtc)}</td></tr></table></section>
+<table class="totals"><tr><td>Total HT</td><td>${fmtEur(d.subtotalHt)}</td></tr>${vatRowsTable(d)}<tr class="grand"><td>Total TTC</td><td>${fmtEur(d.totalTtc)}</td></tr></table></section>
 <section class="bottom">${d.modalites ? `<div class="box"><div class="box-title">Modalités de règlement</div>${nl2br(d.modalites)}</div>` : '<div></div>'}${rightBox}</section>
 ${d.vatNote ? `<div class="tva-note">${esc(d.vatNote)}</div>` : ''}
 <footer class="footer">${[esc(c.name) + (c.siret ? ` — SIRET ${esc(c.siret)}` : '') + (c.ape ? ` — APE ${esc(c.ape)}` : ''), c.addressLines.length ? esc(c.addressLines.join(' — ')) + (c.email ? ' — ' + esc(c.email) : '') : '', c.website ? esc(c.website) : ''].filter(Boolean).join('<br>')}</footer>
@@ -463,7 +485,7 @@ table{width:100%;border-collapse:collapse}
 ${d.objet ? `<section class="object"><div class="object-title">Objet / Nature de la prestation</div><div class="object-text">${esc(d.objet)}</div></section>` : ''}
 <table class="items"><thead><tr><th class="icon-col">N°</th><th class="desc">Désignation</th><th class="qty">Qté</th><th class="price">P.U. HT</th><th class="total">Total HT</th></tr></thead><tbody>${rows}</tbody></table>
 <section class="middle"><div class="payment">${d.modalites ? `<div class="payment-title">Modalités de règlement</div>${nl2br(d.modalites)}` : ''}${d.vatNote ? `<div class="note-box">${esc(d.vatNote)}</div>` : ''}</div>
-<div><table class="totals"><tr><td>Total HT</td><td>${fmtEur(d.subtotalHt)}</td></tr><tr><td>TVA (${esc(d.vatRate)} %)</td><td>${fmtEur(d.totalVat)}</td></tr><tr class="grand"><td>Total TTC</td><td>${fmtEur(d.totalTtc)}</td></tr></table>
+<div><table class="totals"><tr><td>Total HT</td><td>${fmtEur(d.subtotalHt)}</td></tr>${vatRowsTable(d)}<tr class="grand"><td>Total TTC</td><td>${fmtEur(d.totalTtc)}</td></tr></table>
 <div class="signature">${rightNote}</div></div></section>
 <footer class="footer"><div><div class="footer-title">Mentions légales</div>${[esc(c.name), c.subtitle ? esc(c.subtitle) : '', c.capital ? esc(c.capital) : '', c.rcs ? esc(c.rcs) : '', c.addressLines.length ? esc(c.addressLines.join(', ')) : '', c.website ? esc(c.website) : ''].filter(Boolean).join('<br>')}</div>
 <div>${d.docType === 'devis'
@@ -553,7 +575,7 @@ table{width:100%;border-collapse:separate;border-spacing:0}
 ${d.objet ? `<section class="object"><span class="round-icon">📋</span><strong>Objet / Prestation :</strong><span>${esc(d.objet)}</span></section>` : ''}
 <table class="items"><thead><tr><th class="icon-cell"></th><th class="desc">Désignation</th><th class="qty">Qté</th><th class="price">P.U. HT</th><th class="total">Total HT</th></tr></thead><tbody>${rows}</tbody></table>
 <section class="lower"><div>${d.modalites ? `<div class="box"><div class="box-title"><span class="round-icon">💳</span> Modalités de règlement</div>${nl2br(d.modalites)}</div>` : ''}${d.vatNote ? `<div class="legal"><span class="round-icon">i</span><span>${esc(d.vatNote)}</span></div>` : ''}</div>
-<div><div class="totals"><div class="totals-row"><div>Total HT</div><div>${fmtEur(d.subtotalHt)}</div></div><div class="totals-row"><div>TVA (${esc(d.vatRate)} %)</div><div>${fmtEur(d.totalVat)}</div></div><div class="totals-row grand"><div>Total TTC</div><div>${fmtEur(d.totalTtc)}</div></div></div>
+<div><div class="totals"><div class="totals-row"><div>Total HT</div><div>${fmtEur(d.subtotalHt)}</div></div>${vatRowsDiv(d)}<div class="totals-row grand"><div>Total TTC</div><div>${fmtEur(d.totalTtc)}</div></div></div>
 <div class="signature">${rightSig}</div></div></section>
 <section class="footer-line"><div class="footer-title">Mentions légales</div><footer class="footer">${[esc(c.name) + (c.addressLines.length ? ' — ' + esc(c.addressLines.join(', ')) : ''), [c.capital ? esc(c.capital) : '', c.rcs ? esc(c.rcs) : '', c.siret ? 'SIRET ' + esc(c.siret) : '', c.ape ? 'APE ' + esc(c.ape) : ''].filter(Boolean).join(' — ')].filter(Boolean).join('<br>')}</footer></section>
 </main></body></html>`
@@ -619,6 +641,23 @@ export function buildDocData(
   const totalTtc = Number(doc.total_ttc) || 0
   const vatRate = subtotalHt > 0 ? Math.round((totalVat / subtotalHt) * 100) : Number(co.default_vat_rate) || 0
 
+  // Ventilation de la TVA par taux, à partir du taux de chaque ligne (une ligne
+  // = un taux). Base HT = total_ht ligne (remise déjà déduite). Indispensable
+  // dès qu'un devis/facture mélange 10 % et 20 % : le document doit détailler.
+  const vatMap = new Map<number, { base: number; vat: number }>()
+  for (const l of lines) {
+    const rate = Number(l.vat_rate) || 0
+    const base = Number(l.total_ht) || 0
+    const cur = vatMap.get(rate) || { base: 0, vat: 0 }
+    cur.base += base
+    cur.vat += base * rate / 100
+    vatMap.set(rate, cur)
+  }
+  const vatBreakdown = [...vatMap.entries()]
+    .filter(([rate, v]) => rate > 0 || v.base > 0)
+    .sort((a, b) => a[0] - b[0])
+    .map(([rate, v]) => ({ rate, base: round2(v.base), vat: round2(v.vat) }))
+
   return {
     docType: kind,
     title: kind === 'devis' ? 'DEVIS' : 'FACTURE',
@@ -660,6 +699,7 @@ export function buildDocData(
         totalHt: Number(l.total_ht) || 0,
       })),
     subtotalHt, vatRate, totalVat, totalTtc,
+    vatBreakdown: vatBreakdown.length ? vatBreakdown : undefined,
     vatNote: s(doc.legal_mentions) || s(co.legal_mentions) || undefined,
     modalites: s(doc.notes) || s(co.payment_terms) || undefined,
   }
