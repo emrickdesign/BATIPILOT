@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, CalendarDays, HardHat, Users2, X, AlertTriangle, UserCheck, ArrowRight, CloudRain, CalendarClock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, HardHat, Users2, X, AlertTriangle, UserCheck, ArrowRight, CloudRain, CalendarClock, CalendarOff } from 'lucide-react'
 import { employeeInitials } from '@/lib/equipe'
 import type { DayWeather } from '@/lib/meteo'
 import type { WeatherAlert } from './page'
@@ -89,10 +89,11 @@ function EmployeeBar({ emp, a, busy, onChange, onRemove }: {
 
 export default function PlanningView({
   view, days, anchor, prevDate, nextDate, projects, employees, assignments,
-  weather = {}, weatherAlerts = [],
+  absentByDate = {}, weather = {}, weatherAlerts = [],
 }: {
   view: PlanningViewMode; days: string[]; anchor: string; prevDate: string; nextDate: string
   projects: ProjectRow[]; employees: EmployeeRow[]; assignments: AssignmentRow[]
+  absentByDate?: Record<string, string[]>
   weather?: Record<string, Record<string, DayWeather>>
   weatherAlerts?: WeatherAlert[]
 }) {
@@ -211,7 +212,8 @@ export default function PlanningView({
   }
   const AffectSelect = ({ projectId, date }: { projectId: string; date: string }) => {
     const assignedIds = new Set((cellMap.get(`${projectId}|${date}`) || []).map(a => a.employee_id))
-    const available = employees.filter(e => !assignedIds.has(e.id))
+    const absent = new Set(absentByDate[date] || [])
+    const available = employees.filter(e => !assignedIds.has(e.id) && !absent.has(e.id))
     if (!available.length) return null
     return (
       <div className="group relative inline-flex">
@@ -245,7 +247,9 @@ export default function PlanningView({
     )
   }
 
-  const dispoJour = view === 'jour' ? employees.filter(e => !items.some(a => a.date === days[0] && a.employee_id === e.id)) : []
+  const absentJour = new Set(view === 'jour' ? (absentByDate[days[0]] || []) : [])
+  const dispoJour = view === 'jour' ? employees.filter(e => !items.some(a => a.date === days[0] && a.employee_id === e.id) && !absentJour.has(e.id)) : []
+  const absentsJourList = view === 'jour' ? employees.filter(e => absentJour.has(e.id)) : []
 
   return (
     <Wrapper>
@@ -432,6 +436,19 @@ export default function PlanningView({
                       {e.full_name}
                     </span>
                   ))}
+                </div>
+              )}
+              {absentsJourList.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-[#CFE0BE]">
+                  <h3 className="text-sm font-semibold text-rose-700 mb-2 flex items-center gap-2"><CalendarOff className="w-4 h-4" /> Absents ce jour ({absentsJourList.length})</h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {absentsJourList.map(e => (
+                      <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-rose-200 pl-1 pr-2.5 py-0.5 text-xs shadow-sm">
+                        <span className="grid place-items-center w-5 h-5 rounded-full text-white text-[9px]" style={{ backgroundColor: e.color }}>{employeeInitials(e.full_name)}</span>
+                        <span className="line-through text-gray-500">{e.full_name}</span>
+                      </span>
+                    ))}
+                  </div>
                 </div>
               )}
             </CardContent>

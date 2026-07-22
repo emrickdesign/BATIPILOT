@@ -56,12 +56,20 @@ export default async function PlanningPage({
   }
 
   const closed = ['termine', 'facture', 'paye', 'archive']
-  const [{ data: projectsRaw }, { data: employees }, { data: assignments }] = await Promise.all([
+  const [{ data: projectsRaw }, { data: employees }, { data: assignments }, { data: absencesRaw }] = await Promise.all([
     supabase.from('projects').select('id,title,status,address,is_outdoor,latitude,longitude').eq('user_id', user.id).not('status', 'in', `(${closed.join(',')})`).order('created_at', { ascending: false }),
     supabase.from('employees').select('id,full_name,color').eq('user_id', user.id).eq('active', true).order('full_name'),
     supabase.from('assignments').select('id,employee_id,project_id,date,start_hour,end_hour').eq('user_id', user.id).gte('date', days[0]).lte('date', days[days.length - 1]),
+    supabase.from('absences').select('employee_id,start_date,end_date').eq('user_id', user.id).lte('start_date', days[days.length - 1]).gte('end_date', days[0]),
   ])
   const projects = projectsRaw || []
+
+  // Salariés absents par jour (congés/maladie…) → exclus des disponibilités et des affectations.
+  const absentByDate: Record<string, string[]> = {}
+  for (const d of days) {
+    absentByDate[d] = ((absencesRaw || []) as { employee_id: string; start_date: string; end_date: string }[])
+      .filter(a => a.start_date <= d && a.end_date >= d).map(a => a.employee_id)
+  }
 
   // ── Météo : géocodage lazy + prévisions + alertes replanification ──────
   const todayIso = isoDate(new Date())
@@ -136,6 +144,7 @@ export default async function PlanningPage({
       projects={projects}
       employees={employees || []}
       assignments={assignments || []}
+      absentByDate={absentByDate}
       weather={weather}
       weatherAlerts={weatherAlerts}
     />

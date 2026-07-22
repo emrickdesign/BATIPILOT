@@ -8,6 +8,8 @@ import { ArrowLeft, Phone, Mail, HardHat, Clock, Truck, Camera, LogIn, LogOut, C
 import { formatDate } from '@/lib/utils'
 import { employeeInitials } from '@/lib/equipe'
 import { presenceShort } from '@/lib/pointage'
+import AbsencesPanel, { type Absence } from './AbsencesPanel'
+import EmployeeDocsPanel, { type EmpDoc } from './EmployeeDocsPanel'
 import type { Employee, PresenceType } from '@/types'
 
 const num = (v: unknown) => Number(v) || 0
@@ -29,6 +31,11 @@ export default async function FicheSalariePage({ params }: { params: Promise<{ i
     supabase.from('presence_events').select('type, occurred_at, photo_path, project_id').eq('user_id', user.id).eq('employee_id', id).order('occurred_at', { ascending: false }).limit(8),
     supabase.from('vehicles').select('id, name, plate').eq('user_id', user.id).eq('driver_employee_id', id),
     supabase.from('projects').select('id, title').eq('user_id', user.id),
+  ])
+
+  const [{ data: absences }, { data: empDocs }] = await Promise.all([
+    supabase.from('absences').select('*').eq('user_id', user.id).eq('employee_id', id).order('start_date', { ascending: false }),
+    supabase.from('documents').select('id,name,category,expiry_date,storage_path,created_at').eq('user_id', user.id).eq('employee_id', id).order('created_at', { ascending: false }),
   ])
 
   const projTitle = new Map((projects || []).map(p => [p.id, p.title]))
@@ -131,7 +138,10 @@ export default async function FicheSalariePage({ params }: { params: Promise<{ i
         </CardContent>
       </Card>
 
-      <p className="text-[11px] text-gray-400">Documents salarié et gestion des absences : à venir. Modifier le salarié depuis la liste Équipe.</p>
+      <AbsencesPanel employeeId={id} initial={(absences || []) as Absence[]} />
+      <EmployeeDocsPanel employeeId={id} initial={(empDocs || []) as EmpDoc[]} />
+
+      <p className="text-[11px] text-gray-400">Modifier les infos du salarié depuis la liste Équipe.</p>
     </div>
   )
 }
