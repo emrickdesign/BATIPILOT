@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Download, CheckCircle, Send, Mail, MessageCircle, Loader2, FileSpreadsheet, Landmark, Calculator, Ban } from 'lucide-react'
+import { Download, CheckCircle, Send, Mail, MessageCircle, Loader2, FileSpreadsheet, Landmark, Calculator, Ban, Undo2 } from 'lucide-react'
 import { phasesBefore } from '@/lib/clients'
 
 function formatWhatsApp(phone: string) {
@@ -16,11 +16,12 @@ function formatWhatsApp(phone: string) {
 }
 
 export default function InvoiceActions({
-  invoiceId, status, invoiceNumber, clientId, clientEmail, clientPhone, clientName, companyName,
+  invoiceId, status, invoiceType, invoiceNumber, clientId, clientEmail, clientPhone, clientName, companyName,
   issueDate, subtotalHt, totalVat, totalTtc, amountDue,
 }: {
   invoiceId: string
   status: string
+  invoiceType?: string
   invoiceNumber: string
   clientId?: string
   clientEmail?: string
@@ -80,6 +81,15 @@ export default function InvoiceActions({
     window.open(`https://wa.me/${phone}?text=${msg}`, '_blank')
   }
 
+  async function handleAvoir() {
+    if (!confirm('Créer un avoir (note de crédit) sur cette facture ?')) return
+    setLoading('avoir')
+    const res = await fetch(`/api/factures/${invoiceId}/avoir`, { method: 'POST' })
+    const json = await res.json()
+    if (res.ok && json.invoiceId) { toast.success('Avoir créé'); router.push(`/factures/${json.invoiceId}`) }
+    else { toast.error(json.error || 'Erreur création avoir'); setLoading(null) }
+  }
+
   function handleExportData() {
     const rows = [
       ['Numéro', 'Date', 'Client', 'Total HT', 'TVA', 'Total TTC', 'Reste à payer'],
@@ -137,6 +147,12 @@ export default function InvoiceActions({
       {(status === 'envoyee' || status === 'en_retard' || status === 'payee_partiellement') && (
         <Button variant="success" className="gap-2" onClick={() => updateStatus('payee')} disabled={!!loading}>
           <CheckCircle className="w-4 h-4" /> Marquer payée
+        </Button>
+      )}
+
+      {invoiceType !== 'avoir' && (
+        <Button variant="outline" className="gap-2 border-orange-200 text-orange-700 hover:bg-orange-50" onClick={handleAvoir} disabled={!!loading}>
+          {loading === 'avoir' ? <Loader2 className="w-4 h-4 animate-spin" /> : <Undo2 className="w-4 h-4" />} Créer un avoir
         </Button>
       )}
 

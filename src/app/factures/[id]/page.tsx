@@ -73,7 +73,10 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
               <Badge className={`${statusColors[dispStatus]} border-0 text-xs`}>
                 {statusLabels[dispStatus]}
               </Badge>
-              {invoice.type && invoice.type !== 'complete' && (
+              {invoice.type === 'avoir' && (
+                <Badge className="bg-orange-100 text-orange-700 border-0 text-xs">Avoir</Badge>
+              )}
+              {invoice.type && invoice.type !== 'complete' && invoice.type !== 'avoir' && (
                 <Badge className="bg-purple-100 text-purple-700 border-0 text-xs">
                   {invoice.type === 'acompte' ? 'Acompte' : invoice.type === 'solde' ? 'Solde' : `Situation n°${invoice.situation_number || ''}`}
                   {invoice.billed_percent ? ` · ${invoice.billed_percent} %` : ''}
@@ -88,6 +91,7 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
       <InvoiceActions
         invoiceId={id}
         status={invoice.status}
+        invoiceType={invoice.type}
         invoiceNumber={invoice.invoice_number}
         clientId={client?.id}
         clientEmail={client?.email}

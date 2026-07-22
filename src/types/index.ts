@@ -17,7 +17,7 @@ export type QuoteStatus =
 export type InvoiceStatus =
   | 'brouillon' | 'envoyee' | 'payee_partiellement' | 'payee' | 'en_retard' | 'annulee'
 
-export type InvoiceType = 'complete' | 'acompte' | 'intermediaire' | 'solde'
+export type InvoiceType = 'complete' | 'acompte' | 'intermediaire' | 'solde' | 'avoir'
 
 export type EmailCategory =
   | 'demande_devis' | 'client_a_repondre' | 'relance_client' | 'fournisseur'
@@ -331,6 +331,8 @@ export interface Invoice {
   retention_amount?: number | null
   retention_released?: boolean | null
   retention_release_date?: string | null
+  /** Avoir : facture d'origine créditée. */
+  credited_invoice_id?: string | null
   created_at: string
   clients?: Client
 }
