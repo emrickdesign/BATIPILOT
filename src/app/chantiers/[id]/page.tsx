@@ -14,6 +14,7 @@ import { clientDisplayName } from '@/lib/chantiers'
 import StatusSelect from '../StatusSelect'
 import MateriauxSection, { type MaterialRow } from './MateriauxSection'
 import AvancementControl from './AvancementControl'
+import ReceptionSection, { type Reception } from './ReceptionSection'
 import { buildNeeds, type QuoteLineLite } from '@/lib/materiaux'
 
 const num = (v: unknown) => Number(v) || 0
@@ -50,6 +51,12 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     supabase.from('vehicles').select('id,name,plate').eq('user_id', user.id),
     supabase.from('subcontractor_invoices').select('amount_ht,amount_ttc,status').eq('project_id', id).eq('user_id', user.id),
   ])
+
+  // Réception de chantier (PV) + éventuelle demande de signature associée.
+  const reception = (await supabase.from('project_receptions').select('*').eq('project_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle()).data
+  const receptionSig = reception
+    ? (await supabase.from('document_signatures').select('id,status').eq('reception_id', reception.id).order('created_at', { ascending: false }).limit(1).maybeSingle()).data
+    : null
 
   const isSigned = (s: string) => s === 'accepte' || s === 'transforme'
   const isOpen = (s: string) => s === 'envoyee' || s === 'en_retard' || s === 'payee_partiellement'
@@ -226,6 +233,14 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           </div>
         </CardContent>
       </Card>
+
+      {/* Réception de chantier (PV signable + réserves) */}
+      <ReceptionSection
+        projectId={id}
+        clientName={p.clients ? clientDisplayName(p.clients) : 'Client'}
+        initial={reception as Reception | null}
+        signatureId={receptionSig?.id ?? null}
+      />
       </div>
 
       {/* Colonne latérale : localisation + magasins + notes */}

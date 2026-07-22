@@ -14,7 +14,7 @@ export default function SignatureForm({
   signatureId: string
   defaultName: string
   defaultEmail: string
-  docTypeLabel: 'devis' | 'facture' | 'contrat'
+  docTypeLabel: 'devis' | 'facture' | 'contrat' | 'réception'
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const padRef = useRef<SignaturePad | null>(null)
@@ -83,7 +83,7 @@ export default function SignatureForm({
           <CheckCircle className="w-10 h-10 text-green-600" />
           <p className="font-semibold text-green-800">Merci, c&apos;est signé !</p>
           <p className="text-sm text-green-700">
-            Une copie du {docTypeLabel} signé vous a été envoyée par email{email ? ` à ${email}` : ''}.
+            Une copie {docTypeLabel === 'réception' ? 'du PV de réception' : `du ${docTypeLabel}`} signé vous a été envoyée par email{email ? ` à ${email}` : ''}.
           </p>
         </CardContent>
       </Card>
@@ -95,7 +95,7 @@ export default function SignatureForm({
       <CardContent className="p-5 space-y-4">
         <div className="flex items-center gap-2">
           <PenLine className="w-4 h-4 text-primary" />
-          <p className="font-semibold text-gray-900">Signer ce {docTypeLabel}</p>
+          <p className="font-semibold text-gray-900">{docTypeLabel === 'réception' ? 'Signer le PV de réception' : `Signer ce ${docTypeLabel}`}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -128,7 +128,7 @@ export default function SignatureForm({
             onChange={(e) => setConsent(e.target.checked)}
             className="mt-0.5 w-4 h-4 rounded border-gray-300"
           />
-          <span>J&apos;ai pris connaissance du {docTypeLabel} ci-dessus et je l&apos;accepte (bon pour accord).</span>
+          <span>J&apos;ai pris connaissance {docTypeLabel === 'réception' ? 'du procès-verbal' : `du ${docTypeLabel}`} ci-dessus et je l&apos;accepte (bon pour accord).</span>
         </label>
 
         <Button

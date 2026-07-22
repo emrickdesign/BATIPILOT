@@ -110,6 +110,82 @@ export default async function SignaturePage({ params }: { params: Promise<{ id: 
     )
   }
 
+  // ─── Réception de chantier (PV) ───
+  if (sig.reception_id) {
+    const { data: reception } = await service.from('project_receptions').select('*').eq('id', sig.reception_id).single()
+    if (!reception) return notFound()
+    const [{ data: project }, { data: comp }] = await Promise.all([
+      service.from('projects').select('*, clients(*)').eq('id', reception.project_id).single(),
+      service.from('companies').select('*').eq('user_id', sig.user_id).single(),
+    ])
+    const cl = (project as any)?.clients
+    const clientName = cl ? (cl.type === 'professionnel' ? cl.company_name : `${cl.first_name || ''} ${cl.last_name || ''}`.trim()) : (sig.signer_name || 'Client')
+    const reserves = (reception.reserves as { label: string; resolved: boolean }[]) || []
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 px-4">
+        <div className="max-w-2xl mx-auto space-y-4">
+          <div className="flex items-center gap-3">
+            {comp?.logo_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={comp.logo_url} alt={comp.trade_name || ''} className="w-10 h-10 rounded-lg object-cover" />
+            )}
+            <p className="font-bold text-gray-900 text-lg">{comp?.trade_name || 'Votre entreprise'}</p>
+          </div>
+          <Card>
+            <CardContent className="p-5 space-y-4">
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-400 font-semibold">Procès-verbal de réception de chantier</p>
+                <p className="font-medium text-gray-900">{project?.title || 'Chantier'}</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm border-t border-b py-3">
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-400 mb-1">ENTREPRISE</p>
+                  <p className="font-medium text-gray-900">{comp?.trade_name || ''}</p>
+                  {comp?.siret && <p className="text-gray-500 text-xs">SIRET : {comp.siret}</p>}
+                </div>
+                <div>
+                  <p className="text-[11px] font-semibold text-gray-400 mb-1">MAÎTRE D&apos;OUVRAGE</p>
+                  <p className="font-medium text-gray-900">{clientName}</p>
+                  {project?.address && <p className="text-gray-500 text-xs whitespace-pre-line">{project.address}</p>}
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">Réception prononcée le <span className="font-medium text-gray-900">{formatDate(reception.reception_date)}</span>{reserves.length === 0 ? ' sans réserve.' : ` avec ${reserves.length} réserve${reserves.length > 1 ? 's' : ''} :`}</p>
+              {reserves.length > 0 && (
+                <ul className="text-sm space-y-1">
+                  {reserves.map((r, i) => (
+                    <li key={i} className="flex items-center gap-2">
+                      <span className={`w-4 h-4 rounded-full flex-shrink-0 ${r.resolved ? 'bg-green-500' : 'bg-amber-400'}`} />
+                      <span className={r.resolved ? 'line-through text-gray-400' : 'text-gray-700'}>{r.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <p className="text-[11px] text-gray-400 border-t pt-3">La signature du présent procès-verbal vaut réception des travaux au sens de l&apos;article 1792-6 du Code civil et fait courir les délais de garantie. En présence de réserves, celles-ci devront être levées dans les délais convenus.</p>
+            </CardContent>
+          </Card>
+
+          {status === 'signee' && (
+            <Card className="border-green-200 bg-green-50"><CardContent className="p-5 flex items-start gap-3">
+              <CheckCircle className="w-6 h-6 text-green-600 shrink-0 mt-0.5" />
+              <div><p className="font-semibold text-green-800">Réception signée</p>
+                <p className="text-sm text-green-700 mt-1">Signée par {sig.signer_name} le {formatDate(sig.signed_at)}.</p></div>
+            </CardContent></Card>
+          )}
+          {status === 'expiree' && (
+            <Card className="border-orange-200 bg-orange-50"><CardContent className="p-5 flex items-start gap-3">
+              <Clock className="w-6 h-6 text-orange-600 shrink-0 mt-0.5" />
+              <div><p className="font-semibold text-orange-800">Ce lien a expiré</p>
+                <p className="text-sm text-orange-700 mt-1">Contactez {comp?.trade_name || "l'entreprise"} pour un nouveau lien.</p></div>
+            </CardContent></Card>
+          )}
+          {status === 'en_attente' && (
+            <SignatureForm signatureId={id} defaultName={sig.signer_name || clientName} defaultEmail={sig.signer_email || cl?.email || ''} docTypeLabel="réception" />
+          )}
+        </div>
+      </div>
+    )
+  }
+
   let document: any = null
   let lines: any[] = []
   let docType: 'devis' | 'facture' = 'devis'

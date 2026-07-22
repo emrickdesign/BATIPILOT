@@ -49,6 +49,21 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const imageBuffer = Buffer.from(signatureImage.split(',')[1] || '', 'base64')
     if (imageBuffer.length === 0) return NextResponse.json({ error: 'Signature vide' }, { status: 400 })
 
+    // ─── Réception de chantier : pas de PDF, on signe le PV et on l'acte ───
+    if (sig.reception_id) {
+      const { data: reception } = await service.from('project_receptions').select('*').eq('id', sig.reception_id).single()
+      if (!reception) return NextResponse.json({ error: 'Réception introuvable' }, { status: 404 })
+      const documentHash = createHash('sha256').update(JSON.stringify({ id: reception.id, date: reception.reception_date, reserves: reception.reserves })).digest('hex')
+      await service.from('document_signatures').update({
+        status: 'signee', signer_name: signerName, signer_email: signerEmail || sig.signer_email,
+        signature_image: signatureImage, document_hash: documentHash, signed_at: signedAt,
+        signer_ip: ip, signer_user_agent: userAgent,
+      }).eq('id', id)
+      await service.from('project_receptions').update({ status: 'signee' }).eq('id', sig.reception_id).eq('user_id', sig.user_id)
+      try { await service.channel(`document-signature:${id}`).send({ type: 'broadcast', event: 'signed', payload: { id, signedAt } }) } catch { /* best-effort */ }
+      return NextResponse.json({ success: true })
+    }
+
     let quote: any = null
     let invoice: any = null
     let contract: any = null
