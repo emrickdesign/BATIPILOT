@@ -85,6 +85,13 @@ export interface Project {
   latitude?: number | null
   longitude?: number | null
   geocoded_at?: string | null
+  /** Colonnes ajoutées en base (rollout) : pilotage chantier. */
+  progress?: number | null
+  planned_hours?: number | null
+  access_code?: string | null
+  parking?: string | null
+  floor?: string | null
+  access_hours?: string | null
   created_at: string
   clients?: Client
 }
