@@ -305,6 +305,259 @@ ${rightBox}
 <footer class="foot"><div>${footerLegal}</div><div><strong>Merci de votre confiance</strong>Ce ${d.docType} a été établi avec soin.</div></footer>
 </main></body></html>`
 }
+/* ─── Modèle NOVALIS — bleu corporate (HTML officiel) ─────────────────── */
+
+function renderNovalis(d: DocData): string {
+  const c = d.company, cl = d.client
+  const B = '#0b4ea2', BD = '#0b2f66'
+  const secondLabel = d.docType === 'devis' ? 'Valable jusqu’au' : "Date d'échéance"
+  const brandContact = [
+    ...c.addressLines,
+    c.phone ? `Tél. : ${c.phone}` : '', c.email, c.website,
+  ].filter(Boolean).map(esc).join('<br>')
+
+  const companyBody = `<strong>${esc(c.name)}</strong>` +
+    (c.subtitle ? esc(c.subtitle) + '<br>' : '') +
+    (c.addressLines.length ? c.addressLines.map(esc).join('<br>') + '<br>' : '') +
+    (c.siret ? `SIRET : ${esc(c.siret)}<br>` : '') +
+    (c.vat ? `TVA : ${esc(c.vat)}<br>` : '') +
+    (c.email ? `Email : ${esc(c.email)}` : '')
+  const clientBody = `<strong>${esc(cl.name)}</strong>` +
+    (cl.subtitle ? esc(cl.subtitle) + '<br>' : '') +
+    (cl.addressLines.length ? cl.addressLines.map(esc).join('<br>') + '<br>' : '') +
+    (cl.phone ? `Tél. : ${esc(cl.phone)}<br>` : '') +
+    (cl.email ? `Email : ${esc(cl.email)}` : '')
+
+  const rows = d.lines.map(l => `<tr><td class="num">${l.n}</td><td class="desc"><div class="item-title">${esc(l.title)}</div>${l.description ? `<div class="item-desc">${esc(l.description)}</div>` : ''}</td><td class="qty">${esc(l.qty)}${l.unitLabel ? ' ' + esc(l.unitLabel) : ''}</td><td class="price">${fmtEur(l.puHt)}</td><td class="total">${fmtEur(l.totalHt)}</td></tr>`).join('')
+
+  const rightBox = d.docType === 'devis'
+    ? `<div class="box"><div class="box-title">Bon pour accord</div>Date : ___________________________<br>Nom / Fonction : ___________________________<br>Signature et cachet :<div class="signature-zone"></div></div>`
+    : `<div class="box"><div class="box-title">Règlement par virement</div>Merci d'indiquer le numéro de facture lors du virement.${c.iban ? `<br>IBAN : ${esc(c.iban)}` : ''}${c.bic ? `<br>BIC : ${esc(c.bic)}` : ''}<div class="signature-zone"></div></div>`
+
+  const logo = d.logoUrl ? `<div class="logo" style="background:#fff;border:1.5px solid ${B};overflow:hidden"><img src="${esc(d.logoUrl)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain"></div>` : `<div class="logo">${esc((c.name || 'N')[0].toUpperCase())}</div>`
+
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>
+*{box-sizing:border-box}html,body{margin:0;background:#fff;font-family:Arial,Helvetica,sans-serif;color:#111827}
+.page{width:100%;max-width:210mm;margin:0 auto;padding:16mm;background:#fff}
+.top{display:grid;grid-template-columns:1fr 1fr;gap:30px;border-bottom:2px solid ${B};padding-bottom:22px;margin-bottom:20px}
+.brand{display:flex;gap:18px;align-items:flex-start}
+.logo{width:74px;height:74px;border-radius:18px;background:linear-gradient(135deg,${B},#2f80ed);color:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:900;flex-shrink:0}
+.brand-name{font-size:23px;font-weight:900;color:${BD};text-transform:uppercase}
+.brand-subtitle{color:${B};font-style:italic;margin:3px 0 14px;font-size:13px}
+.contact{font-size:12px;line-height:1.6}
+.doc-head{text-align:right}
+.doc-title{font-size:52px;font-weight:900;color:${BD};text-transform:uppercase;letter-spacing:1px}
+.doc-line{height:2px;width:250px;background:${B};margin:8px 0 18px auto}
+.doc-number{color:${B};font-size:22px;font-weight:900;margin-bottom:18px}
+.meta{display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;font-size:13px;max-width:330px;margin-left:auto;text-align:left}
+.meta strong{color:${BD}}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:16px}
+.card{border:1.5px solid #b7cbed;border-radius:8px;padding:18px;background:#f8fbff;font-size:12.5px;line-height:1.55}
+.card-title{color:${B};font-weight:900;text-transform:uppercase;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.icon{width:26px;height:26px;background:${B};color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;font-weight:900}
+.card strong{display:block;font-size:14px;margin-bottom:5px;text-transform:uppercase}
+.object{border:1.5px solid #b7cbed;border-radius:8px;padding:12px 16px;margin-bottom:12px;display:grid;grid-template-columns:190px 1fr;gap:20px;font-size:13px;align-items:center}
+.object strong{color:${B};text-transform:uppercase}
+table{width:100%;border-collapse:collapse}
+.items th{background:${B};color:#fff;padding:12px 10px;text-transform:uppercase;font-size:12px;border:1px solid ${B}}
+.items td{border:1px solid #b7cbed;padding:14px 10px;font-size:12.5px;vertical-align:middle}
+.items .num{width:7%;text-align:center}.items .desc{width:51%}.items .qty{width:10%;text-align:center}
+.items .price,.items .total{width:16%;text-align:right;white-space:nowrap}
+.item-title{font-weight:900;margin-bottom:5px}.item-desc{font-size:11.5px;line-height:1.45}
+.below-table{margin-top:8px;display:grid;grid-template-columns:1fr 0.45fr;gap:22px;align-items:start}
+.small-note{font-size:11px;font-style:italic;margin-top:8px;color:#475569}
+.totals td{border:1px solid ${B};padding:11px 14px;font-size:13px}
+.totals td:first-child{font-weight:900;text-transform:uppercase}.totals td:last-child{text-align:right;white-space:nowrap}
+.totals .grand td{background:${B};color:#fff;font-size:18px;font-weight:900}
+.bottom{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-top:24px}
+.box{border:1.5px solid #b7cbed;border-radius:8px;padding:16px;font-size:12px;line-height:1.6;background:#fff}
+.box-title{color:${B};font-weight:900;text-transform:uppercase;margin-bottom:10px}
+.signature-zone{height:72px;border:1.5px solid #8aa9d6;margin-top:10px;border-radius:4px}
+.tva-note{text-align:center;color:${B};font-style:italic;font-size:12px;margin:22px 0 10px}
+.footer{border-top:2px solid ${B};padding-top:12px;text-align:center;font-size:10.5px;line-height:1.5;color:${BD}}
+</style></head><body><main class="page">
+<section class="top"><div class="brand">${logo}<div><div class="brand-name">${esc(c.name)}</div>${c.subtitle ? `<div class="brand-subtitle">${esc(c.subtitle)}</div>` : ''}<div class="contact">${brandContact}</div></div></div>
+<div class="doc-head"><div class="doc-title">${esc(d.title)}</div><div class="doc-line"></div><div class="doc-number">${esc(d.number)}</div>
+<div class="meta"><strong>Date d’émission :</strong><span>${esc(d.issueDate)}</span><strong>${esc(secondLabel)} :</strong><span>${esc(d.secondDate)}</span></div></div></section>
+<section class="cards"><div class="card"><div class="card-title"><span class="icon">E</span> Émetteur</div>${companyBody}</div>
+<div class="card"><div class="card-title"><span class="icon">D</span> Destinataire</div>${clientBody}</div></section>
+${d.objet ? `<section class="object"><strong>Objet ${d.docType === 'devis' ? 'du devis' : 'de la facture'}</strong><span>${esc(d.objet)}</span></section>` : ''}
+<table class="items"><thead><tr><th class="num">N°</th><th class="desc">Désignation</th><th class="qty">Qté</th><th class="price">P.U. HT</th><th class="total">Total HT</th></tr></thead><tbody>${rows}</tbody></table>
+<section class="below-table"><div class="small-note">Les prix sont exprimés en euros.</div>
+<table class="totals"><tr><td>Total HT</td><td>${fmtEur(d.subtotalHt)}</td></tr><tr><td>TVA (${esc(d.vatRate)}%)</td><td>${fmtEur(d.totalVat)}</td></tr><tr class="grand"><td>Total TTC</td><td>${fmtEur(d.totalTtc)}</td></tr></table></section>
+<section class="bottom">${d.modalites ? `<div class="box"><div class="box-title">Modalités de règlement</div>${nl2br(d.modalites)}</div>` : '<div></div>'}${rightBox}</section>
+${d.vatNote ? `<div class="tva-note">${esc(d.vatNote)}</div>` : ''}
+<footer class="footer">${[esc(c.name) + (c.siret ? ` — SIRET ${esc(c.siret)}` : '') + (c.ape ? ` — APE ${esc(c.ape)}` : ''), c.addressLines.length ? esc(c.addressLines.join(' — ')) + (c.email ? ' — ' + esc(c.email) : '') : '', c.website ? esc(c.website) : ''].filter(Boolean).join('<br>')}</footer>
+</main></body></html>`
+}
+
+/* ─── Modèle MAISONOVA — premium sombre, serif (HTML officiel) ─────────── */
+
+function renderMaisonova(d: DocData): string {
+  const c = d.company, cl = d.client
+  const D = '#1f2933', G = '#b08d57'
+  const secondLabel = d.docType === 'devis' ? 'Validité du devis' : "Date d'échéance"
+  const companyBody = `<strong>${esc(c.name)}</strong>` +
+    (c.subtitle ? esc(c.subtitle) + '<br>' : '') +
+    (c.addressLines.length ? c.addressLines.map(esc).join('<br>') + '<br>' : '') +
+    (c.phone ? esc(c.phone) + '<br>' : '') + (c.email ? esc(c.email) + '<br>' : '') +
+    (c.website ? esc(c.website) + '<br>' : '') + (c.siret ? `SIRET : ${esc(c.siret)}` : '')
+  const clientBody = `<strong>${esc(cl.name)}</strong>` +
+    (cl.subtitle ? esc(cl.subtitle) + '<br>' : '') +
+    (cl.addressLines.length ? cl.addressLines.map(esc).join('<br>') + '<br>' : '') +
+    (cl.phone ? esc(cl.phone) + '<br>' : '') + (cl.email ? esc(cl.email) : '')
+
+  const rows = d.lines.map(l => `<tr><td class="icon-col">${l.n}</td><td class="desc"><div class="item-title">${esc(l.title)}</div>${l.description ? `<div class="item-desc">${esc(l.description)}</div>` : ''}</td><td class="qty">${esc(l.qty)}${l.unitLabel ? ' ' + esc(l.unitLabel) : ''}</td><td class="price">${fmtEur(l.puHt)}</td><td class="total"><strong>${fmtEur(l.totalHt)}</strong></td></tr>`).join('')
+
+  const rightNote = d.docType === 'devis'
+    ? `<div><strong>Bon pour accord</strong><br>Date : ........................................<br>Nom, cachet et signature :</div><div class="signature-area">Signature</div>`
+    : `<div><strong>Règlement</strong><br>Merci d'indiquer le numéro de facture lors du virement.${c.iban ? `<br>IBAN : ${esc(c.iban)}` : ''}</div><div class="signature-area">Cachet</div>`
+
+  const mono = d.logoUrl ? `<div class="monogram" style="border:none;overflow:hidden"><img src="${esc(d.logoUrl)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain"></div>` : `<div class="monogram">${esc((c.name || 'M')[0].toUpperCase())}</div>`
+
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>
+*{box-sizing:border-box}html,body{margin:0;background:#fff;font-family:Arial,Helvetica,sans-serif;color:${D}}
+.page{width:100%;max-width:210mm;margin:0 auto;padding:14mm 14mm 0;background:#fff;border:1px solid #d8d3ca;overflow:hidden}
+.header{display:grid;grid-template-columns:1fr 1.3fr 0.75fr;gap:24px;align-items:start;margin-bottom:24px}
+.brand{text-align:center;border-right:1px solid #9ca3af;padding-right:20px}
+.monogram{width:64px;height:64px;margin:0 auto 10px;border:2px solid ${G};display:flex;align-items:center;justify-content:center;font-family:Georgia,serif;font-size:36px;font-weight:500;color:${D}}
+.brand-name{font-family:Georgia,serif;font-size:30px;letter-spacing:5px;text-transform:uppercase;color:${D}}
+.brand-subtitle{margin-top:6px;color:${G};font-size:11px;letter-spacing:4px;text-transform:uppercase}
+.doc-title{font-family:Georgia,serif;font-size:58px;letter-spacing:3px;text-transform:uppercase;color:${D};margin-bottom:18px}
+.date-row{display:grid;grid-template-columns:32px 150px 1fr;gap:10px;align-items:center;font-size:13px;margin-bottom:12px}
+.date-row strong{color:${D}}
+.circle-icon{width:26px;height:26px;border-radius:50%;background:${D};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:12px}
+.doc-badge{background:${D};color:#fff;padding:14px;text-align:center;font-family:Georgia,serif;font-size:23px;margin-top:12px}
+.doc-badge small{display:block;color:#d6b679;font-family:Arial,Helvetica,sans-serif;font-size:11px;text-transform:uppercase;margin-bottom:6px}
+.parties{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-bottom:22px}
+.party{border:1px solid #e5e7eb;background:#fafafa;min-height:150px;font-size:12.5px;line-height:1.55}
+.party-title{background:${D};color:#fff;padding:11px 15px;text-transform:uppercase;font-weight:900;letter-spacing:1px}
+.party-content{padding:16px}.party-content strong{display:block;font-size:14px;text-transform:uppercase;margin-bottom:4px}
+.object{border:1px solid #e5e7eb;margin-bottom:20px}
+.object-title{background:${D};color:#fff;padding:12px 16px;font-weight:900;text-transform:uppercase;letter-spacing:1px}
+.object-text{padding:14px 16px;font-size:13px}
+table{width:100%;border-collapse:collapse}
+.items th{background:${D};color:#fff;padding:12px 10px;font-size:12px;text-transform:uppercase;border:1px solid #374151}
+.items td{border:1px solid #d1d5db;padding:13px 10px;font-size:12.5px;vertical-align:middle}
+.items .icon-col{width:8%;text-align:center;font-weight:900;color:${G};font-size:16px}
+.items .desc{width:43%}.items .qty{width:13%;text-align:center}.items .price,.items .total{width:18%;text-align:right;white-space:nowrap}
+.item-title{font-weight:900;margin-bottom:5px}.item-desc{font-size:11.5px;line-height:1.45}
+.middle{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:20px;align-items:start}
+.payment{font-size:12px;line-height:1.6}.payment-title{font-weight:900;text-transform:uppercase;margin-bottom:10px}
+.note-box{margin-top:24px;border:1px solid #c7cbd1;border-radius:6px;padding:12px;font-size:12px}
+.totals td{border:1px solid #d1d5db;padding:12px 14px;font-size:13px}
+.totals td:first-child{font-weight:900;text-transform:uppercase;background:#f5f1eb}.totals td:last-child{text-align:right;white-space:nowrap}
+.totals .grand td{background:${D};color:#fff;font-size:18px;font-weight:900}
+.signature{display:grid;grid-template-columns:1fr 160px;gap:20px;margin-top:20px;font-size:12px}
+.signature-area{border:1px solid #c7cbd1;height:74px;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-family:Georgia,serif;font-style:italic;font-size:20px}
+.footer{margin:24px -14mm 0;background:${D};color:#fff;padding:20px 26px;display:grid;grid-template-columns:1fr 1fr;gap:28px;border-top:3px solid ${G};font-size:11px;line-height:1.55}
+.footer-title{color:#d6b679;font-weight:900;text-transform:uppercase;margin-bottom:8px;font-size:13px}
+</style></head><body><main class="page">
+<section class="header"><div class="brand">${mono}<div class="brand-name">${esc(c.name)}</div>${c.subtitle ? `<div class="brand-subtitle">${esc(c.subtitle)}</div>` : ''}</div>
+<div><div class="doc-title">${esc(d.title)}</div>
+<div class="date-row"><span class="circle-icon">📅</span><strong>Date d’émission :</strong><span>${esc(d.issueDate)}</span></div>
+<div class="date-row"><span class="circle-icon">⏱</span><strong>${esc(secondLabel)} :</strong><span>${esc(d.secondDate)}</span></div></div>
+<div class="doc-badge"><small>${d.docType === 'devis' ? 'Devis' : 'Facture'} n°</small>${esc(d.number)}</div></section>
+<section class="parties"><div class="party"><div class="party-title">Émetteur</div><div class="party-content">${companyBody}</div></div>
+<div class="party"><div class="party-title">Destinataire</div><div class="party-content">${clientBody}</div></div></section>
+${d.objet ? `<section class="object"><div class="object-title">Objet / Nature de la prestation</div><div class="object-text">${esc(d.objet)}</div></section>` : ''}
+<table class="items"><thead><tr><th class="icon-col">N°</th><th class="desc">Désignation</th><th class="qty">Qté</th><th class="price">P.U. HT</th><th class="total">Total HT</th></tr></thead><tbody>${rows}</tbody></table>
+<section class="middle"><div class="payment">${d.modalites ? `<div class="payment-title">Modalités de règlement</div>${nl2br(d.modalites)}` : ''}${d.vatNote ? `<div class="note-box">${esc(d.vatNote)}</div>` : ''}</div>
+<div><table class="totals"><tr><td>Total HT</td><td>${fmtEur(d.subtotalHt)}</td></tr><tr><td>TVA (${esc(d.vatRate)} %)</td><td>${fmtEur(d.totalVat)}</td></tr><tr class="grand"><td>Total TTC</td><td>${fmtEur(d.totalTtc)}</td></tr></table>
+<div class="signature">${rightNote}</div></div></section>
+<footer class="footer"><div><div class="footer-title">Mentions légales</div>${[esc(c.name), c.subtitle ? esc(c.subtitle) : '', c.capital ? esc(c.capital) : '', c.rcs ? esc(c.rcs) : '', c.addressLines.length ? esc(c.addressLines.join(', ')) : '', c.website ? esc(c.website) : ''].filter(Boolean).join('<br>')}</div>
+<div>${d.docType === 'devis'
+  ? `Le présent devis ne vaut pas commande.<br>Les prix sont exprimés en euros.<br>En cas d'acceptation, merci de nous retourner un exemplaire signé et tamponné avec la mention « Bon pour accord ».`
+  : `Facture payable à réception, sauf mention contraire.<br>Les prix sont exprimés en euros.<br>Tout retard de paiement entraîne des pénalités au taux légal en vigueur.`}</div></footer>
+</main></body></html>`
+}
+
+/* ─── Modèle VERDALIA — vert moderne, arrondi (HTML officiel) ──────────── */
+
+function renderVerdalia(d: DocData): string {
+  const c = d.company, cl = d.client
+  const V = '#0f766e', VD = '#0f3d3a'
+  const secondLabel = d.docType === 'devis' ? 'Validité' : "Date d'échéance"
+  const companyBody = `<strong>${esc(c.name)}</strong>` +
+    (c.addressLines.length ? c.addressLines.map(esc).join('<br>') + '<br><br>' : '') +
+    (c.phone ? esc(c.phone) + '<br>' : '') + (c.email ? esc(c.email) + '<br>' : '') +
+    (c.website ? esc(c.website) + '<br>' : '') +
+    [c.siret ? `SIRET : ${esc(c.siret)}` : '', c.ape ? `APE : ${esc(c.ape)}` : ''].filter(Boolean).join(' — ')
+  const clientBody = `<strong>${esc(cl.name)}</strong>` +
+    (cl.addressLines.length ? cl.addressLines.map(esc).join('<br>') + '<br><br>' : '') +
+    (cl.subtitle ? `À l'attention de : ${esc(cl.subtitle)}<br>` : '') +
+    (cl.email ? esc(cl.email) + '<br>' : '') + (cl.phone ? esc(cl.phone) : '')
+
+  const rows = d.lines.map(l => `<tr><td class="icon-cell"><div class="item-icon">${l.n}</div></td><td class="desc"><div class="item-title">${esc(l.title)}</div>${l.description ? `<div class="item-desc">${esc(l.description)}</div>` : ''}</td><td class="qty">${esc(l.qty)}${l.unitLabel ? ' ' + esc(l.unitLabel) : ''}</td><td class="price">${fmtEur(l.puHt)}</td><td class="total">${fmtEur(l.totalHt)}</td></tr>`).join('')
+
+  const rightSig = d.docType === 'devis'
+    ? `<div class="box-title"><span class="round-icon">✎</span> Bon pour accord</div>Date : ____ / ____ / _______<br>Nom, signature et cachet du client :`
+    : `<div class="box-title"><span class="round-icon">✎</span> Règlement</div>Merci d'indiquer le numéro de facture lors du virement.${c.iban ? `<br>IBAN : ${esc(c.iban)}` : ''}`
+
+  const leaf = d.logoUrl
+    ? `<div class="leaf-logo" style="overflow:hidden;padding:6px"><img src="${esc(d.logoUrl)}" alt="" style="max-width:100%;max-height:100%;object-fit:contain"></div>`
+    : `<div class="leaf-logo"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="${V}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3C7 3 4 7 4 12c0 4 3 8 8 9 0-6 2-11 8-13-2-3-5-5-8-5Z"/><path d="M12 21c0-6 3-11 8-13"/></svg></div>`
+
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><style>
+*{box-sizing:border-box}html,body{margin:0;background:#fff;font-family:Arial,Helvetica,sans-serif;color:#102a27}
+.page{width:100%;max-width:210mm;margin:0 auto;padding:15mm;background:#fff;border:1px solid #cfe4df}
+.header{display:grid;grid-template-columns:1fr 0.85fr;gap:40px;margin-bottom:24px;align-items:start}
+.brand-row{display:flex;gap:18px;align-items:center;margin-bottom:18px}
+.leaf-logo{width:70px;height:70px;border:3px solid ${V};border-radius:20px;display:flex;align-items:center;justify-content:center;color:${V};font-size:34px;flex-shrink:0}
+.brand-name{font-size:32px;letter-spacing:4px;color:${VD};font-weight:800;text-transform:uppercase}
+.brand-subtitle{color:${V};letter-spacing:8px;font-size:13px;font-weight:800;text-transform:uppercase}
+.tagline{color:${V};font-size:13px;margin-top:12px}
+.doc-title-row{display:flex;justify-content:space-between;align-items:start;margin-bottom:12px}
+.doc-title{font-size:54px;font-weight:900;color:${V};text-transform:uppercase}
+.badge{background:${V};color:#fff;border-radius:10px 10px 10px 0;padding:8px 14px;font-weight:900}
+.meta{font-size:13px;border-top:1px dashed #9fcfc7}
+.meta-row{display:grid;grid-template-columns:120px 20px 1fr;padding:9px 0;border-bottom:1px dashed #9fcfc7}
+.meta-row strong{color:${V}}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:22px;margin-bottom:16px}
+.card{border:1.5px solid #b7dcd6;background:#f8fffd;border-radius:14px;padding:18px;font-size:12.5px;line-height:1.55}
+.card-title{color:${V};font-weight:900;text-transform:uppercase;margin-bottom:12px;display:flex;gap:9px;align-items:center}
+.round-icon{width:30px;height:30px;background:${V};color:#fff;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.card strong{display:block;font-size:14px;text-transform:uppercase;margin-bottom:6px}
+.object{border:1.5px solid #b7dcd6;border-radius:14px;padding:12px 16px;display:grid;grid-template-columns:34px 170px 1fr;gap:12px;align-items:center;font-size:13px;margin-bottom:14px;background:#fff}
+.object strong{color:${V};text-transform:uppercase}
+table{width:100%;border-collapse:separate;border-spacing:0}
+.items{border:1px solid #b7dcd6;border-radius:12px;overflow:hidden}
+.items th{background:${V};color:#fff;padding:13px 10px;font-size:12px;text-transform:uppercase;border-right:1px solid #78bcb3}
+.items th:last-child{border-right:none}
+.items td{border-bottom:1px solid #cfe4df;border-right:1px solid #cfe4df;padding:13px 10px;font-size:12.5px;vertical-align:middle}
+.items tr:last-child td{border-bottom:none}.items td:last-child{border-right:none}
+.items .icon-cell{width:9%;text-align:center}
+.item-icon{width:48px;height:48px;border-radius:12px;background:#e6f5f2;color:${V};display:flex;align-items:center;justify-content:center;margin:auto;font-size:21px;font-weight:900}
+.items .desc{width:43%}.items .qty{width:14%;text-align:center}.items .price,.items .total{width:17%;text-align:right;white-space:nowrap}
+.item-title{font-weight:900;margin-bottom:5px}.item-desc{font-size:11.5px;line-height:1.45}
+.lower{display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:22px;align-items:start}
+.box{border:1.5px solid #b7dcd6;border-radius:14px;padding:16px;font-size:12px;line-height:1.65;background:#fff}
+.box-title{color:${V};font-weight:900;text-transform:uppercase;margin-bottom:10px;display:flex;gap:8px;align-items:center}
+.legal{margin-top:16px;border:1.5px solid #b7dcd6;border-radius:12px;padding:12px 14px;font-size:12px;display:flex;gap:10px;align-items:center}
+.totals{border:1.5px solid ${V};border-radius:12px;overflow:hidden;margin-bottom:18px;font-size:13px}
+.totals-row{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #b7dcd6}
+.totals-row:last-child{border-bottom:none}.totals-row div{padding:11px 14px}.totals-row div:last-child{text-align:right;white-space:nowrap}
+.grand{background:${V};color:#fff;font-weight:900;font-size:17px}
+.signature{border:1.5px dashed ${V};border-radius:14px;min-height:140px;padding:16px;font-size:12px;line-height:1.8}
+.footer-line{margin-top:24px;border-top:2px solid ${V};text-align:center;padding-top:14px}
+.footer-title{color:${V};font-weight:900;text-transform:uppercase;margin-bottom:6px;font-size:12px}
+.footer{font-size:10.5px;line-height:1.45;color:#22524d}
+</style></head><body><main class="page">
+<section class="header"><div><div class="brand-row">${leaf}<div><div class="brand-name">${esc(c.name)}</div>${c.subtitle ? `<div class="brand-subtitle">${esc(c.subtitle)}</div>` : ''}</div></div></div>
+<div class="doc-head"><div class="doc-title-row"><div class="doc-title">${esc(d.title)}</div></div>
+<div class="meta"><div class="meta-row"><strong>N° ${d.docType === 'devis' ? 'Devis' : 'Facture'}</strong><span>:</span><span>${esc(d.number)}</span></div>
+<div class="meta-row"><strong>Date d’émission</strong><span>:</span><span>${esc(d.issueDate)}</span></div>
+<div class="meta-row"><strong>${esc(secondLabel)}</strong><span>:</span><span>${esc(d.secondDate)}</span></div></div></div></section>
+<section class="cards"><div class="card"><div class="card-title"><span class="round-icon">E</span> Émetteur</div>${companyBody}</div>
+<div class="card"><div class="card-title"><span class="round-icon">D</span> Destinataire</div>${clientBody}</div></section>
+${d.objet ? `<section class="object"><span class="round-icon">📋</span><strong>Objet / Prestation :</strong><span>${esc(d.objet)}</span></section>` : ''}
+<table class="items"><thead><tr><th class="icon-cell"></th><th class="desc">Désignation</th><th class="qty">Qté</th><th class="price">P.U. HT</th><th class="total">Total HT</th></tr></thead><tbody>${rows}</tbody></table>
+<section class="lower"><div>${d.modalites ? `<div class="box"><div class="box-title"><span class="round-icon">💳</span> Modalités de règlement</div>${nl2br(d.modalites)}</div>` : ''}${d.vatNote ? `<div class="legal"><span class="round-icon">i</span><span>${esc(d.vatNote)}</span></div>` : ''}</div>
+<div><div class="totals"><div class="totals-row"><div>Total HT</div><div>${fmtEur(d.subtotalHt)}</div></div><div class="totals-row"><div>TVA (${esc(d.vatRate)} %)</div><div>${fmtEur(d.totalVat)}</div></div><div class="totals-row grand"><div>Total TTC</div><div>${fmtEur(d.totalTtc)}</div></div></div>
+<div class="signature">${rightSig}</div></div></section>
+<section class="footer-line"><div class="footer-title">Mentions légales</div><footer class="footer">${[esc(c.name) + (c.addressLines.length ? ' — ' + esc(c.addressLines.join(', ')) : ''), [c.capital ? esc(c.capital) : '', c.rcs ? esc(c.rcs) : '', c.siret ? 'SIRET ' + esc(c.siret) : '', c.ape ? 'APE ' + esc(c.ape) : ''].filter(Boolean).join(' — ')].filter(Boolean).join('<br>')}</footer></section>
+</main></body></html>`
+}
 
 /* ─── Registre ────────────────────────────────────────────────────────── */
 
@@ -319,6 +572,9 @@ export type TemplateMeta = {
 export const DOC_TEMPLATES: Record<string, TemplateMeta> = {
   azur: { id: 'azur', name: 'Azur', description: 'Noir & blanc, épuré et encadré', accent: '#111111', render: renderAzur },
   via: { id: 'via', name: 'Via', description: 'Orange, cartes arrondies et icônes', accent: '#e8571e', render: renderVia },
+  novalis: { id: 'novalis', name: 'Novalis', description: 'Bleu corporate, structuré', accent: '#0b4ea2', render: renderNovalis },
+  maisonova: { id: 'maisonova', name: 'Maisonova', description: 'Premium sombre, élégant', accent: '#1f2933', render: renderMaisonova },
+  verdalia: { id: 'verdalia', name: 'Verdalia', description: 'Vert moderne, arrondi', accent: '#0f766e', render: renderVerdalia },
 }
 
 export const DEFAULT_TEMPLATE = 'azur'
