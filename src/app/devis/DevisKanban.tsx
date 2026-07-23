@@ -85,9 +85,9 @@ export default function DevisKanban({ initialItems }: { initialItems: DevisCardD
                 <p className="text-[11px] text-gray-400 mt-1">{d.dateFmt}</p>
                 {d.cta && d.cta !== '—' && d.cta !== 'Facturé' && (
                   <Link href={`/devis/${d.id}`} onClick={e => e.stopPropagation()}
-                    className="mt-3 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[12.5px] font-semibold transition-opacity hover:opacity-85"
+                    className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight transition-opacity hover:opacity-85"
                     style={{ backgroundColor: `${dot}18`, color: dot }}>
-                    {d.cta}<ArrowRight className="w-3.5 h-3.5" />
+                    <span>{d.cta}</span><ArrowRight className="w-3.5 h-3.5 flex-shrink-0" />
                   </Link>
                 )}
               </CardContent>
