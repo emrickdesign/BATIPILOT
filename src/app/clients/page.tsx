@@ -123,7 +123,7 @@ export default async function ClientsPage() {
           <StatCard label="Clients" value={String(list.length)} icon={Users2} tone="coral" note="clients actifs" />
           <StatCard label="Total facturé" value={formatCurrency(caTotal)} icon={Banknote} tone="green" />
           <StatCard label="Reste à encaisser" value={formatCurrency(resteTotal)} icon={Coins} tone="amber" />
-          <StatCard label="Chantiers" value={String(chantiersTotal)} icon={HardHat} tone="terre" note="tous clients" />
+          <StatCard label="Chantiers" value={String(chantiersTotal)} icon={HardHat} tone="blue" note="tous clients" />
         </div>
       )}
 

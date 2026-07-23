@@ -539,7 +539,7 @@ export default async function DashboardPage() {
   const tauxAccept = totalEnvDevis > 0 ? Math.round((totalAccDevis / totalEnvDevis) * 100) : 0
 
   // Cartes KPI pro : vert = encaissé (positif), corail = facturé (marque),
-  // ambre = reste à encaisser (en attente, jauge), terre = devis (pipeline).
+  // ambre = reste à encaisser (en attente, jauge), bleu = devis (info pipeline).
   const finCards: {
     label: string; value: string; icon: LucideIcon; tone: StatTone; href: string
     delta?: { text: string; dir: 'up' | 'down' | 'flat' }; gauge?: number; note?: string; spark?: number[]
@@ -550,7 +550,7 @@ export default async function DashboardPage() {
     },
     { label: 'Factures envoyées ce mois', value: formatCurrency(d.fin.factureMois), icon: Send, tone: 'coral', href: '/factures', spark: d.kpiSparks.facture },
     { label: 'Reste à encaisser', value: formatCurrency(d.fin.resteAEncaisser), icon: Coins, tone: 'amber', href: '/relances', note: 'Sur les factures envoyées ce mois' },
-    { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, tone: 'terre', href: '/devis?statut=envoye', note: 'Pipeline commercial en cours', gauge: tauxAccept },
+    { label: 'Devis en attente', value: formatCurrency(d.fin.devisEnAttente), icon: FileText, tone: 'blue', href: '/devis?statut=envoye', note: 'Pipeline commercial en cours', gauge: tauxAccept },
   ]
 
   return (

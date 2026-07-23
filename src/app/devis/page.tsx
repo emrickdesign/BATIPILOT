@@ -111,7 +111,7 @@ export default async function DevisPage({ searchParams }: { searchParams: Promis
         <StatCard label="Montant devisé" value={formatCurrency(montantDevise)} icon={FileText} tone="coral" note="hors brouillons" />
         <StatCard label="En attente" value={formatCurrency(montantEnAttente)} icon={Clock} tone="amber" note="devis envoyés" />
         <StatCard label="Signés" value={formatCurrency(montantSigne)} icon={CheckCircle2} tone="green" note={`${nbSignes} devis`} />
-        <StatCard label="Taux d'acceptation" value={`${taux} %`} icon={Percent} tone="terre" gauge={taux} />
+        <StatCard label="Taux d'acceptation" value={`${taux} %`} icon={Percent} tone="blue" gauge={taux} />
       </div>
 
       {/* Filtres (§7.1) */}

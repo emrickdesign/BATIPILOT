@@ -8,7 +8,8 @@ export const STAT_TONES = {
   green: { base: '#4E9331', deep: '#356420', glow: 'rgba(76,111,24,.35)', fg: '#3F7A2E', chipA: '#6AA636', chipB: '#3F7A2E', tintA: '#E9F2DB', tintB: '#F6FAEF', bd: '#DDE9C9' },
   coral: { base: '#D65A34', deep: '#B23F22', glow: 'rgba(224,103,76,.38)', fg: '#C14E33', chipA: '#F09A80', chipB: '#D0562F', tintA: '#FCE5DC', tintB: '#FEF5F0', bd: '#F4D7CA' },
   amber: { base: '#C9820F', deep: '#9A5E07', glow: 'rgba(199,125,14,.35)', fg: '#8A5A08', chipA: '#E2A536', chipB: '#C77D0E', tintA: '#FBEFD4', tintB: '#FEF9EE', bd: '#F0E1C0' },
-  terre: { base: '#96542A', deep: '#6E3A1B', glow: 'rgba(138,75,36,.34)', fg: '#8A4B24', chipA: '#BC824F', chipB: '#8A4B24', tintA: '#F4E7D8', tintB: '#FBF5ED', bd: '#EAD9C7' },
+  // 'terre' (marron) retiré à la demande : repointé sur le bleu pour ne jamais rendre de brun.
+  terre: { base: '#2F6BE8', deep: '#1E56A0', glow: 'rgba(47,107,232,.35)', fg: '#1F5FAE', chipA: '#5B95F8', chipB: '#2F6BE8', tintA: '#E3ECFB', tintB: '#F1F6FE', bd: '#CFDDF6' },
   blue: { base: '#2F6BE8', deep: '#1E56A0', glow: 'rgba(47,107,232,.35)', fg: '#1F5FAE', chipA: '#5B95F8', chipB: '#2F6BE8', tintA: '#E3ECFB', tintB: '#F1F6FE', bd: '#CFDDF6' },
   red: { base: '#CA4133', deep: '#A02A1F', glow: 'rgba(192,57,43,.35)', fg: '#C0392B', chipA: '#E06A5A', chipB: '#C0392B', tintA: '#FBE0DA', tintB: '#FEF2EF', bd: '#F1D2CB' },
 } as const

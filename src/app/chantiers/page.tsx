@@ -88,7 +88,7 @@ export default async function ChantiersPage() {
           <StatCard label="Chantiers actifs" value={String(actifs)} icon={HardHat} tone="coral" note={`${cards.length} au total`} />
           <StatCard label="En retard" value={String(nbRetard)} icon={AlertTriangle} tone="red" note={nbRetard > 0 ? 'à surveiller' : 'aucun'} />
           <StatCard label="Chiffre signé" value={formatCurrency(totalSigne)} icon={Banknote} tone="green" note="HT devis signés" />
-          <StatCard label="Marge estimée" value={formatCurrency(totalMarge)} icon={TrendingUp} tone="terre" note="signé − coûts" />
+          <StatCard label="Marge estimée" value={formatCurrency(totalMarge)} icon={TrendingUp} tone="blue" note="signé − coûts" />
         </div>
       )}
 

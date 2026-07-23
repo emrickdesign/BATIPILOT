@@ -94,7 +94,7 @@ export default async function BanquePage() {
         <StatCard label="Reste à encaisser" value={formatCurrency(d.resteAEncaisser)} icon={Wallet} tone="amber" note="factures ouvertes" />
         <StatCard label="Encaissé ce mois" value={formatCurrency(d.montantPayeMois)} icon={ArrowDownToLine} tone="green" note={`${d.nbPayeesMois} facture${d.nbPayeesMois > 1 ? 's' : ''}`} />
         <StatCard label="À rapprocher" value={String(d.transactions.length)} icon={Link2} tone="coral" note={`${d.nbSuggestions} suggestion${d.nbSuggestions > 1 ? 's' : ''}`} />
-        <StatCard label="Paiements partiels" value={String(d.partiels)} icon={Wallet} tone="terre" />
+        <StatCard label="Paiements partiels" value={String(d.partiels)} icon={Wallet} tone="blue" />
       </div>
       {(d.forecast.retard + d.forecast.semaine + d.forecast.mois + d.forecast.plusTard > 0 || d.decaissementsST > 0) && (
         <div className="rounded-xl border border-gray-200 bg-white p-4 animate-fade-up">
