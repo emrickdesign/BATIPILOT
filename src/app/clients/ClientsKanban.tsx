@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
-import { Building2, User, MapPin, HardHat, Phone, CalendarClock, Receipt, Send, CheckCircle2 } from 'lucide-react'
+import { MapPin, HardHat, Phone, CalendarClock, Receipt, Send, CheckCircle2 } from 'lucide-react'
 import DndKanban from '@/components/kanban/DndKanban'
 import { CLIENT_COLUMNS, type ClientCard } from './kanban-config'
 import type { ClientStatus } from '@/types'
@@ -90,46 +90,28 @@ export default function ClientsKanban({ initialItems }: { initialItems: ClientCa
         const dot = dotOf(c.col)
         const cta = ctaFor(c)
         return (
-          <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden cursor-grab active:cursor-grabbing bg-white">
-            <div className="h-[3px]" style={{ backgroundColor: dot }} />
-            <CardContent className="p-4 pt-3.5">
-              <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1">
-                  <Link href={`/clients/${c.id}`} className="font-semibold text-[15px] text-gray-900 hover:text-primary truncate block leading-tight">
-                    {c.name}
-                  </Link>
-                  <div className="mt-1.5 space-y-1 text-xs text-gray-500">
-                    {c.ville && <div className="flex items-center gap-1.5 truncate"><MapPin className="w-3 h-3 flex-shrink-0 text-gray-400" />{c.ville}</div>}
-                    {c.phone && <a href={`tel:${c.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 truncate hover:text-primary hover:underline"><Phone className="w-3 h-3 flex-shrink-0 text-gray-400" />{c.phone}</a>}
-                  </div>
-                </div>
-                <div className="w-10 h-10 rounded-full bg-white flex items-center justify-center flex-shrink-0" style={{ boxShadow: `0 0 0 2px ${dot}55` }}>
-                  {c.isPro ? <Building2 className="w-[18px] h-[18px]" style={{ color: dot }} /> : <User className="w-[18px] h-[18px]" style={{ color: dot }} />}
-                </div>
+          <Card className="border border-gray-200/70 shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing bg-white">
+            <CardContent className="p-3.5">
+              <Link href={`/clients/${c.id}`} onClick={e => e.stopPropagation()} className="block font-semibold text-[15px] text-gray-900 hover:text-primary truncate leading-snug">
+                {c.name}
+              </Link>
+              <div className="mt-1 space-y-0.5 text-xs text-gray-500">
+                {c.ville && <div className="flex items-center gap-1.5 truncate"><MapPin className="w-3 h-3 flex-shrink-0 text-gray-400" />{c.ville}</div>}
+                {c.phone && <a href={`tel:${c.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 truncate hover:text-primary"><Phone className="w-3 h-3 flex-shrink-0 text-gray-400" />{c.phone}</a>}
               </div>
-
-              <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs min-h-[20px]">
-                <span className="text-gray-500 whitespace-nowrap">Facturé <b className="text-marine tabular-nums">{c.facture}</b></span>
-                {c.reste && <span className="text-[#8A5A08] font-medium tabular-nums whitespace-nowrap ml-auto">Reste {c.reste}</span>}
-              </div>
-
-              <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-gray-400 min-w-0">
-                <span className="flex items-center gap-1 flex-shrink-0"><HardHat className="w-3 h-3" />{c.chantiers}</span>
-                <span className="text-gray-300 flex-shrink-0">·</span>
-                <span className="truncate">{c.contact}</span>
-              </div>
-
+              <p className="font-bold text-[17px] text-gray-900 tabular-nums mt-1.5 leading-none">
+                {c.facture} <span className="text-[11px] font-normal text-gray-400">facturé</span>
+              </p>
+              {c.reste && <p className="text-[11px] font-medium text-[#C0392B] mt-0.5">Reste {c.reste}</p>}
+              <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1"><HardHat className="w-3 h-3" />{c.chantiers} chantier{c.chantiers > 1 ? 's' : ''} · {c.contact}</p>
               <a
                 href={cta.href}
                 onClick={e => e.stopPropagation()}
                 {...(cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-center gap-2 text-[13px] font-semibold hover:opacity-80 transition-opacity"
-                style={{ color: dot }}
+                className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight transition-opacity hover:opacity-85"
+                style={{ backgroundColor: `${dot}18`, color: dot }}
               >
-                <span className="grid place-items-center w-7 h-7 rounded-full" style={{ backgroundColor: `${dot}1A` }}>
-                  <cta.Icon className="w-4 h-4" />
-                </span>
-                {cta.label}
+                <cta.Icon className="w-3.5 h-3.5 flex-shrink-0" /><span>{cta.label}</span>
               </a>
             </CardContent>
           </Card>

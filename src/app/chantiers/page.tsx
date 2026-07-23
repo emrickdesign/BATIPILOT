@@ -4,7 +4,10 @@ import { Button } from '@/components/ui/button'
 import { Plus, HardHat, AlertTriangle, Banknote, TrendingUp } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import StatCard from '@/components/charts/StatCard'
-import ChantiersList, { type ChantierCard } from './ChantiersList'
+import { type ChantierCard } from './ChantiersList'
+import ChantiersKanban from './ChantiersKanban'
+import { chantierCol, type ChantierCardData } from './kanban-config'
+import { clientDisplayName } from '@/lib/chantiers'
 
 const num = (v: unknown) => Number(v) || 0
 
@@ -92,7 +95,29 @@ export default async function ChantiersPage() {
         </div>
       )}
 
-      <ChantiersList projects={cards} />
+      <ChantiersKanban initialItems={cards.filter(c => c.status !== 'archive').map((c): ChantierCardData => ({
+        id: c.id,
+        col: chantierCol(c.status),
+        title: c.title,
+        clientName: c.clients ? clientDisplayName(c.clients) : null,
+        amountFmt: c.montantDevis > 0 ? formatCurrency(c.montantDevis) : null,
+        margeFmt: c.marge != null ? formatCurrency(c.marge) : null,
+        margePos: (c.marge ?? 0) >= 0,
+        enRetard: c.enRetard,
+        equipeCount: c.equipeCount,
+        progress: Number(c.progress) || 0,
+        cta: ctaForCol(chantierCol(c.status)),
+      }))} />
     </div>
   )
+}
+
+function ctaForCol(col: string): string {
+  switch (col) {
+    case 'a_planifier': return 'Planifier'
+    case 'en_cours': return 'Suivre le chantier'
+    case 'a_facturer': return 'Créer la facture'
+    case 'facture': return 'Suivre le paiement'
+    default: return 'Voir le chantier'
+  }
 }
