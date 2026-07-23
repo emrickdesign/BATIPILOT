@@ -2,11 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Plus, Receipt, Send, Coins, AlertTriangle, Banknote, HardHat } from 'lucide-react'
+import { Plus, Receipt, Send, Coins, AlertTriangle, Banknote } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
 import StatCard, { type StatTone } from '@/components/charts/StatCard'
+import FacturesList, { type FactureRow } from './FacturesList'
 
 const num = (v: unknown) => Number(v) || 0
 const today = new Date().toISOString().split('T')[0]
@@ -124,40 +124,26 @@ export default async function FacturesPage({ searchParams }: { searchParams: Pro
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
-          {list.map(inv => {
-            const disp = displayStatus(inv)
-            const clientName = inv.clients ? clientDisplayName(inv.clients) : 'Sans client'
-            const chantier = inv.project_id ? projTitle.get(inv.project_id) : null
-            const overdue = disp === 'en_retard'
-            return (
-              <Link key={inv.id} href={`/factures/${inv.id}`} className="block">
-                <Card className="card-interactive border border-gray-200/80">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs text-gray-400">{inv.invoice_number}</span>
-                          <Badge className={`${statusColors[disp]} border-0 text-xs`}>{statusLabels[disp]}</Badge>
-                        </div>
-                        <p className="font-semibold text-gray-900 mt-1 truncate">{clientName}</p>
-                        <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400 flex-wrap">
-                          <span>{formatDate(inv.issue_date)}</span>
-                          {inv.due_date && <span className={overdue ? 'text-[#C0392B] font-medium' : ''}>Échéance {formatDate(inv.due_date)}</span>}
-                          {chantier && <span className="flex items-center gap-1"><HardHat className="w-3 h-3" />{chantier}</span>}
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="font-bold text-gray-900 tabular-nums">{formatCurrency(inv.total_ttc)}</p>
-                        <p className="text-xs text-gray-400">{num(inv.amount_due) > 0 ? `Reste ${formatCurrency(inv.amount_due)}` : 'Soldée'}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            )
-          })}
-        </div>
+        <FacturesList rows={list.map((inv): FactureRow => {
+          const disp = displayStatus(inv)
+          return {
+            id: inv.id,
+            number: inv.invoice_number,
+            clientName: inv.clients ? clientDisplayName(inv.clients) : 'Sans client',
+            chantier: inv.project_id ? projTitle.get(inv.project_id) || null : null,
+            dateFmt: formatDate(inv.issue_date),
+            dueFmt: inv.due_date ? formatDate(inv.due_date) : null,
+            amountFmt: formatCurrency(inv.total_ttc),
+            resteFmt: num(inv.amount_due) > 0 ? `Reste ${formatCurrency(inv.amount_due)}` : 'Soldée',
+            statusLabel: statusLabels[disp],
+            statusColor: statusColors[disp],
+            overdue: disp === 'en_retard',
+            aPreparer: disp === 'brouillon',
+            enRetard: disp === 'en_retard',
+            ouverte: disp === 'envoyee' || disp === 'payee_partiellement',
+            payee: disp === 'payee',
+          }
+        })} />
       )}
     </div>
   )

@@ -2,11 +2,11 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Plus, FileText, HardHat, ArrowRight, Clock, CheckCircle2, Percent } from 'lucide-react'
+import { Plus, FileText, Clock, CheckCircle2, Percent } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
 import StatCard from '@/components/charts/StatCard'
+import DevisList, { type DevisRow } from './DevisList'
 
 const num = (v: unknown) => Number(v) || 0
 const DAY = 86_400_000
@@ -143,44 +143,25 @@ export default async function DevisPage({ searchParams }: { searchParams: Promis
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-8">
-          {list.map(quote => {
-            const disp = displayStatus(quote)
-            const clientName = quote.clients ? clientDisplayName(quote.clients) : 'Sans client'
-            const chantier = quote.project_id ? projTitle.get(quote.project_id) : null
-            return (
-              <Link key={quote.id} href={`/devis/${quote.id}`} className="block">
-                <Card className="card-interactive border border-gray-200/80">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="font-mono text-xs text-gray-400">{quote.quote_number}</span>
-                          <Badge className={`${statusColors[disp]} border-0 text-xs`}>{statusLabels[disp]}</Badge>
-                        </div>
-                        <p className="font-semibold text-gray-900 mt-1 truncate">
-                          {clientName}
-                          {quote.title && <span className="font-normal text-gray-500"> — {quote.title}</span>}
-                        </p>
-                        <div className="flex items-center gap-3 mt-0.5 text-xs text-gray-400 flex-wrap">
-                          <span>{formatDate(quote.issue_date)}</span>
-                          {chantier && <span className="flex items-center gap-1"><HardHat className="w-3 h-3" />{chantier}</span>}
-                        </div>
-                        <div className="flex items-center gap-1 mt-1.5 text-xs text-primary font-medium">
-                          <ArrowRight className="w-3 h-3" />{nextAction(quote)}
-                        </div>
-                      </div>
-                      <div className="text-right flex-shrink-0">
-                        <p className="font-bold text-gray-900 tabular-nums">{formatCurrency(quote.total_ttc)}</p>
-                        <p className="text-xs text-gray-400">TTC</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            )
-          })}
-        </div>
+        <DevisList rows={list.map((quote): DevisRow => {
+          const disp = displayStatus(quote)
+          return {
+            id: quote.id,
+            number: quote.quote_number,
+            clientName: quote.clients ? clientDisplayName(quote.clients) : 'Sans client',
+            title: quote.title || null,
+            chantier: quote.project_id ? projTitle.get(quote.project_id) || null : null,
+            dateFmt: formatDate(quote.issue_date),
+            amountFmt: formatCurrency(quote.total_ttc),
+            statusLabel: statusLabels[disp],
+            statusColor: statusColors[disp],
+            action: nextAction(quote),
+            aEnvoyer: disp === 'brouillon' || disp === 'pret',
+            aRelancer: disp === 'envoye' && daysSince(quote.issue_date) >= 7,
+            expire: disp === 'expire',
+            aFacturer: disp === 'accepte',
+          }
+        })} />
       )}
     </div>
   )
