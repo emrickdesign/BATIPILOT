@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Search } from 'lucide-react'
+import { Search, ArrowRight } from 'lucide-react'
 import DndKanban from '@/components/kanban/DndKanban'
 import { FACTURE_COLUMNS, type FactureCardData } from './kanban-config'
 
@@ -66,24 +66,22 @@ export default function FacturesKanban({ initialItems }: { initialItems: Facture
         renderCard={(f) => {
           const dot = dotOf(f.col)
           return (
-            <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden cursor-grab active:cursor-grabbing bg-white">
-              <div className="h-[3px]" style={{ backgroundColor: dot }} />
+            <Card className="border border-gray-200/70 shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing bg-white">
               <CardContent className="p-3.5">
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
                   <span className="font-mono text-[11px] text-gray-400">{f.number}</span>
                   {f.badge && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${f.badge.cls}`}>{f.badge.label}</span>}
                 </div>
-                <Link href={`/factures/${f.id}`} onClick={e => e.stopPropagation()} className="block font-semibold text-[15px] text-gray-900 hover:text-primary leading-tight mt-1 truncate">
+                <Link href={`/factures/${f.id}`} onClick={e => e.stopPropagation()} className="block font-semibold text-[15px] text-gray-900 hover:text-primary leading-snug mt-1.5 truncate">
                   {f.clientName}
                 </Link>
-                <div className="flex items-center justify-between gap-2 mt-2">
-                  <span className="text-[11px] text-gray-400">{f.dueFmt ? `Échéance ${f.dueFmt}` : f.dateFmt}</span>
-                  <span className="font-bold text-gray-900 tabular-nums text-sm">{f.amountFmt}</span>
-                </div>
+                <p className="font-bold text-[17px] text-gray-900 tabular-nums mt-1.5 leading-none">{f.amountFmt}</p>
+                <p className="text-[11px] text-gray-400 mt-1">{f.dueFmt ? `Échéance ${f.dueFmt}` : f.dateFmt}</p>
+                {f.outstanding && <p className="text-[11px] font-medium text-[#C0392B] mt-0.5">{f.resteFmt}</p>}
                 <Link href={`/factures/${f.id}`} onClick={e => e.stopPropagation()}
-                  className="mt-2.5 pt-2.5 border-t border-gray-100 flex items-center justify-between text-[12px] hover:opacity-80">
-                  <span className="text-gray-400">{f.resteFmt}</span>
-                  <span className="font-semibold" style={{ color: dot }}>Ouvrir →</span>
+                  className="mt-3 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[12.5px] font-semibold transition-opacity hover:opacity-85"
+                  style={{ backgroundColor: `${dot}18`, color: dot }}>
+                  {f.cta || 'Ouvrir'}<ArrowRight className="w-3.5 h-3.5" />
                 </Link>
               </CardContent>
             </Card>

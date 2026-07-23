@@ -21,7 +21,9 @@ export type FactureCardData = {
   clientName: string
   amountFmt: string
   resteFmt: string
+  outstanding: boolean
   dueFmt: string | null
   dateFmt: string
   badge: { label: string; cls: string } | null
+  cta: string
 }

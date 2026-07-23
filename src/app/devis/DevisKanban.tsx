@@ -71,25 +71,25 @@ export default function DevisKanban({ initialItems }: { initialItems: DevisCardD
         renderCard={(d) => {
           const dot = dotOf(d.col)
           return (
-            <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden cursor-grab active:cursor-grabbing bg-white">
-              <div className="h-[3px]" style={{ backgroundColor: dot }} />
+            <Card className="border border-gray-200/70 shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing bg-white">
               <CardContent className="p-3.5">
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
                   <span className="font-mono text-[11px] text-gray-400">{d.number}</span>
                   {d.badge && <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${d.badge.cls}`}>{d.badge.label}</span>}
                 </div>
-                <Link href={`/devis/${d.id}`} onClick={e => e.stopPropagation()} className="block font-semibold text-[15px] text-gray-900 hover:text-primary leading-tight mt-1 truncate">
+                <Link href={`/devis/${d.id}`} onClick={e => e.stopPropagation()} className="block font-semibold text-[15px] text-gray-900 hover:text-primary leading-snug mt-1.5 truncate">
                   {d.clientName}
                 </Link>
                 {d.title && <p className="text-xs text-gray-500 truncate">{d.title}</p>}
-                <div className="flex items-center justify-between gap-2 mt-2">
-                  <span className="text-[11px] text-gray-400">{d.dateFmt}</span>
-                  <span className="font-bold text-gray-900 tabular-nums text-sm">{d.amountFmt}</span>
-                </div>
-                <Link href={`/devis/${d.id}`} onClick={e => e.stopPropagation()}
-                  className="mt-2.5 pt-2.5 border-t border-gray-100 flex items-center gap-1.5 text-[12.5px] font-semibold hover:opacity-80" style={{ color: dot }}>
-                  <ArrowRight className="w-3.5 h-3.5" />{d.cta}
-                </Link>
+                <p className="font-bold text-[17px] text-gray-900 tabular-nums mt-1.5 leading-none">{d.amountFmt}</p>
+                <p className="text-[11px] text-gray-400 mt-1">{d.dateFmt}</p>
+                {d.cta && d.cta !== '—' && d.cta !== 'Facturé' && (
+                  <Link href={`/devis/${d.id}`} onClick={e => e.stopPropagation()}
+                    className="mt-3 flex items-center justify-center gap-1.5 h-8 rounded-lg text-[12.5px] font-semibold transition-opacity hover:opacity-85"
+                    style={{ backgroundColor: `${dot}18`, color: dot }}>
+                    {d.cta}<ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                )}
               </CardContent>
             </Card>
           )

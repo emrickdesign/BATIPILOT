@@ -22,6 +22,15 @@ function badgeFor(inv: { status: string; due_date?: string | null }): { label: s
   if (displayStatus(inv) === 'en_retard') return { label: 'En retard', cls: 'bg-[#FBE0DA] text-[#C0392B]' }
   return null
 }
+function ctaFor(inv: { status: string; due_date?: string | null }): string {
+  switch (displayStatus(inv)) {
+    case 'brouillon': return 'Finaliser et envoyer'
+    case 'en_retard': return 'Relancer le client'
+    case 'envoyee': return 'Suivre le paiement'
+    case 'payee_partiellement': return 'Encaisser le solde'
+    default: return ''
+  }
+}
 
 export default async function FacturesPage() {
   const supabase = await createClient()
@@ -85,9 +94,11 @@ export default async function FacturesPage() {
           clientName: inv.clients ? clientDisplayName(inv.clients) : 'Sans client',
           amountFmt: formatCurrency(inv.total_ttc),
           resteFmt: num(inv.amount_due) > 0 ? `Reste ${formatCurrency(inv.amount_due)}` : 'Soldée',
+          outstanding: num(inv.amount_due) > 0,
           dueFmt: inv.due_date ? formatDate(inv.due_date) : null,
           dateFmt: formatDate(inv.issue_date),
           badge: badgeFor(inv),
+          cta: ctaFor(inv),
         }))} />
       )}
     </div>
