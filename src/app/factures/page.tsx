@@ -6,57 +6,33 @@ import { Plus, Receipt, Send, Coins, AlertTriangle, Banknote } from 'lucide-reac
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
 import StatCard, { type StatTone } from '@/components/charts/StatCard'
-import FacturesList, { type FactureRow } from './FacturesList'
+import FacturesKanban from './FacturesKanban'
+import { factureCol, type FactureCardData } from './kanban-config'
 
 const num = (v: unknown) => Number(v) || 0
 const today = new Date().toISOString().split('T')[0]
 
 type Disp = 'brouillon' | 'envoyee' | 'payee_partiellement' | 'payee' | 'en_retard' | 'annulee'
 
-const statusLabels: Record<Disp, string> = {
-  brouillon: 'À préparer', envoyee: 'Envoyée', payee_partiellement: 'Paiement partiel',
-  payee: 'Payée', en_retard: 'En retard', annulee: 'Annulée',
-}
-const statusColors: Record<Disp, string> = {
-  brouillon: 'bg-gray-100 text-gray-500', envoyee: 'bg-[#FCE7DE] text-[#C14E33]',
-  payee_partiellement: 'bg-[#FBEED6] text-[#8A5A08]', payee: 'bg-[#E9F2DB] text-[#3F7A2E]',
-  en_retard: 'bg-[#FBE0DA] text-[#C0392B]', annulee: 'bg-gray-100 text-gray-400',
-}
-
-const FILTERS: { key: string; label: string }[] = [
-  { key: 'tous', label: 'Toutes' },
-  { key: 'brouillon', label: 'À préparer' },
-  { key: 'envoyee', label: 'Envoyées' },
-  { key: 'en_retard', label: 'En retard' },
-  { key: 'payee', label: 'Payées' },
-  { key: 'annulee', label: 'Annulées' },
-]
-
 function displayStatus(inv: { status: string; due_date?: string | null }): Disp {
   if ((inv.status === 'envoyee' || inv.status === 'payee_partiellement') && inv.due_date && inv.due_date < today) return 'en_retard'
   return inv.status as Disp
 }
-function matchesFilter(disp: Disp, filter: string): boolean {
-  if (filter === 'tous') return true
-  if (filter === 'payee') return disp === 'payee' || disp === 'payee_partiellement'
-  return disp === filter
+function badgeFor(inv: { status: string; due_date?: string | null }): { label: string; cls: string } | null {
+  if (displayStatus(inv) === 'en_retard') return { label: 'En retard', cls: 'bg-[#FBE0DA] text-[#C0392B]' }
+  return null
 }
 
-export default async function FacturesPage({ searchParams }: { searchParams: Promise<{ statut?: string }> }) {
+export default async function FacturesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const sp = await searchParams
-  const filter = FILTERS.some(f => f.key === sp.statut) ? sp.statut! : 'tous'
-
-  const [{ data: invoices }, { data: projects }] = await Promise.all([
-    supabase.from('invoices').select('*, clients(first_name, last_name, company_name, type)').eq('user_id', user.id).order('created_at', { ascending: false }),
-    supabase.from('projects').select('id, title').eq('user_id', user.id),
-  ])
+  const { data: invoices } = await supabase
+    .from('invoices').select('*, clients(first_name, last_name, company_name, type)')
+    .eq('user_id', user.id).order('created_at', { ascending: false })
 
   const all = invoices || []
-  const projTitle = new Map((projects || []).map(p => [p.id, p.title]))
 
   // Cartes (§8.2)
   const notCancelled = all.filter(i => i.status !== 'annulee')
@@ -76,9 +52,6 @@ export default async function FacturesPage({ searchParams }: { searchParams: Pro
     { label: 'En retard', value: formatCurrency(retardMontant), icon: AlertTriangle, tone: 'red', note: `${enRetard.length} facture${enRetard.length > 1 ? 's' : ''}` },
   ]
 
-  const countFor = (key: string) => all.filter(i => matchesFilter(displayStatus(i), key)).length
-  const list = all.filter(i => matchesFilter(displayStatus(i), filter))
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -95,55 +68,27 @@ export default async function FacturesPage({ searchParams }: { searchParams: Pro
         ))}
       </div>
 
-      {/* Filtres (§8.1) */}
-      <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-        {FILTERS.map(f => {
-          const n = countFor(f.key)
-          const active = filter === f.key
-          return (
-            <Link
-              key={f.key}
-              href={f.key === 'tous' ? '/factures' : `/factures?statut=${f.key}`}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
-                active ? 'bg-primary text-primary-foreground shadow-[var(--shadow-brand)]' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              {f.label}{n > 0 && <span className={`ml-1.5 ${active ? 'text-white/80' : 'text-gray-400'}`}>{n}</span>}
-            </Link>
-          )
-        })}
-      </div>
-
-      {!list.length ? (
+      {!all.length ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Receipt className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-            <p className="font-medium text-gray-700">{filter === 'tous' ? 'Aucune facture pour l\'instant' : 'Aucune facture dans ce filtre'}</p>
-            {filter === 'tous' && <p className="text-sm text-gray-500 mt-1 mb-4">Transformez un devis accepté en facture, ou créez-en une directement</p>}
-            {filter === 'tous' && <Link href="/factures/nouveau"><Button>Créer une facture</Button></Link>}
+            <p className="font-medium text-gray-700">Aucune facture pour l&apos;instant</p>
+            <p className="text-sm text-gray-500 mt-1 mb-4">Transformez un devis accepté en facture, ou créez-en une directement</p>
+            <Link href="/factures/nouveau"><Button>Créer une facture</Button></Link>
           </CardContent>
         </Card>
       ) : (
-        <FacturesList rows={list.map((inv): FactureRow => {
-          const disp = displayStatus(inv)
-          return {
-            id: inv.id,
-            number: inv.invoice_number,
-            clientName: inv.clients ? clientDisplayName(inv.clients) : 'Sans client',
-            chantier: inv.project_id ? projTitle.get(inv.project_id) || null : null,
-            dateFmt: formatDate(inv.issue_date),
-            dueFmt: inv.due_date ? formatDate(inv.due_date) : null,
-            amountFmt: formatCurrency(inv.total_ttc),
-            resteFmt: num(inv.amount_due) > 0 ? `Reste ${formatCurrency(inv.amount_due)}` : 'Soldée',
-            statusLabel: statusLabels[disp],
-            statusColor: statusColors[disp],
-            overdue: disp === 'en_retard',
-            aPreparer: disp === 'brouillon',
-            enRetard: disp === 'en_retard',
-            ouverte: disp === 'envoyee' || disp === 'payee_partiellement',
-            payee: disp === 'payee',
-          }
-        })} />
+        <FacturesKanban initialItems={all.map((inv): FactureCardData => ({
+          id: inv.id,
+          col: factureCol(inv.status),
+          number: inv.invoice_number,
+          clientName: inv.clients ? clientDisplayName(inv.clients) : 'Sans client',
+          amountFmt: formatCurrency(inv.total_ttc),
+          resteFmt: num(inv.amount_due) > 0 ? `Reste ${formatCurrency(inv.amount_due)}` : 'Soldée',
+          dueFmt: inv.due_date ? formatDate(inv.due_date) : null,
+          dateFmt: formatDate(inv.issue_date),
+          badge: badgeFor(inv),
+        }))} />
       )}
     </div>
   )
