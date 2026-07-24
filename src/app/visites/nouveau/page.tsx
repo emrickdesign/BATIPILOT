@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -14,7 +14,7 @@ import { clientDisplayName } from '@/lib/chantiers'
 
 type ClientOption = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null }
 
-export default function NouvelleVisitePage() {
+function NouvelleVisiteForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [clients, setClients] = useState<ClientOption[]>([])
@@ -81,5 +81,13 @@ export default function NouvelleVisitePage() {
         </CardContent>
       </Card>
     </div>
+  )
+}
+
+export default function NouvelleVisitePage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement…</div>}>
+      <NouvelleVisiteForm />
+    </Suspense>
   )
 }
