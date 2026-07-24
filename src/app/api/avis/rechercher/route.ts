@@ -2,20 +2,72 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { geocodeAddress } from '@/lib/meteo'
 
-// Recherche la fiche Google de l'entreprise via l'API Places (New) et construit
-// le lien « laisser un avis ». Clé serveur mutualisée (GOOGLE_PLACES_API_KEY).
+// Trouve la fiche Google de l'entreprise et construit le lien « laisser un avis ».
+// Clé serveur mutualisée (GOOGLE_PLACES_API_KEY).
 //
-// Stratégie (comme Google Maps) : on cherche par NOM SEUL — sans coller l'adresse
-// dans la requête (sinon les entreprises de la zone remontent) et SANS biais qui
-// exclurait un résultat éloigné. On se contente ensuite de CLASSER les fiches par
-// proximité de l'adresse de l'entreprise, sans jamais en écarter.
-type PlaceRaw = { id?: string; displayName?: { text?: string }; formattedAddress?: string; location?: { latitude?: number; longitude?: number } }
+// On utilise en PRIORITÉ l'API Autocomplete (New) — c'est ce que fait la barre de
+// recherche de Google Maps, qui trouve les petites fiches par nom. Text Search est
+// gardé en secours. L'adresse ne sert qu'à biaiser/classer par proximité, jamais à
+// exclure.
+type Candidate = { placeId: string; name: string; address: string; reviewUrl: string; _dist?: number | null }
+
+function reviewUrl(placeId: string) { return `https://search.google.com/local/writereview?placeid=${placeId}` }
 
 function distanceKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
   const R = 6371, toRad = (d: number) => (d * Math.PI) / 180
   const dLat = toRad(b.lat - a.lat), dLon = toRad(b.lon - a.lon)
   const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2
   return 2 * R * Math.asin(Math.sqrt(s))
+}
+
+async function viaAutocomplete(key: string, name: string, coords: { lat: number; lon: number } | null): Promise<Candidate[]> {
+  const body: Record<string, unknown> = { input: name, languageCode: 'fr', includedRegionCodes: ['fr'] }
+  if (coords) body.locationBias = { circle: { center: { latitude: coords.lat, longitude: coords.lon }, radius: 50000 } }
+  const res = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) return []
+  const json = await res.json()
+  const suggestions: unknown[] = Array.isArray(json?.suggestions) ? json.suggestions : []
+  return suggestions.map(s => {
+    const pp = (s as { placePrediction?: { placeId?: string; text?: { text?: string }; structuredFormat?: { mainText?: { text?: string }; secondaryText?: { text?: string } } } }).placePrediction
+    if (!pp?.placeId) return null
+    return {
+      placeId: pp.placeId,
+      name: pp.structuredFormat?.mainText?.text || pp.text?.text || name,
+      address: pp.structuredFormat?.secondaryText?.text || '',
+      reviewUrl: reviewUrl(pp.placeId),
+    } as Candidate
+  }).filter((c): c is Candidate => !!c)
+}
+
+async function viaTextSearch(key: string, name: string, coords: { lat: number; lon: number } | null): Promise<Candidate[]> {
+  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': key,
+      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location',
+    },
+    body: JSON.stringify({ textQuery: name, languageCode: 'fr', regionCode: 'FR', maxResultCount: 12 }),
+  })
+  if (!res.ok) return []
+  const json = await res.json()
+  const places: unknown[] = Array.isArray(json?.places) ? json.places : []
+  return places.map(raw => {
+    const p = raw as { id?: string; displayName?: { text?: string }; formattedAddress?: string; location?: { latitude?: number; longitude?: number } }
+    if (!p.id) return null
+    const lat = p.location?.latitude, lon = p.location?.longitude
+    return {
+      placeId: p.id,
+      name: p.displayName?.text || name,
+      address: p.formattedAddress || '',
+      reviewUrl: reviewUrl(p.id),
+      _dist: coords && typeof lat === 'number' && typeof lon === 'number' ? distanceKm(coords, { lat, lon }) : null,
+    } as Candidate
+  }).filter((c): c is Candidate => !!c)
 }
 
 export async function POST() {
@@ -34,38 +86,15 @@ export async function POST() {
     const address = (company?.address || '').trim()
     const coords = address ? await geocodeAddress(address) : null
 
-    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Goog-Api-Key': key,
-        'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location',
-      },
-      body: JSON.stringify({ textQuery: name, languageCode: 'fr', regionCode: 'FR', maxResultCount: 12 }),
-    })
-    if (!res.ok) {
-      const detail = (await res.text()).slice(0, 200)
-      return NextResponse.json({ error: 'La recherche Google a échoué. Réessayez ou collez le lien à la main.', detail }, { status: 502 })
-    }
-    const json = await res.json()
-    const places: PlaceRaw[] = Array.isArray(json?.places) ? json.places : []
+    // 1) Autocomplete (comme la barre Maps). 2) Text Search en secours.
+    let candidates = await viaAutocomplete(key, name, coords)
+    if (candidates.length === 0) candidates = await viaTextSearch(key, name, coords)
 
-    let candidates = places.map(p => {
-      const lat = p.location?.latitude, lon = p.location?.longitude
-      const dist = coords && typeof lat === 'number' && typeof lon === 'number' ? distanceKm(coords, { lat, lon }) : null
-      return {
-        placeId: p.id || '',
-        name: p.displayName?.text || name,
-        address: p.formattedAddress || '',
-        reviewUrl: p.id ? `https://search.google.com/local/writereview?placeid=${p.id}` : '',
-        _dist: dist,
-      }
-    }).filter(c => c.placeId)
+    // Classe par proximité si on a les coordonnées (sans rien exclure).
+    if (coords) candidates.sort((a, b) => (a._dist ?? 1e9) - (b._dist ?? 1e9))
 
-    // Classe par proximité de l'adresse (le plus proche d'abord), sans rien exclure.
-    if (coords) candidates = candidates.sort((a, b) => (a._dist ?? 1e9) - (b._dist ?? 1e9))
-
-    return NextResponse.json({ candidates: candidates.slice(0, 6).map(({ _dist, ...c }) => { void _dist; return c }) })
+    const out = candidates.slice(0, 6).map(({ _dist, ...c }) => { void _dist; return c })
+    return NextResponse.json({ candidates: out })
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Erreur serveur' }, { status: 500 })
   }
