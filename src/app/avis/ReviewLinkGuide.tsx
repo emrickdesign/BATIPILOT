@@ -50,7 +50,10 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false }: { i
       const json = await res.json()
       if (!res.ok) { setErrorMsg(json.error || 'Recherche impossible'); toast.error(json.error || 'Recherche impossible'); setShowManual(true); return }
       const list: Candidate[] = json.candidates || []
-      if (list.length === 0) { setErrorMsg('Aucune fiche Google trouvée pour ce nom. Vérifiez l’orthographe exacte, ou collez le lien à la main ci-dessous.'); setShowManual(true); return }
+      if (list.length === 0) {
+        setErrorMsg(`Aucune fiche Google trouvée pour ce nom. Vérifiez l’orthographe exacte, ou collez le lien à la main ci-dessous.${json.debug ? `\n[${json.debug}]` : ''}`)
+        setShowManual(true); return
+      }
       if (list.length === 1) { await save(list[0].reviewUrl); return }
       setCandidates(list) // plusieurs fiches → l'utilisateur choisit
     } catch { setErrorMsg('Recherche impossible (réseau).'); toast.error('Recherche impossible'); setShowManual(true) } finally { setSearching(false) }
@@ -92,7 +95,7 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false }: { i
         </div>
 
         {errorMsg && (
-          <div className="rounded-lg bg-rose-50 border border-rose-100 p-3 text-sm text-rose-800 break-words">
+          <div className="rounded-lg bg-rose-50 border border-rose-100 p-3 text-sm text-rose-800 break-words whitespace-pre-line">
             {errorMsg}
           </div>
         )}

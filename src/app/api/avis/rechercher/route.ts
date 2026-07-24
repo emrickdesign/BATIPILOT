@@ -33,19 +33,19 @@ export async function POST() {
     url.searchParams.set('key', key)
     url.searchParams.set('language', 'fr')
     url.searchParams.set('components', 'country:fr')
-    url.searchParams.set('types', 'establishment')
     if (coords) { url.searchParams.set('location', `${coords.lat},${coords.lon}`); url.searchParams.set('radius', '50000') }
 
     const res = await fetch(url, { headers: { Accept: 'application/json' } })
     const json = await res.json().catch(() => ({}))
     const status = json?.status as string | undefined
+    const predictions: unknown[] = Array.isArray(json?.predictions) ? json.predictions : []
+    const debug = `recherche « ${name} » · Google=${status || 'aucun statut'} · ${predictions.length} résultat(s) · ${coords ? 'géo ok' : 'géo absente'}`
 
     // Google refuse (clé, API non activée, facturation…) → on remonte la cause.
     if (status && status !== 'OK' && status !== 'ZERO_RESULTS') {
-      return NextResponse.json({ error: `Google a refusé la recherche (${status}). ${json?.error_message || ''}`.trim() }, { status: 502 })
+      return NextResponse.json({ error: `Google a refusé (${status}). ${json?.error_message || ''}`.trim(), debug }, { status: 502 })
     }
 
-    const predictions: unknown[] = Array.isArray(json?.predictions) ? json.predictions : []
     const candidates: Candidate[] = predictions.map(raw => {
       const p = raw as { place_id?: string; description?: string; structured_formatting?: { main_text?: string; secondary_text?: string } }
       if (!p.place_id) return null
@@ -57,7 +57,7 @@ export async function POST() {
       } as Candidate
     }).filter((c): c is Candidate => !!c).slice(0, 6)
 
-    return NextResponse.json({ candidates })
+    return NextResponse.json({ candidates, debug })
   } catch (err: unknown) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Erreur serveur' }, { status: 500 })
   }
