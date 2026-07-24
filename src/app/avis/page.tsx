@@ -1,10 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Star, Settings, HardHat } from 'lucide-react'
+import { HardHat } from 'lucide-react'
 import { clientDisplayName } from '@/lib/chantiers'
 import AvisClient, { type AvisRow } from './AvisClient'
+import ReviewLinkGuide from './ReviewLinkGuide'
 
 const DONE_STATUSES = ['termine', 'facture', 'paye']
 
@@ -55,18 +54,12 @@ export default async function AvisPage() {
       </div>
 
       {!reviewUrl ? (
-        <Card className="border-0 shadow-[var(--shadow-sm)] ring-1 ring-amber-100">
-          <CardContent className="p-5 flex items-start gap-3">
-            <span className="grid place-items-center w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex-shrink-0"><Star className="w-5 h-5" /></span>
-            <div className="flex-1">
-              <p className="font-semibold text-marine">Ajoutez d&apos;abord votre lien d&apos;avis Google</p>
-              <p className="text-sm text-gray-500 mt-1">Sans le lien de votre fiche Google, impossible d&apos;envoyer la demande. Il se colle une seule fois dans les réglages.</p>
-              <Link href="/parametres/entreprise"><Button size="sm" className="mt-3"><Settings className="w-4 h-4 mr-1.5" /> Renseigner mon lien d&apos;avis</Button></Link>
-            </div>
-          </CardContent>
-        </Card>
+        <ReviewLinkGuide initialUrl="" />
       ) : (
-        <AvisClient companyName={companyName} reviewUrl={reviewUrl} toAsk={toAsk} done={done} />
+        <>
+          <AvisClient companyName={companyName} reviewUrl={reviewUrl} toAsk={toAsk} done={done} />
+          <ReviewLinkGuide initialUrl={reviewUrl} collapsible />
+        </>
       )}
 
       {reviewUrl && toAsk.length === 0 && done.length === 0 && (
