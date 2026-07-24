@@ -22,6 +22,7 @@ export default function EntreprisePage() {
     payment_terms: '30 jours à réception de facture',
     quote_validity_days: '30', default_deposit_percent: '30',
     default_vat_rate: '10', legal_mentions: 'TVA à taux réduit — Article 279-0 bis du CGI',
+    google_review_url: '',
   })
 
   useEffect(() => {
@@ -49,6 +50,7 @@ export default function EntreprisePage() {
             default_deposit_percent: String(data.default_deposit_percent || 30),
             default_vat_rate: String(data.default_vat_rate || 10),
             legal_mentions: data.legal_mentions || '',
+            google_review_url: data.google_review_url || '',
           })
         }
         setFetching(false)
@@ -86,6 +88,7 @@ export default function EntreprisePage() {
       default_deposit_percent: parseFloat(form.default_deposit_percent) || 30,
       default_vat_rate: parseFloat(form.default_vat_rate) || 10,
       legal_mentions: form.legal_mentions || null,
+      google_review_url: form.google_review_url.trim() || null,
     }
 
     let error
@@ -224,6 +227,19 @@ export default function EntreprisePage() {
               <Label>Mentions légales (affichées sur les documents)</Label>
               <Textarea value={form.legal_mentions} onChange={e => set('legal_mentions', e.target.value)} rows={3} />
             </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-base">Avis clients (Google)</CardTitle></CardHeader>
+          <CardContent className="px-4 pb-4 space-y-2">
+            <div className="space-y-1">
+              <Label>Lien d&apos;avis Google</Label>
+              <Input value={form.google_review_url} onChange={e => set('google_review_url', e.target.value)} placeholder="https://g.page/r/XXXXXXXX/review" />
+            </div>
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Collez ici le lien « laisser un avis » de votre fiche Google. Pour le trouver : sur votre <span className="font-medium">profil d&apos;établissement Google</span> → bouton <span className="font-medium">« Demandez des avis »</span> → copier le lien. Une fois renseigné, la page <span className="font-medium">Avis clients</span> vous propose de le demander à vos clients en un clic dès qu&apos;un chantier est terminé.
+            </p>
           </CardContent>
         </Card>
 
