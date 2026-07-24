@@ -9,15 +9,17 @@ import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import { Star, ExternalLink, Check, Loader2, Pencil } from 'lucide-react'
 
-// Recherche Google du terme littéral « mon entreprise » : connecté à son compte,
-// l'artisan voit sa fiche et peut copier son lien d'avis en un clic.
-const GOOGLE_SEARCH = `https://www.google.com/search?q=${encodeURIComponent('mon entreprise')}`
-
-export default function ReviewLinkGuide({ initialUrl, collapsible = false }: { initialUrl: string; collapsible?: boolean }) {
+export default function ReviewLinkGuide({ initialUrl, collapsible = false, companyName = '', companyAddress = '' }: { initialUrl: string; collapsible?: boolean; companyName?: string; companyAddress?: string }) {
   const router = useRouter()
   const [url, setUrl] = useState(initialUrl)
   const [saving, setSaving] = useState(false)
   const [open, setOpen] = useState(!collapsible)
+
+  // Recherche Google grand public sur le nom + l'adresse de l'entreprise : ça
+  // tombe pile sur SA fiche (l'index public la connaît, contrairement à l'API).
+  // Repli sur « mon entreprise » si le nom n'est pas renseigné.
+  const query = [companyName.trim(), companyAddress.trim()].filter(Boolean).join(' ') || 'mon entreprise'
+  const googleSearch = `https://www.google.com/search?q=${encodeURIComponent(query)}`
 
   async function save() {
     const value = url.trim()
@@ -66,10 +68,14 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false }: { i
           <span className="grid place-items-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex-shrink-0">1</span>
           <div className="flex-1 space-y-2">
             <p className="text-sm text-marine font-medium">Ouvrez votre fiche Google</p>
-            <a href={GOOGLE_SEARCH} target="_blank" rel="noopener noreferrer" className="inline-flex">
-              <Button type="button" className="gap-2"><ExternalLink className="w-4 h-4" /> Ouvrir ma fiche Google</Button>
+            <a href={googleSearch} target="_blank" rel="noopener noreferrer" className="inline-flex">
+              <Button type="button" className="gap-2"><ExternalLink className="w-4 h-4" /> Voir ma fiche Google</Button>
             </a>
-            <p className="text-xs text-gray-400">Connecté à votre compte Google, votre établissement s&apos;affiche directement (recherche « mon entreprise »).</p>
+            <p className="text-xs text-gray-400">
+              {companyName.trim()
+                ? <>Ouvre Google sur « {companyName.trim()} » — votre fiche s&apos;affiche directement.</>
+                : <>Renseignez le nom de votre entreprise dans les réglages pour tomber pile sur votre fiche.</>}
+            </p>
           </div>
         </div>
 

@@ -13,7 +13,7 @@ export default async function AvisPage() {
   if (!user) return null
 
   const [{ data: company }, { data: projects }] = await Promise.all([
-    supabase.from('companies').select('trade_name, google_review_url').eq('user_id', user.id).maybeSingle(),
+    supabase.from('companies').select('trade_name, google_review_url, address').eq('user_id', user.id).maybeSingle(),
     supabase.from('projects')
       .select('id, title, status, end_date, created_at, client_id, clients(id, type, first_name, last_name, company_name, email, phone, review_requested_at)')
       .eq('user_id', user.id).in('status', DONE_STATUSES).order('end_date', { ascending: false, nullsFirst: false }),
@@ -21,6 +21,7 @@ export default async function AvisPage() {
 
   const reviewUrl = (company?.google_review_url || '').trim()
   const companyName = company?.trade_name || null
+  const companyAddress = company?.address || ''
 
   type Cli = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null; email: string | null; phone: string | null; review_requested_at: string | null }
   type Proj = { id: string; title: string; status: string; end_date: string | null; created_at: string; client_id: string | null; clients: Cli | null }
@@ -54,11 +55,11 @@ export default async function AvisPage() {
       </div>
 
       {!reviewUrl ? (
-        <ReviewLinkGuide initialUrl="" />
+        <ReviewLinkGuide initialUrl="" companyName={companyName || ''} companyAddress={companyAddress} />
       ) : (
         <>
           <AvisClient companyName={companyName} reviewUrl={reviewUrl} toAsk={toAsk} done={done} />
-          <ReviewLinkGuide initialUrl={reviewUrl} collapsible />
+          <ReviewLinkGuide initialUrl={reviewUrl} collapsible companyName={companyName || ''} companyAddress={companyAddress} />
         </>
       )}
 
