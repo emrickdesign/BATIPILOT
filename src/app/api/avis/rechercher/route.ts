@@ -3,12 +3,10 @@ import { NextResponse } from 'next/server'
 import { geocodeAddress } from '@/lib/meteo'
 
 // Trouve la fiche Google de l'entreprise et construit le lien « laisser un avis ».
-// Clé serveur mutualisée (GOOGLE_PLACES_API_KEY), ANCIENNE API Places
-// (maps.googleapis.com) — déjà activée/facturée par la prospection.
+// Clé serveur mutualisée (GOOGLE_PLACES_API_KEY), ANCIENNE API Places.
 //
-// On enchaîne Text Search puis Find Place (les deux savent trouver une entreprise
-// par son nom, contrairement à Autocomplete). L'adresse ne sert qu'à biaiser/
-// classer par proximité, jamais à exclure.
+// IMPORTANT : la requête est le NOM SEUL, SANS biais géographique (le biais
+// étouffait les résultats). L'adresse ne sert qu'à TRIER par proximité après coup.
 type Candidate = { placeId: string; name: string; address: string; reviewUrl: string; _dist?: number | null }
 type Coords = { lat: number; lon: number }
 
@@ -19,44 +17,35 @@ function distanceKm(a: Coords, b: Coords) {
   const s = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2
   return 2 * R * Math.asin(Math.sqrt(s))
 }
+function toCand(place_id: string, name: string, address: string, lat?: number, lon?: number, coords?: Coords | null): Candidate {
+  return { placeId: place_id, name, address, reviewUrl: reviewUrl(place_id), _dist: coords && typeof lat === 'number' && typeof lon === 'number' ? distanceKm(coords, { lat, lon }) : null }
+}
 
-async function textSearch(key: string, name: string, coords: Coords | null): Promise<{ status: string; list: Candidate[] }> {
+// Text Search, nom seul, sans biais.
+async function textSearch(key: string, name: string, coords: Coords | null) {
   const url = new URL('https://maps.googleapis.com/maps/api/place/textsearch/json')
-  url.searchParams.set('query', name)
-  url.searchParams.set('key', key)
-  url.searchParams.set('language', 'fr')
-  url.searchParams.set('region', 'fr')
-  if (coords) { url.searchParams.set('location', `${coords.lat},${coords.lon}`); url.searchParams.set('radius', '50000') }
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
-  const j = await res.json().catch(() => ({}))
+  url.searchParams.set('query', name); url.searchParams.set('key', key); url.searchParams.set('language', 'fr')
+  const j = await (await fetch(url, { headers: { Accept: 'application/json' } })).json().catch(() => ({}))
   const results: unknown[] = Array.isArray(j?.results) ? j.results : []
   const list = results.map(raw => {
     const p = raw as { place_id?: string; name?: string; formatted_address?: string; geometry?: { location?: { lat?: number; lng?: number } } }
-    if (!p.place_id) return null
-    const lat = p.geometry?.location?.lat, lon = p.geometry?.location?.lng
-    return { placeId: p.place_id, name: p.name || name, address: p.formatted_address || '', reviewUrl: reviewUrl(p.place_id), _dist: coords && typeof lat === 'number' && typeof lon === 'number' ? distanceKm(coords, { lat, lon }) : null } as Candidate
+    return p.place_id ? toCand(p.place_id, p.name || name, p.formatted_address || '', p.geometry?.location?.lat, p.geometry?.location?.lng, coords) : null
   }).filter((c): c is Candidate => !!c)
-  return { status: j?.status || 'NO_STATUS', list }
+  return { status: (j?.status as string) || 'NO_STATUS', list }
 }
 
-async function findPlace(key: string, name: string, coords: Coords | null): Promise<{ status: string; list: Candidate[] }> {
+// Find Place, nom seul, sans biais.
+async function findPlace(key: string, name: string, coords: Coords | null) {
   const url = new URL('https://maps.googleapis.com/maps/api/place/findplacefromtext/json')
-  url.searchParams.set('input', name)
-  url.searchParams.set('inputtype', 'textquery')
-  url.searchParams.set('fields', 'place_id,name,formatted_address,geometry')
-  url.searchParams.set('key', key)
-  url.searchParams.set('language', 'fr')
-  if (coords) url.searchParams.set('locationbias', `circle:50000@${coords.lat},${coords.lon}`)
-  const res = await fetch(url, { headers: { Accept: 'application/json' } })
-  const j = await res.json().catch(() => ({}))
+  url.searchParams.set('input', name); url.searchParams.set('inputtype', 'textquery')
+  url.searchParams.set('fields', 'place_id,name,formatted_address,geometry'); url.searchParams.set('key', key); url.searchParams.set('language', 'fr')
+  const j = await (await fetch(url, { headers: { Accept: 'application/json' } })).json().catch(() => ({}))
   const results: unknown[] = Array.isArray(j?.candidates) ? j.candidates : []
   const list = results.map(raw => {
     const p = raw as { place_id?: string; name?: string; formatted_address?: string; geometry?: { location?: { lat?: number; lng?: number } } }
-    if (!p.place_id) return null
-    const lat = p.geometry?.location?.lat, lon = p.geometry?.location?.lng
-    return { placeId: p.place_id, name: p.name || name, address: p.formatted_address || '', reviewUrl: reviewUrl(p.place_id), _dist: coords && typeof lat === 'number' && typeof lon === 'number' ? distanceKm(coords, { lat, lon }) : null } as Candidate
+    return p.place_id ? toCand(p.place_id, p.name || name, p.formatted_address || '', p.geometry?.location?.lat, p.geometry?.location?.lng, coords) : null
   }).filter((c): c is Candidate => !!c)
-  return { status: j?.status || 'NO_STATUS', list }
+  return { status: (j?.status as string) || 'NO_STATUS', list }
 }
 
 export async function POST() {
@@ -64,7 +53,6 @@ export async function POST() {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
-
     const key = process.env.GOOGLE_PLACES_API_KEY
     if (!key) return NextResponse.json({ error: 'Recherche automatique indisponible pour le moment.' }, { status: 503 })
 
@@ -77,15 +65,14 @@ export async function POST() {
 
     const ts = await textSearch(key, name, coords)
     let list = ts.list
-    let fp: { status: string; list: Candidate[] } | null = null
+    let fp: Awaited<ReturnType<typeof findPlace>> | null = null
     if (list.length === 0) { fp = await findPlace(key, name, coords); list = fp.list }
 
-    const debug = `« ${name} » · TextSearch=${ts.status}(${ts.list.length})${fp ? ` · FindPlace=${fp.status}(${fp.list.length})` : ''} · ${coords ? 'géo ok' : 'géo absente'}`
+    const coordStr = coords ? `${coords.lat.toFixed(3)},${coords.lon.toFixed(3)}` : 'aucune'
+    const debug = `« ${name} » sans biais · TextSearch=${ts.status}(${ts.list.length})${fp ? ` · FindPlace=${fp.status}(${fp.list.length})` : ''} · coords=${coordStr}`
 
-    const denied = [ts.status, fp?.status].find(s => s && !['OK', 'ZERO_RESULTS', undefined].includes(s))
-    if (list.length === 0 && denied) {
-      return NextResponse.json({ error: `Google a refusé (${denied}).`, debug }, { status: 502 })
-    }
+    const denied = [ts.status, fp?.status].find(s => s && !['OK', 'ZERO_RESULTS'].includes(s))
+    if (list.length === 0 && denied) return NextResponse.json({ error: `Google a refusé (${denied}).`, debug }, { status: 502 })
 
     if (coords) list.sort((a, b) => (a._dist ?? 1e9) - (b._dist ?? 1e9))
     const out = list.slice(0, 6).map(({ _dist, ...c }) => { void _dist; return c })
