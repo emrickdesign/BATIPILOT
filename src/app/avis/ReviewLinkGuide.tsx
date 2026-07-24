@@ -21,6 +21,7 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false }: { i
   const [searching, setSearching] = useState(false)
   const [candidates, setCandidates] = useState<Candidate[] | null>(null)
   const [showManual, setShowManual] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   async function save(explicit?: string) {
     const value = (explicit ?? url).trim()
@@ -43,15 +44,16 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false }: { i
   async function findAuto() {
     setSearching(true)
     setCandidates(null)
+    setErrorMsg(null)
     try {
       const res = await fetch('/api/avis/rechercher', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) { toast.error(json.error || 'Recherche impossible'); setShowManual(true); return }
+      if (!res.ok) { setErrorMsg(json.error || 'Recherche impossible'); toast.error(json.error || 'Recherche impossible'); setShowManual(true); return }
       const list: Candidate[] = json.candidates || []
-      if (list.length === 0) { toast.error('Aucune fiche trouvée — collez le lien à la main juste en dessous.'); setShowManual(true); return }
+      if (list.length === 0) { setErrorMsg('Aucune fiche Google trouvée pour ce nom. Vérifiez l’orthographe exacte, ou collez le lien à la main ci-dessous.'); setShowManual(true); return }
       if (list.length === 1) { await save(list[0].reviewUrl); return }
       setCandidates(list) // plusieurs fiches → l'utilisateur choisit
-    } catch { toast.error('Recherche impossible'); setShowManual(true) } finally { setSearching(false) }
+    } catch { setErrorMsg('Recherche impossible (réseau).'); toast.error('Recherche impossible'); setShowManual(true) } finally { setSearching(false) }
   }
 
   // Mode replié : le lien est déjà configuré.
@@ -88,6 +90,12 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false }: { i
           </Button>
           <p className="text-xs text-gray-400 mt-1.5 text-center">D&apos;après le nom et l&apos;adresse de votre entreprise (réglages).</p>
         </div>
+
+        {errorMsg && (
+          <div className="rounded-lg bg-rose-50 border border-rose-100 p-3 text-sm text-rose-800 break-words">
+            {errorMsg}
+          </div>
+        )}
 
         {/* Plusieurs fiches trouvées → choix */}
         {candidates && candidates.length > 1 && (
