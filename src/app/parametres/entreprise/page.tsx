@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Search, ExternalLink, Star, Check } from 'lucide-react'
 import Link from 'next/link'
 
 export default function EntreprisePage() {
@@ -107,6 +107,12 @@ export default function EntreprisePage() {
   }
 
   if (fetching) return <div className="p-8 text-center text-gray-400">Chargement...</div>
+
+  // Étape 1 du guide avis : recherche Google pré-remplie avec le nom de l'entreprise
+  // (l'établissement du propriétaire connecté remonte en tête), sinon le gestionnaire Google Business.
+  const googleBusinessUrl = form.trade_name.trim()
+    ? `https://www.google.com/search?q=${encodeURIComponent(form.trade_name.trim())}`
+    : 'https://business.google.com/'
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -231,15 +237,53 @@ export default function EntreprisePage() {
         </Card>
 
         <Card>
-          <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-base">Avis clients (Google)</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-4 space-y-2">
-            <div className="space-y-1">
-              <Label>Lien d&apos;avis Google</Label>
-              <Input value={form.google_review_url} onChange={e => set('google_review_url', e.target.value)} placeholder="https://g.page/r/XXXXXXXX/review" />
-            </div>
-            <p className="text-xs text-gray-500 leading-relaxed">
-              Collez ici le lien « laisser un avis » de votre fiche Google. Pour le trouver : sur votre <span className="font-medium">profil d&apos;établissement Google</span> → bouton <span className="font-medium">« Demandez des avis »</span> → copier le lien. Une fois renseigné, la page <span className="font-medium">Avis clients</span> vous propose de le demander à vos clients en un clic dès qu&apos;un chantier est terminé.
+          <CardHeader className="pb-3 pt-4 px-4">
+            <CardTitle className="text-base flex items-center gap-2"><Star className="w-4 h-4 text-amber-500" /> Avis clients (Google)</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4 space-y-4">
+            <p className="text-sm text-gray-500">
+              Récupérez le lien « laisser un avis » de votre fiche Google — une seule fois. Ensuite, la page <span className="font-medium text-marine">Avis clients</span> le proposera à vos clients en un clic à chaque chantier terminé.
             </p>
+
+            {/* Étape 1 */}
+            <div className="flex gap-3">
+              <span className="grid place-items-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex-shrink-0">1</span>
+              <div className="flex-1 space-y-2">
+                <p className="text-sm text-marine font-medium">Ouvrez votre fiche sur Google</p>
+                <a href={googleBusinessUrl} target="_blank" rel="noopener noreferrer" className="inline-flex">
+                  <Button type="button" variant="outline" className="gap-2">
+                    <Search className="w-4 h-4" /> {form.trade_name.trim() ? `Rechercher « ${form.trade_name.trim()} »` : 'Ouvrir Google Business'}
+                    <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
+                  </Button>
+                </a>
+                <p className="text-xs text-gray-400">
+                  {form.trade_name.trim()
+                    ? 'Connecté à votre compte Google, votre établissement apparaît en haut.'
+                    : 'Renseignez d\'abord votre nom commercial ci-dessus pour une recherche pré-remplie.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Étape 2 */}
+            <div className="flex gap-3">
+              <span className="grid place-items-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex-shrink-0">2</span>
+              <div className="flex-1">
+                <p className="text-sm text-marine font-medium">Cliquez sur « Demandez des avis »</p>
+                <p className="text-xs text-gray-400 mt-0.5">Sur votre fiche (bouton « Demandez des avis » ou « Obtenir plus d&apos;avis »), Google affiche un lien court à partager (il commence par <span className="font-mono">g.page/r/…</span>).</p>
+              </div>
+            </div>
+
+            {/* Étape 3 */}
+            <div className="flex gap-3">
+              <span className="grid place-items-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex-shrink-0">3</span>
+              <div className="flex-1 space-y-1.5">
+                <p className="text-sm text-marine font-medium">Collez le lien ici</p>
+                <Input value={form.google_review_url} onChange={e => set('google_review_url', e.target.value)} placeholder="https://g.page/r/XXXXXXXX/review" />
+                {form.google_review_url.trim() && (
+                  <p className="text-xs text-emerald-600 flex items-center gap-1"><Check className="w-3.5 h-3.5" /> Lien enregistré au prochain « Sauvegarder ».</p>
+                )}
+              </div>
+            </div>
           </CardContent>
         </Card>
 
