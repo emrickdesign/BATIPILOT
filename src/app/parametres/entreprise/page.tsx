@@ -108,11 +108,9 @@ export default function EntreprisePage() {
 
   if (fetching) return <div className="p-8 text-center text-gray-400">Chargement...</div>
 
-  // Étape 1 du guide avis : recherche Google pré-remplie avec le nom de l'entreprise
-  // (l'établissement du propriétaire connecté remonte en tête), sinon le gestionnaire Google Business.
-  const googleBusinessUrl = form.trade_name.trim()
-    ? `https://www.google.com/search?q=${encodeURIComponent(form.trade_name.trim())}`
-    : 'https://business.google.com/'
+  // Étape 1 du guide avis : recherche Google du terme littéral « mon entreprise ».
+  // Connecté à son compte Google, l'artisan voit alors les fiches qu'il gère.
+  const googleBusinessUrl = `https://www.google.com/search?q=${encodeURIComponent('mon entreprise')}`
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -252,14 +250,12 @@ export default function EntreprisePage() {
                 <p className="text-sm text-marine font-medium">Ouvrez votre fiche sur Google</p>
                 <a href={googleBusinessUrl} target="_blank" rel="noopener noreferrer" className="inline-flex">
                   <Button type="button" variant="outline" className="gap-2">
-                    <Search className="w-4 h-4" /> {form.trade_name.trim() ? `Rechercher « ${form.trade_name.trim()} »` : 'Ouvrir Google Business'}
+                    <Search className="w-4 h-4" /> Rechercher « mon entreprise »
                     <ExternalLink className="w-3.5 h-3.5 text-gray-400" />
                   </Button>
                 </a>
                 <p className="text-xs text-gray-400">
-                  {form.trade_name.trim()
-                    ? 'Connecté à votre compte Google, votre établissement apparaît en haut.'
-                    : 'Renseignez d\'abord votre nom commercial ci-dessus pour une recherche pré-remplie.'}
+                  Connecté à votre compte Google, les fiches d&apos;établissement que vous gérez s&apos;affichent directement.
                 </p>
               </div>
             </div>
