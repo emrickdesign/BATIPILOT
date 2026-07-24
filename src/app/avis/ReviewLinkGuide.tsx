@@ -15,11 +15,11 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false, compa
   const [saving, setSaving] = useState(false)
   const [open, setOpen] = useState(!collapsible)
 
-  // Recherche Google grand public sur le nom + l'adresse de l'entreprise : ça
-  // tombe pile sur SA fiche (l'index public la connaît, contrairement à l'API).
-  // Repli sur « mon entreprise » si le nom n'est pas renseigné.
+  // Recherche Google grand public en mode « Lieux » (udm=1) sur le nom + l'adresse :
+  // ça atterrit directement sur la fiche d'établissement (l'index public la connaît,
+  // contrairement à l'API). Repli sur « mon entreprise » si le nom n'est pas renseigné.
   const query = [companyName.trim(), companyAddress.trim()].filter(Boolean).join(' ') || 'mon entreprise'
-  const googleSearch = `https://www.google.com/search?q=${encodeURIComponent(query)}`
+  const googleSearch = `https://www.google.com/search?udm=1&q=${encodeURIComponent(query)}`
 
   async function save() {
     const value = url.trim()
