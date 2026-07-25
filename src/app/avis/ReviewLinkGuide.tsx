@@ -10,7 +10,7 @@ import { toast } from 'sonner'
 import { Star, ExternalLink, Check, Loader2, Pencil, Search } from 'lucide-react'
 import FicheAutocomplete from './FicheAutocomplete'
 
-export default function ReviewLinkGuide({ initialUrl, collapsible = false, companyName = '', companyAddress = '', mapsKey = '' }: { initialUrl: string; collapsible?: boolean; companyName?: string; companyAddress?: string; mapsKey?: string }) {
+export default function ReviewLinkGuide({ initialUrl, collapsible = false, companyName = '', companyAddress = '', mapsKey = '', biasLat, biasLng }: { initialUrl: string; collapsible?: boolean; companyName?: string; companyAddress?: string; mapsKey?: string; biasLat?: number; biasLng?: number }) {
   const router = useRouter()
   const [url, setUrl] = useState(initialUrl)
   const [saving, setSaving] = useState(false)
@@ -68,7 +68,7 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false, compa
         {mapsKey && (
           <div className="space-y-2">
             <p className="text-sm text-marine font-medium flex items-center gap-1.5"><Search className="w-4 h-4 text-primary" /> Trouvez votre entreprise</p>
-            <FicheAutocomplete apiKey={mapsKey} onSelect={r => save(`https://search.google.com/local/writereview?placeid=${r.placeId}`)} />
+            <FicheAutocomplete apiKey={mapsKey} biasLat={biasLat} biasLng={biasLng} onSelect={r => save(`https://search.google.com/local/writereview?placeid=${r.placeId}`)} />
             <p className="text-xs text-gray-400">Tapez le nom de votre entreprise, sélectionnez votre fiche dans la liste → votre lien d&apos;avis est enregistré automatiquement.</p>
             <div className="flex items-center gap-2 pt-1 text-[11px] uppercase tracking-wide text-gray-300">
               <span className="h-px flex-1 bg-gray-100" /> ou à la main <span className="h-px flex-1 bg-gray-100" />

@@ -31,8 +31,8 @@ function loadMaps(key: string): Promise<void> {
 const INPUT_CLASS = 'w-full h-11 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
 export default function FicheAutocomplete({
-  apiKey, onSelect,
-}: { apiKey: string; onSelect: (r: { placeId: string; name: string; address: string }) => void }) {
+  apiKey, onSelect, biasLat, biasLng,
+}: { apiKey: string; onSelect: (r: { placeId: string; name: string; address: string }) => void; biasLat?: number; biasLng?: number }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [detail, setDetail] = useState<string | null>(null)
@@ -49,11 +49,24 @@ export default function FicheAutocomplete({
       const places = (window as any).google?.maps?.places
       if (!places) throw new Error('google.maps.places indisponible.')
 
+      const g = (window as any).google
+      // Biais géographique vers l'adresse de l'artisan : sa fiche locale remonte
+      // (comme la barre Maps qui connaît la position de l'utilisateur).
+      let bounds: any = undefined
+      if (typeof biasLat === 'number' && typeof biasLng === 'number' && g?.maps?.LatLng) {
+        const d = 0.6 // ~65 km autour de l'adresse
+        bounds = new g.maps.LatLngBounds(
+          new g.maps.LatLng(biasLat - d, biasLng - d),
+          new g.maps.LatLng(biasLat + d, biasLng + d),
+        )
+      }
+
       // 1) Widget legacy : le plus compatible, sur un simple <input>.
       if (places.Autocomplete && inputRef.current) {
         const ac = new places.Autocomplete(inputRef.current, {
           fields: ['place_id', 'name', 'formatted_address'],
           componentRestrictions: { country: 'fr' },
+          ...(bounds ? { bounds } : {}),
           // Pas de filtre `types` : beaucoup d'artisans sont des fiches « zone de
           // service » (sans local), que le type "establishment" tend à exclure.
         })
@@ -67,7 +80,7 @@ export default function FicheAutocomplete({
 
       // 2) Repli : nouveau PlaceAutocompleteElement.
       if (places.PlaceAutocompleteElement && containerRef.current) {
-        const el: any = new places.PlaceAutocompleteElement({ includedRegionCodes: ['fr'] })
+        const el: any = new places.PlaceAutocompleteElement({ includedRegionCodes: ['fr'], ...(bounds ? { locationBias: bounds } : {}) })
         el.style.width = '100%'
         if (inputRef.current) inputRef.current.style.display = 'none'
         containerRef.current.appendChild(el)

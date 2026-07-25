@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent } from '@/components/ui/card'
 import { HardHat } from 'lucide-react'
 import { clientDisplayName } from '@/lib/chantiers'
+import { geocodeAddress } from '@/lib/meteo'
 import AvisClient, { type AvisRow } from './AvisClient'
 import ReviewLinkGuide from './ReviewLinkGuide'
 
@@ -23,6 +24,8 @@ export default async function AvisPage() {
   const companyName = company?.trade_name || null
   const companyAddress = company?.address || ''
   const mapsKey = process.env.GOOGLE_MAPS_BROWSER_KEY || ''
+  // Biais géographique pour l'autocomplétion : la fiche proche de l'artisan remonte.
+  const bias = mapsKey && companyAddress ? await geocodeAddress(companyAddress) : null
 
   type Cli = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null; email: string | null; phone: string | null; review_requested_at: string | null }
   type Proj = { id: string; title: string; status: string; end_date: string | null; created_at: string; client_id: string | null; clients: Cli | null }
@@ -56,11 +59,11 @@ export default async function AvisPage() {
       </div>
 
       {!reviewUrl ? (
-        <ReviewLinkGuide initialUrl="" companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} />
+        <ReviewLinkGuide initialUrl="" companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} biasLat={bias?.lat} biasLng={bias?.lon} />
       ) : (
         <>
           <AvisClient companyName={companyName} reviewUrl={reviewUrl} toAsk={toAsk} done={done} />
-          <ReviewLinkGuide initialUrl={reviewUrl} collapsible companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} />
+          <ReviewLinkGuide initialUrl={reviewUrl} collapsible companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} biasLat={bias?.lat} biasLng={bias?.lon} />
         </>
       )}
 
