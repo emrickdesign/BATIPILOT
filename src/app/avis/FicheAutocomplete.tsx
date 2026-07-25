@@ -54,7 +54,8 @@ export default function FicheAutocomplete({
         const ac = new places.Autocomplete(inputRef.current, {
           fields: ['place_id', 'name', 'formatted_address'],
           componentRestrictions: { country: 'fr' },
-          types: ['establishment'],
+          // Pas de filtre `types` : beaucoup d'artisans sont des fiches « zone de
+          // service » (sans local), que le type "establishment" tend à exclure.
         })
         ac.addListener('place_changed', () => {
           const p = ac.getPlace()
