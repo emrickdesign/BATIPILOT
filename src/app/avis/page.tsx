@@ -22,6 +22,7 @@ export default async function AvisPage() {
   const reviewUrl = (company?.google_review_url || '').trim()
   const companyName = company?.trade_name || null
   const companyAddress = company?.address || ''
+  const mapsKey = process.env.GOOGLE_MAPS_BROWSER_KEY || ''
 
   type Cli = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null; email: string | null; phone: string | null; review_requested_at: string | null }
   type Proj = { id: string; title: string; status: string; end_date: string | null; created_at: string; client_id: string | null; clients: Cli | null }
@@ -55,11 +56,11 @@ export default async function AvisPage() {
       </div>
 
       {!reviewUrl ? (
-        <ReviewLinkGuide initialUrl="" companyName={companyName || ''} companyAddress={companyAddress} />
+        <ReviewLinkGuide initialUrl="" companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} />
       ) : (
         <>
           <AvisClient companyName={companyName} reviewUrl={reviewUrl} toAsk={toAsk} done={done} />
-          <ReviewLinkGuide initialUrl={reviewUrl} collapsible companyName={companyName || ''} companyAddress={companyAddress} />
+          <ReviewLinkGuide initialUrl={reviewUrl} collapsible companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} />
         </>
       )}
 
