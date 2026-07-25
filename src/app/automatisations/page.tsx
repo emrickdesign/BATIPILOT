@@ -95,7 +95,7 @@ export default async function AutomatisationsPage() {
         <h1 className="text-2xl md:text-[28px] font-heading font-bold text-marine flex items-center gap-2">
           <Sparkles className="w-6 h-6 text-primary" /> Automatisations
         </h1>
-        <p className="text-gray-500 mt-1 text-sm">BatiPilot détecte la prochaine action à faire à chaque étape. Tu valides d&apos;un clic — rien ne part sans toi.</p>
+        <p className="text-gray-500 mt-1 text-sm">TonPilote détecte la prochaine action à faire à chaque étape. Tu valides d&apos;un clic — rien ne part sans toi.</p>
       </div>
 
       <AutomationRules />

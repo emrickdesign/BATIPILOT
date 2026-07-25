@@ -155,7 +155,7 @@ export default function ChantierForm({ project }: { project?: Project }) {
           </span>
           <span>
             <span className="block text-sm font-medium text-marine">Chantier extérieur / exposé aux intempéries</span>
-            <span className="block text-xs text-gray-500 mt-0.5">Active l&apos;alerte météo : BatiPilot vous prévient et propose de décaler si pluie, gel ou vent fort est prévu les jours planifiés.</span>
+            <span className="block text-xs text-gray-500 mt-0.5">Active l&apos;alerte météo : TonPilote vous prévient et propose de décaler si pluie, gel ou vent fort est prévu les jours planifiés.</span>
           </span>
         </button>
       </FormSection>

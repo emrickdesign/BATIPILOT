@@ -126,7 +126,7 @@ export default async function RapportPage({
 
         {/* Pied */}
         <footer className="px-8 py-4 border-t border-gray-200 text-[11px] text-gray-400">
-          {co?.trade_name || ''}{co?.siret ? ` · SIRET ${co.siret}` : ''} — Compte-rendu généré par BatiPilot le {new Date().toLocaleDateString('fr-FR')}
+          {co?.trade_name || ''}{co?.siret ? ` · SIRET ${co.siret}` : ''} — Compte-rendu généré par TonPilote le {new Date().toLocaleDateString('fr-FR')}
         </footer>
       </article>
     </div>

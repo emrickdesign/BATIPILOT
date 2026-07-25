@@ -419,7 +419,7 @@ export default function EmailsPage() {
 
   return (
     <div className="flex h-[calc(100vh-7rem)] flex-col overflow-hidden rounded-xl border bg-white">
-      {/* Barre du haut : identité BatiPilot + recherche */}
+      {/* Barre du haut : identité TonPilote + recherche */}
       <div className="flex items-center gap-3 border-b px-3 py-2">
         <button
           onClick={() => setSidebarOpen(true)}
@@ -433,7 +433,7 @@ export default function EmailsPage() {
             <HardHat className="h-[18px] w-[18px] text-white" strokeWidth={2.2} />
           </span>
           <span className="font-heading text-lg font-bold tracking-tight text-gray-900">
-            Bati<span className="text-[#E0674C]">Pilot</span>
+            Ton<span className="text-[#E0674C]">Pilote</span>
           </span>
         </div>
 

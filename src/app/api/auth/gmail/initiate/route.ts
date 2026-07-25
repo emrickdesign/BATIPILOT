@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.redirect(new URL('/login', req.url))
 
-  // Credentials de l'app BatiPilot ; repli sur ceux de l'utilisateur (ancien système)
+  // Credentials de l'app TonPilote ; repli sur ceux de l'utilisateur (ancien système)
   const { data: connection } = await supabase
     .from('gmail_connections')
     .select('client_id, client_secret')

@@ -53,7 +53,7 @@ export default function LoginPage() {
           <span className="grid place-items-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] shadow-[var(--shadow-brand)]">
             <HardHat className="w-7 h-7 text-white" strokeWidth={2.2} />
           </span>
-          <CardTitle className="text-2xl font-bold font-heading">Bati<span className="text-primary">Pilot</span></CardTitle>
+          <CardTitle className="text-2xl font-bold font-heading">Ton<span className="text-primary">Pilote</span></CardTitle>
           <p className="text-muted-foreground text-sm -mt-1">Votre assistant administratif</p>
         </CardHeader>
         <CardContent>

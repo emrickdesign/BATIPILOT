@@ -102,7 +102,7 @@ function GmailPageInner() {
               </Button>
               <p className="text-xs text-gray-400">
                 Google affichera peut-être un écran « Application non validée » : c&apos;est normal pendant notre phase de test.
-                Cliquez sur <strong>Paramètres avancés</strong> puis <strong>Continuer vers BatiPilot</strong>.
+                Cliquez sur <strong>Paramètres avancés</strong> puis <strong>Continuer vers TonPilote</strong>.
               </p>
             </>
           )}
@@ -110,8 +110,8 @@ function GmailPageInner() {
           <div className="border-t border-gray-100 pt-3 flex items-start gap-2">
             <ShieldCheck className="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-gray-500">
-              BatiPilot n&apos;accède qu&apos;à ce qui est nécessaire pour envoyer vos documents et afficher vos échanges clients.
-              Vos identifiants Google ne transitent jamais par BatiPilot, et vous pouvez déconnecter à tout moment.
+              TonPilote n&apos;accède qu&apos;à ce qui est nécessaire pour envoyer vos documents et afficher vos échanges clients.
+              Vos identifiants Google ne transitent jamais par TonPilote, et vous pouvez déconnecter à tout moment.
             </p>
           </div>
         </CardContent>

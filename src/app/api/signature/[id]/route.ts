@@ -21,7 +21,7 @@ function clientIp(req: NextRequest): string {
   return req.headers.get('x-real-ip') || 'inconnue'
 }
 
-// Route publique — pas de session (le client final n'a pas de compte BatiPilot).
+// Route publique — pas de session (le client final n'a pas de compte TonPilote).
 // Sécurité : uuid non-devinable en URL, accès exclusivement via service_role (RLS
 // contournée intentionnellement, même pattern que les URLs signées audio salarié).
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

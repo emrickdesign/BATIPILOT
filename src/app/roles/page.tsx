@@ -22,7 +22,7 @@ export default async function RolesPage() {
     <div className="space-y-7">
       <div className="animate-fade-up">
         <h1 className="text-2xl md:text-[28px] font-heading font-bold text-marine">Utilisateurs & rôles</h1>
-        <p className="text-gray-500 mt-1 text-sm">Définis qui accède à quoi dans BatiPilot.</p>
+        <p className="text-gray-500 mt-1 text-sm">Définis qui accède à quoi dans TonPilote.</p>
       </div>
 
       {/* Admin */}

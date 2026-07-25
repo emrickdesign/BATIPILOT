@@ -13,7 +13,7 @@ export async function getValidGmailToken(supabase: SupabaseClient, userId: strin
   let accessToken = conn.access_token_encrypted
 
   // Refresh si expiré (ou si on est à moins de 60s de l'expiration).
-  // Credentials de l'app BatiPilot, sauf pour les connexions établies avec
+  // Credentials de l'app TonPilote, sauf pour les connexions établies avec
   // l'ancien système (un refresh_token n'est rafraîchissable que par son émetteur).
   const isExpired = conn.expires_at && new Date(conn.expires_at).getTime() < Date.now() + 60_000
   const { clientId, clientSecret, ok } = resolveCredentials(conn)

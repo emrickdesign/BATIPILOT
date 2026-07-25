@@ -35,7 +35,7 @@ export default function RegisterPage() {
     // Avec confirmation, il n'y a PAS de session : envoyer sur /dashboard renvoyait
     // l'utilisateur vers /login, où l'erreur s'affichait en « mot de passe incorrect ».
     if (data.session) {
-      toast.success('Bienvenue sur BatiPilot !')
+      toast.success('Bienvenue sur TonPilote !')
       router.push('/dashboard')
       router.refresh()
     } else {
@@ -86,7 +86,7 @@ export default function RegisterPage() {
         <CardHeader className="text-center">
           <div className="text-4xl mb-2">🏗️</div>
           <CardTitle className="text-2xl font-bold">Créer votre compte</CardTitle>
-          <p className="text-gray-500 text-sm">BatiPilot — Assistant artisan</p>
+          <p className="text-gray-500 text-sm">TonPilote — Assistant artisan</p>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleRegister} className="space-y-4">

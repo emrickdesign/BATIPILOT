@@ -82,7 +82,7 @@ function Logo({ collapsed }: { collapsed?: boolean }) {
       </span>
       {!collapsed && (
         <span className="text-lg font-bold tracking-tight text-white font-heading truncate">
-          Bati<span className="text-white/85">Pilot</span>
+          Ton<span className="text-white/85">Pilote</span>
         </span>
       )}
     </div>

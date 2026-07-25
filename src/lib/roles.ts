@@ -1,4 +1,4 @@
-// Rôles applicatifs et permissions associées (référence du brief BatiPilot).
+// Rôles applicatifs et permissions associées (référence du brief TonPilote).
 // Pour l'instant : configuration des accès de l'équipe. Les identifiants individuels
 // (login par salarié, pointage mobile dédié) arrivent dans une phase ultérieure.
 

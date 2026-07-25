@@ -259,7 +259,7 @@ export async function createCalendarMeeting(
       method: 'POST',
       headers: { Authorization: `Bearer ${token.accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        summary: title?.trim() || 'Appel BatiPilot',
+        summary: title?.trim() || 'Appel TonPilote',
         start: { dateTime: start.toISOString() },
         end: { dateTime: end.toISOString() },
         attendees: Array.from(attendeeEmails).map(email => ({ email })),

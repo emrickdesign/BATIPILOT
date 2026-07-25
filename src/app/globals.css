@@ -59,7 +59,7 @@
 }
 
 :root {
-  /* ─── Charte graphique BatiPilot — ADN Potentieel (crème + corail chaud) ───
+  /* ─── Charte graphique TonPilote — ADN Potentieel (crème + corail chaud) ───
      Palette dérivée du site Potentieel : fond blanc/crème, corail chaud comme
      couleur d'action, olive comme succès, encre chaude à la place du marine. */
   --background: #ffffff;
@@ -98,7 +98,7 @@
   --surface-dark-foreground: #ffffff;
   --surface-dark-muted: #A8A296;
 
-  /* Marque BatiPilot */
+  /* Marque TonPilote */
   --brand: #E0674C;                 /* Corail */
   --brand-strong: #D05C43;
   --brand-soft: #FCE7DE;

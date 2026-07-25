@@ -28,7 +28,7 @@ export default async function TerrainPage({ searchParams }: { searchParams: Prom
           </div>
           <div className="text-center">
             <span className="inline-grid place-items-center w-14 h-14 rounded-2xl bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] mb-3"><HardHat className="w-7 h-7 text-white" /></span>
-            <h1 className="text-xl font-bold">BatiPilot <span className="text-primary">Terrain</span></h1>
+            <h1 className="text-xl font-bold">TonPilote <span className="text-primary">Terrain</span></h1>
             <p className="text-slate-400 text-sm mt-1">Qui es-tu ? Sélectionne ton profil pour commencer ta journée.</p>
           </div>
           {emps.length === 0 ? (

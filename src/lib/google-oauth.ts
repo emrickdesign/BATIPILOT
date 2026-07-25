@@ -1,4 +1,4 @@
-// Credentials OAuth de l'application BatiPilot (une seule app pour tous les
+// Credentials OAuth de l'application TonPilote (une seule app pour tous les
 // utilisateurs) : l'artisan n'a plus rien à créer dans Google Cloud, il clique.
 //
 // Historique : chaque utilisateur devait fournir son propre client_id/secret,
@@ -10,7 +10,7 @@
 export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || ''
 export const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || ''
 
-/** L'app BatiPilot est-elle configurée côté serveur ? */
+/** L'app TonPilote est-elle configurée côté serveur ? */
 export function hasAppCredentials(): boolean {
   return !!(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET)
 }

@@ -3,7 +3,7 @@ export function encodeSubject(s: string) {
 }
 
 function buildMultipartEmail(from: string, to: string, subject: string, htmlBody: string, fileBuffer: Buffer, filename: string, mimeType = 'application/pdf') {
-  const boundary = `----BatiPilot${Date.now()}`
+  const boundary = `----TonPilote${Date.now()}`
   const parts = [
     `From: ${from}`,
     `To: ${to}`,
