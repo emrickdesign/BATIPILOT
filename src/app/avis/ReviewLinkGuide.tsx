@@ -7,14 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Star, ExternalLink, Check, Loader2, Pencil, Search } from 'lucide-react'
-import FicheAutocomplete from './FicheAutocomplete'
+import { Star, ExternalLink, Check, Loader2, Pencil, Search, MapPin, X } from 'lucide-react'
+import FicheAutocomplete, { type SelectedFiche } from './FicheAutocomplete'
 
 export default function ReviewLinkGuide({ initialUrl, collapsible = false, companyName = '', companyAddress = '', mapsKey = '', biasLat, biasLng }: { initialUrl: string; collapsible?: boolean; companyName?: string; companyAddress?: string; mapsKey?: string; biasLat?: number; biasLng?: number }) {
   const router = useRouter()
   const [url, setUrl] = useState(initialUrl)
   const [saving, setSaving] = useState(false)
   const [open, setOpen] = useState(!collapsible)
+  const [selected, setSelected] = useState<SelectedFiche | null>(null)
 
   // Recherche Google grand public en mode « Lieux » (udm=1) sur le nom + l'adresse :
   // ça atterrit directement sur la fiche d'établissement (l'index public la connaît,
@@ -68,8 +69,46 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false, compa
         {mapsKey && (
           <div className="space-y-2">
             <p className="text-sm text-marine font-medium flex items-center gap-1.5"><Search className="w-4 h-4 text-primary" /> Trouvez votre entreprise</p>
-            <FicheAutocomplete apiKey={mapsKey} biasLat={biasLat} biasLng={biasLng} onSelect={r => save(`https://search.google.com/local/writereview?placeid=${r.placeId}`)} />
-            <p className="text-xs text-gray-400">Tapez le nom de votre entreprise, sélectionnez votre fiche dans la liste → votre lien d&apos;avis est enregistré automatiquement.</p>
+            <FicheAutocomplete apiKey={mapsKey} biasLat={biasLat} biasLng={biasLng} onSelect={r => setSelected(r)} />
+            <p className="text-xs text-gray-400">
+              Tapez le nom de votre entreprise et sélectionnez votre fiche. Fonctionne pour les <span className="font-medium">fiches Google actives</span> ; si votre fiche est trop petite/récente et n&apos;apparaît pas, utilisez le guide manuel juste en dessous.
+            </p>
+
+            {/* Confirmation : avis de la fiche choisie (mis à jour à chaque sélection) */}
+            {selected && (
+              <div className="rounded-xl border border-primary/30 bg-primary/[0.03] p-3 space-y-2 animate-fade-up">
+                <div className="flex items-start gap-2">
+                  <MapPin className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-marine truncate">{selected.name || 'Fiche sélectionnée'}</p>
+                    {selected.address && <p className="text-xs text-gray-400 truncate">{selected.address}</p>}
+                    {typeof selected.rating === 'number' && (
+                      <p className="text-xs text-amber-600 font-medium mt-0.5">★ {selected.rating.toFixed(1)}{selected.reviewsCount ? ` · ${selected.reviewsCount} avis` : ''}</p>
+                    )}
+                  </div>
+                  <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-700 flex-shrink-0" title="Ce n'est pas ma fiche"><X className="w-4 h-4" /></button>
+                </div>
+
+                {selected.reviews && selected.reviews.length > 0 ? (
+                  <div className="space-y-1.5 border-t border-primary/10 pt-2">
+                    {selected.reviews.map((rv, i) => (
+                      <div key={i} className="text-xs">
+                        <span className="font-medium text-gray-700">{rv.author || 'Client'}</span>
+                        <span className="text-amber-500"> {'★'.repeat(Math.round(rv.rating))}</span>
+                        {rv.text && <span className="text-gray-500 line-clamp-2"> — {rv.text}</span>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-400 border-t border-primary/10 pt-2">Pas encore d&apos;avis sur cette fiche — vérifiez que c&apos;est bien la vôtre.</p>
+                )}
+
+                <Button onClick={() => save(`https://search.google.com/local/writereview?placeid=${selected.placeId}`)} disabled={saving} className="w-full h-10 gap-2">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} C&apos;est ma fiche — enregistrer le lien d&apos;avis
+                </Button>
+              </div>
+            )}
+
             <div className="flex items-center gap-2 pt-1 text-[11px] uppercase tracking-wide text-gray-300">
               <span className="h-px flex-1 bg-gray-100" /> ou à la main <span className="h-px flex-1 bg-gray-100" />
             </div>

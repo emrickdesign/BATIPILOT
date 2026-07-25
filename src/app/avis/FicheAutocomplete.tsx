@@ -30,9 +30,15 @@ function loadMaps(key: string): Promise<void> {
 
 const INPUT_CLASS = 'w-full h-11 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
+export type SelectedFiche = {
+  placeId: string; name: string; address: string
+  rating?: number; reviewsCount?: number
+  reviews?: { author: string; rating: number; text: string }[]
+}
+
 export default function FicheAutocomplete({
   apiKey, onSelect, biasLat, biasLng,
-}: { apiKey: string; onSelect: (r: { placeId: string; name: string; address: string }) => void; biasLat?: number; biasLng?: number }) {
+}: { apiKey: string; onSelect: (r: SelectedFiche) => void; biasLat?: number; biasLng?: number }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [detail, setDetail] = useState<string | null>(null)
@@ -64,7 +70,7 @@ export default function FicheAutocomplete({
       // 1) Widget legacy : le plus compatible, sur un simple <input>.
       if (places.Autocomplete && inputRef.current) {
         const ac = new places.Autocomplete(inputRef.current, {
-          fields: ['place_id', 'name', 'formatted_address'],
+          fields: ['place_id', 'name', 'formatted_address', 'rating', 'user_ratings_total', 'reviews'],
           componentRestrictions: { country: 'fr' },
           ...(bounds ? { bounds } : {}),
           // Pas de filtre `types` : beaucoup d'artisans sont des fiches « zone de
@@ -72,8 +78,15 @@ export default function FicheAutocomplete({
         })
         ac.addListener('place_changed', () => {
           const p = ac.getPlace()
-          if (p?.place_id) onSelectRef.current({ placeId: p.place_id, name: p.name || '', address: p.formatted_address || '' })
-          else toast.error('Sélectionnez votre fiche dans la liste déroulante.')
+          if (!p?.place_id) { toast.error('Sélectionnez votre fiche dans la liste déroulante.'); return }
+          onSelectRef.current({
+            placeId: p.place_id,
+            name: p.name || '',
+            address: p.formatted_address || '',
+            rating: typeof p.rating === 'number' ? p.rating : undefined,
+            reviewsCount: typeof p.user_ratings_total === 'number' ? p.user_ratings_total : undefined,
+            reviews: Array.isArray(p.reviews) ? p.reviews.slice(0, 3).map((rv: any) => ({ author: rv.author_name || '', rating: rv.rating || 0, text: rv.text || '' })) : [],
+          })
         })
         return
       }
@@ -88,8 +101,15 @@ export default function FicheAutocomplete({
         el.addEventListener('gmp-select', async (event: any) => {
           try {
             const place = event.placePrediction.toPlace()
-            await place.fetchFields({ fields: ['id', 'displayName', 'formattedAddress'] })
-            onSelectRef.current({ placeId: place.id, name: (typeof place.displayName === 'string' ? place.displayName : place.displayName?.text) || '', address: place.formattedAddress || '' })
+            await place.fetchFields({ fields: ['id', 'displayName', 'formattedAddress', 'rating', 'userRatingCount', 'reviews'] })
+            onSelectRef.current({
+              placeId: place.id,
+              name: (typeof place.displayName === 'string' ? place.displayName : place.displayName?.text) || '',
+              address: place.formattedAddress || '',
+              rating: typeof place.rating === 'number' ? place.rating : undefined,
+              reviewsCount: typeof place.userRatingCount === 'number' ? place.userRatingCount : undefined,
+              reviews: Array.isArray(place.reviews) ? place.reviews.slice(0, 3).map((rv: any) => ({ author: rv.authorAttribution?.displayName || '', rating: rv.rating || 0, text: (typeof rv.text === 'string' ? rv.text : rv.text?.text) || '' })) : [],
+            })
           } catch (e: any) { toast.error('Fiche non récupérée — réessayez.'); console.error('[avis][maps][select]', e) }
         })
         return
