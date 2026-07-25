@@ -16,6 +16,7 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false, compa
   const [saving, setSaving] = useState(false)
   const [open, setOpen] = useState(!collapsible)
   const [selected, setSelected] = useState<SelectedFiche | null>(null)
+  const [showManual, setShowManual] = useState(false)
 
   // Recherche Google grand public en mode « Lieux » (udm=1) sur le nom + l'adresse :
   // ça atterrit directement sur la fiche d'établissement (l'index public la connaît,
@@ -39,17 +40,17 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false, compa
     router.refresh()
   }
 
-  // Mode replié : le lien est déjà configuré.
+  // Mode replié : le lien est déjà configuré → carte verte « validé ».
   if (collapsible && !open) {
     return (
-      <Card className="border-0 shadow-[var(--shadow-sm)]">
+      <Card className="border-0 shadow-[var(--shadow-sm)] ring-1 ring-emerald-200 bg-emerald-50/40">
         <CardContent className="p-4 flex items-center gap-3">
-          <span className="grid place-items-center w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex-shrink-0"><Check className="w-5 h-5" /></span>
+          <span className="grid place-items-center w-9 h-9 rounded-full bg-emerald-500 text-white flex-shrink-0"><Check className="w-5 h-5" strokeWidth={3} /></span>
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-medium text-marine">Lien d&apos;avis Google configuré</p>
-            <p className="text-xs text-gray-400 truncate">{initialUrl}</p>
+            <p className="text-sm font-semibold text-emerald-800">Fiche Google validée — avis activés</p>
+            <p className="text-xs text-emerald-700/70 truncate">Vos clients peuvent être sollicités en un clic ci-dessus.</p>
           </div>
-          <Button variant="outline" size="sm" onClick={() => setOpen(true)}><Pencil className="w-4 h-4 mr-1.5" /> Modifier</Button>
+          <Button variant="outline" size="sm" className="border-emerald-200 text-emerald-700 hover:bg-emerald-100" onClick={() => setOpen(true)}><Pencil className="w-4 h-4 mr-1.5" /> Changer</Button>
         </CardContent>
       </Card>
     )
@@ -109,12 +110,14 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false, compa
               </div>
             )}
 
-            <div className="flex items-center gap-2 pt-1 text-[11px] uppercase tracking-wide text-gray-300">
-              <span className="h-px flex-1 bg-gray-100" /> ou à la main <span className="h-px flex-1 bg-gray-100" />
-            </div>
+            <button type="button" onClick={() => setShowManual(v => !v)} className="w-full flex items-center gap-2 pt-1 text-[11px] uppercase tracking-wide text-gray-400 hover:text-gray-600">
+              <span className="h-px flex-1 bg-gray-100" /> {showManual ? 'masquer le manuel' : 'ma fiche n\'apparaît pas ? faire à la main'} <span className="h-px flex-1 bg-gray-100" />
+            </button>
           </div>
         )}
 
+        {/* Méthode manuelle : masquée par défaut quand l'autocomplétion est dispo */}
+        {(!mapsKey || showManual) && (<>
         {/* Étape 1 : ouvrir sa fiche Google */}
         <div className="flex gap-3">
           <span className="grid place-items-center w-6 h-6 rounded-full bg-primary text-white text-xs font-bold flex-shrink-0">1</span>
@@ -154,6 +157,7 @@ export default function ReviewLinkGuide({ initialUrl, collapsible = false, compa
             </div>
           </div>
         </div>
+        </>)}
       </CardContent>
     </Card>
   )
