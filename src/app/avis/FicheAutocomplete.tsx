@@ -4,23 +4,24 @@
 // que la barre de recherche Maps, capable de trouver les petites fiches d'artisan
 // (contrairement au web service Places). L'artisan tape son nom, choisit sa fiche,
 // on récupère le place_id → on construit le lien d'avis.
-//
-// On privilégie le widget legacy `Autocomplete` (accroché à un simple <input>,
-// très compatible) ; repli sur le nouveau `PlaceAutocompleteElement` si besoin.
 
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 
+// Chargement de la Maps JS API via callback (pattern fiable) : quand le callback
+// se déclenche, google.maps.places est prêt. Pas d'importLibrary (indispo avec ce
+// mode de chargement).
 let mapsPromise: Promise<void> | null = null
 function loadMaps(key: string): Promise<void> {
   const w = window as any
-  if (w.google?.maps?.importLibrary) return Promise.resolve()
+  if (w.google?.maps?.places) return Promise.resolve()
   if (mapsPromise) return mapsPromise
   mapsPromise = new Promise<void>((resolve, reject) => {
+    const cb = '__batipilotMapsInit'
+    w[cb] = () => resolve()
     const s = document.createElement('script')
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&loading=async&language=fr&region=FR`
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&language=fr&region=FR&loading=async&callback=${cb}`
     s.async = true
-    s.onload = () => resolve()
     s.onerror = () => reject(new Error('Chargement de Google Maps impossible (réseau ou clé).'))
     document.head.appendChild(s)
   })
@@ -43,13 +44,13 @@ export default function FicheAutocomplete({
     let cleanup = () => {}
     let cancelled = false
 
-    loadMaps(apiKey).then(async () => {
-      const g = (window as any).google
-      const places = await g.maps.importLibrary('places')
+    loadMaps(apiKey).then(() => {
       if (cancelled) return
+      const places = (window as any).google?.maps?.places
+      if (!places) throw new Error('google.maps.places indisponible.')
 
       // 1) Widget legacy : le plus compatible, sur un simple <input>.
-      if (places?.Autocomplete && inputRef.current) {
+      if (places.Autocomplete && inputRef.current) {
         const ac = new places.Autocomplete(inputRef.current, {
           fields: ['place_id', 'name', 'formatted_address'],
           componentRestrictions: { country: 'fr' },
@@ -64,7 +65,7 @@ export default function FicheAutocomplete({
       }
 
       // 2) Repli : nouveau PlaceAutocompleteElement.
-      if (places?.PlaceAutocompleteElement && containerRef.current) {
+      if (places.PlaceAutocompleteElement && containerRef.current) {
         const el: any = new places.PlaceAutocompleteElement({ includedRegionCodes: ['fr'] })
         el.style.width = '100%'
         if (inputRef.current) inputRef.current.style.display = 'none'
@@ -80,7 +81,7 @@ export default function FicheAutocomplete({
         return
       }
 
-      throw new Error('Aucun widget d\'autocomplétion disponible (google.maps.places).')
+      throw new Error('Aucun widget d\'autocomplétion disponible.')
     }).catch((e: any) => {
       console.error('[avis][maps]', e)
       if (!cancelled) setDetail(String(e?.message || e))
