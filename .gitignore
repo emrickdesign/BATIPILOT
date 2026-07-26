@@ -6,3 +6,7 @@ next-env.d.ts
 tsconfig.tsbuildinfo
 .vercel
 .env*
+
+# macOS
+.DS_Store
+**/.DS_Store

@@ -2677,23 +2677,21 @@ button { touch-action: manipulation; }
   color: var(--gray, #8a8375);
   letter-spacing: -0.01em;
 }
-.hero-shot-img { line-height: 0; overflow: hidden; }
-.hero-shot-img img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: top center; }
+.hero-shot-ui { overflow: hidden; background: #fbf7f1; }
 
 .hero-shot--main {
   top: 4px; left: 0; width: 100%; z-index: 2;
   transform: perspective(1300px) rotateY(-9deg) rotateX(3deg) rotate(-1.5deg);
   animation: mockFloat 7s ease-in-out infinite;
 }
-.hero-shot--main .hero-shot-img { height: 258px; }
+.hero-shot--main .hero-shot-ui { height: 262px; }
 .hero-shot--planning {
-  bottom: -12%; right: -9%; width: 60%; z-index: 4;
+  bottom: -12%; right: -9%; width: 62%; z-index: 4;
   transform: perspective(1300px) rotateY(-6deg) rotateX(2deg) rotate(2deg);
   animation: mockFloat 7s ease-in-out infinite;
   animation-delay: -3.5s;
 }
-.hero-shot--planning .hero-shot-img { height: 150px; }
-.hero-shot--planning .hero-shot-img img { object-position: top left; }
+.hero-shot--planning .hero-shot-ui { height: 176px; }
 .hero-modern-visual:hover .hero-shot--main {
   transform: perspective(1300px) rotateY(-3deg) rotateX(1deg) rotate(0deg);
 }
@@ -2703,7 +2701,105 @@ button { touch-action: manipulation; }
 @media (max-width: 820px) {
   .hero-shot--planning { display: none; }
   .hero-shot--main { top: 50%; transform: translateY(-50%) rotate(-1deg); animation: none; }
-  .hero-shot--main .hero-shot-img { height: 200px; }
+  .hero-shot--main .hero-shot-ui { height: 220px; }
+}
+
+/* ============ Répliques live animées de l'app (hero) ============ */
+.hui { display: flex; font-family: var(--font-sans, 'Inter', sans-serif); color: #16233a; text-align: left; }
+.hui * { box-sizing: border-box; }
+/* --- Sidebar corail --- */
+.hui-side {
+  width: 30%; min-width: 0; flex-shrink: 0;
+  background: linear-gradient(180deg, #ee8862 0%, #db6440 100%);
+  color: #fff; padding: 9px 8px; display: flex; flex-direction: column; gap: 9px;
+}
+.hui-logo { display: flex; align-items: center; gap: 6px; }
+.hui-logo-badge { width: 20px; height: 20px; border-radius: 6px; background: #fff; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.hui-logo-badge svg { width: 13px; height: 13px; }
+.hui-logo-txt { font-weight: 800; font-size: 11px; line-height: 1; display: flex; flex-direction: column; gap: 2px; }
+.hui-logo-txt small { font-weight: 500; font-size: 6.5px; opacity: .8; }
+.hui-nav { display: flex; flex-direction: column; gap: 3px; margin-top: 2px; }
+.hui-nav-item { display: flex; align-items: center; gap: 5px; font-size: 8px; font-weight: 600; padding: 4px 6px; border-radius: 6px; color: rgba(255,255,255,.95); white-space: nowrap; overflow: hidden; }
+.hui-nav-item svg { width: 10px; height: 10px; flex-shrink: 0; }
+.hui-nav-item.is-active { background: #fff; color: #c1531e; }
+.hui-nav-sec { font-size: 6.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: rgba(255,255,255,.62); padding: 3px 6px 1px; }
+.hui-user { margin-top: auto; display: flex; align-items: center; gap: 6px; font-size: 8px; font-weight: 700; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.18); }
+.hui-user small { display: block; font-weight: 500; font-size: 6.5px; opacity: .82; }
+.hui-user-av { width: 17px; height: 17px; border-radius: 50%; background: rgba(255,255,255,.2); display: flex; align-items: center; justify-content: center; font-size: 7px; flex-shrink: 0; }
+/* --- Zone principale dashboard --- */
+.hui-main { flex: 1; min-width: 0; padding: 10px 10px 0; overflow: hidden; }
+.hui-eyebrow { font-size: 7px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #a99; margin-bottom: 7px; }
+.hui-dash-row { display: flex; gap: 8px; align-items: stretch; }
+.hui-card { background: #fff; border: 1px solid rgba(20,15,5,.06); border-radius: 10px; padding: 9px; box-shadow: 0 4px 12px rgba(20,15,5,.03); }
+.hui-donut-card { width: 42%; display: flex; flex-direction: column; align-items: center; background: linear-gradient(160deg, #fdeee7, #fff); }
+.hui-list-card { flex: 1; min-width: 0; }
+.hui-card-t { font-size: 8px; font-weight: 700; color: #2b3244; margin-bottom: 8px; align-self: flex-start; }
+/* Donut animé */
+.hui-donut { position: relative; width: 74px; height: 74px; margin: 2px 0 8px; }
+.hui-donut-ring { position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(#34c759 0 var(--s1,164deg), #3b82f6 var(--s1,164deg) var(--s2,246deg), #f5b301 var(--s2,246deg) var(--s3,312deg), #ef4444 var(--s3,312deg) 360deg);
+  animation: huiDonut 6s ease-in-out infinite;
+}
+.hui-donut-ring::after { content: ""; position: absolute; inset: 22%; background: #fff; border-radius: 50%; }
+.hui-donut-c { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.hui-donut-c b { font-size: 17px; font-weight: 800; line-height: 1; }
+.hui-donut-c small { font-size: 6px; text-transform: uppercase; letter-spacing: .05em; color: #98908a; margin-top: 1px; }
+.hui-legend { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; width: 100%; }
+.hui-legend span { display: flex; align-items: center; gap: 4px; font-size: 6.5px; font-weight: 600; color: #55606f; }
+.hui-legend i { width: 6px; height: 6px; border-radius: 2px; flex-shrink: 0; }
+.d-green { background: #34c759; } .d-blue { background: #3b82f6; } .d-amber { background: #f5b301; } .d-red { background: #ef4444; }
+/* Lignes d'avancement */
+.hui-prow { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 6px; margin-bottom: 7px; }
+.hui-pname { font-size: 8px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hui-badge { font-size: 6px; font-weight: 700; padding: 2px 5px; border-radius: 20px; background: #eef0f2; color: #7a828e; white-space: nowrap; justify-self: end; }
+.hui-badge.b-run { background: #fdeccd; color: #b7791f; }
+.hui-bar { grid-column: 1 / -1; height: 5px; border-radius: 4px; background: #ece7df; overflow: hidden; }
+.hui-bar i { display: block; height: 100%; border-radius: 4px; width: var(--w); animation: huiBar 4.5s ease-in-out infinite; }
+.hui-bar i.g { background: #34c759; } .hui-bar i.a { background: #e6a209; } .hui-bar i.r { background: #ef4444; }
+.hui-prow:nth-child(3) .hui-bar i { animation-delay: -.6s; }
+.hui-prow:nth-child(4) .hui-bar i { animation-delay: -1.2s; }
+.hui-prow:nth-child(5) .hui-bar i { animation-delay: -1.8s; }
+.hui-prow:nth-child(6) .hui-bar i { animation-delay: -2.4s; }
+/* --- Planning --- */
+.hui--plan { flex-direction: column; padding: 9px 10px; }
+.hui-plan-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+.hui-plan-head b { font-size: 12px; font-weight: 800; }
+.hui-tabs { display: flex; gap: 0; background: #efe9e1; border-radius: 7px; padding: 2px; }
+.hui-tabs i { font-style: normal; font-size: 7px; font-weight: 700; color: #8a8277; padding: 3px 7px; border-radius: 5px; }
+.hui-tabs i.on { background: #db6440; color: #fff; }
+.hui-plan-filters { display: flex; gap: 5px; margin-bottom: 7px; }
+.hui-plan-filters span { font-size: 6.5px; font-weight: 700; padding: 3px 6px; border-radius: 20px; }
+.f-red { background: #fde2e0; color: #c0392b; } .f-amber { background: #fdf0cf; color: #a9791c; } .f-grey { background: #eef0f2; color: #7a828e; }
+.hui-grid { display: flex; flex-direction: column; gap: 3px; }
+.hui-grow { display: grid; grid-template-columns: 1.5fr repeat(5, 1fr); gap: 3px; align-items: center; }
+.hui-ghead span { font-size: 6.5px; font-weight: 700; color: #98908a; text-transform: uppercase; text-align: center; }
+.hui-ghead span:first-child { text-align: left; }
+.hui-ghead span.on { color: #db6440; }
+.hui-gname { font-size: 7.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hui-cell { height: 15px; border-radius: 5px; background: #f4efe8; display: flex; align-items: center; justify-content: center; }
+.hui-chip-wrap { }
+.chip { font-style: normal; display: flex; align-items: center; justify-content: center; width: 88%; height: 12px; border-radius: 20px; color: #fff; font-size: 6px; font-weight: 800; letter-spacing: .02em; }
+.c-grn { background: #1f8a54; } .c-blu { background: #2f7fd1; } .c-vio { background: #7c5cd6; } .c-amb { background: #e08a1e; }
+.chip.a1 { animation: huiChip 5s ease-in-out infinite; }
+.chip.a2 { animation: huiChip 5s ease-in-out infinite -1.25s; }
+.chip.a3 { animation: huiChip 5s ease-in-out infinite -2.5s; }
+.chip.a4 { animation: huiChip 5s ease-in-out infinite -3.75s; }
+/* --- keyframes --- */
+@keyframes huiBar { 0%, 100% { width: calc(var(--w) * 0.5); } 50% { width: var(--w); } }
+@keyframes huiDonut {
+  0%, 100% { --s1: 164deg; --s2: 246deg; --s3: 312deg; }
+  50%      { --s1: 132deg; --s2: 232deg; --s3: 320deg; }
+}
+@keyframes huiChip {
+  0%, 12% { opacity: 1; transform: scale(1); }
+  38%, 50% { opacity: 0; transform: scale(.55); }
+  76%, 100% { opacity: 1; transform: scale(1); }
+}
+@property --s1 { syntax: '<angle>'; inherits: false; initial-value: 164deg; }
+@property --s2 { syntax: '<angle>'; inherits: false; initial-value: 246deg; }
+@property --s3 { syntax: '<angle>'; inherits: false; initial-value: 312deg; }
+@media (prefers-reduced-motion: reduce) {
+  .hui-bar i, .hui-donut-ring, .chip { animation: none; }
 }
 
 /* Carrousel de témoignages photo (effet 3D, piloté par le scroll) — remplace l'ancien bandeau texte défilant.
