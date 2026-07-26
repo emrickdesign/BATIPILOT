@@ -2704,7 +2704,55 @@ button { touch-action: manipulation; }
   .hero-shot--main .hero-shot-ui { height: 220px; }
 }
 
-/* ============ Répliques live animées de l'app (hero) ============ */
+/* ============ Captures réelles + overlays animés (hero) ============ */
+.hero-real { position: relative; container-type: inline-size; }
+.hero-real .stage { position: relative; width: 100%; font-size: 0; }
+.hero-real--plan .stage { width: 135%; }
+.hero-real .stage > img { width: 100%; height: auto; display: block; }
+.ov { position: absolute; }
+/* Compteur de chantiers (recouvre le "22" du donut, chiffre qui varie) */
+.ovc-num {
+  left: 31.9%; top: 32.4%; transform: translate(-50%, -50%);
+  background: #fff; color: #1f2430; font-weight: 800;
+  font-size: 2.7cqw; line-height: 1; padding: 0.35cqw 0.55cqw; border-radius: 0.7cqw;
+  min-width: 4.4cqw; text-align: center; font-family: var(--font-sans, 'Inter', sans-serif);
+}
+/* Barres d'avancement animées (recouvrent les barres statiques) */
+.ovc-bar { left: 49.6%; width: 44%; height: 0.6cqw; border-radius: 1cqw; background: #e9e3da; overflow: hidden; }
+.ovc-bar::after { content: ""; display: block; height: 100%; width: var(--w, 40%); border-radius: 1cqw; background: var(--c, #34c759); animation: ovbar 4.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+.bar1 { top: 20.6%; --c: #34c759; --w: 42%; }
+.bar2 { top: 29.9%; --c: #e6a209; --w: 56%; --d: -0.7s; }
+.bar3 { top: 39.2%; --c: #ef4444; --w: 72%; --d: -1.4s; }
+.bar4 { top: 48.1%; --c: #34c759; --w: 33%; --d: -2.1s; }
+.bar5 { top: 57.2%; --c: #e6a209; --w: 64%; --d: -2.8s; }
+/* Salariés du planning qui apparaissent / disparaissent dans les cases vides */
+.ovp-chip {
+  transform: translate(-50%, -50%); transform-origin: center;
+  display: flex; align-items: center; justify-content: center;
+  height: 2.5cqw; padding: 0 1.1cqw; border-radius: 3cqw;
+  color: #fff; font-size: 1.35cqw; font-weight: 800; letter-spacing: .02em;
+  white-space: nowrap; font-family: var(--font-sans, 'Inter', sans-serif);
+  box-shadow: 0 0.3cqw 0.8cqw rgba(0,0,0,.18);
+}
+.cc-grn { background: #1f8a54; } .cc-blu { background: #2f7fd1; } .cc-vio { background: #7c5cd6; } .cc-amb { background: #e08a1e; }
+.c1 { left: 37.8%; top: 38.7%; animation: ovchip 5s ease-in-out infinite; }
+.c2 { left: 65.9%; top: 48.3%; animation: ovchip 5s ease-in-out infinite -0.9s; }
+.c3 { left: 37.8%; top: 57.7%; animation: ovchip 5s ease-in-out infinite -1.8s; }
+.c4 { left: 65.9%; top: 67.2%; animation: ovchip 5s ease-in-out infinite -2.5s; }
+.c5 { left: 37.8%; top: 67.2%; animation: ovchip 5s ease-in-out infinite -3.3s; }
+.c6 { left: 47.1%; top: 57.7%; animation: ovchip 5s ease-in-out infinite -4.1s; }
+@keyframes ovbar { 0%, 100% { width: calc(var(--w) * 0.55); } 50% { width: var(--w); } }
+@keyframes ovchip {
+  0%, 8%   { opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+  18%, 60% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  74%, 100%{ opacity: 0; transform: translate(-50%, -50%) scale(.4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ovc-bar::after, .ovp-chip { animation: none; }
+  .ovp-chip { opacity: 1; }
+}
+
+/* ============ Répliques live animées de l'app (hero) — obsolète, conservé inactif ============ */
 .hui { display: flex; font-family: var(--font-sans, 'Inter', sans-serif); color: #16233a; text-align: left; }
 .hui * { box-sizing: border-box; }
 /* --- Sidebar corail --- */
