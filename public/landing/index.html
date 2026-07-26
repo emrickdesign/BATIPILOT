@@ -123,32 +123,10 @@
           Centralisé
         </div>
 
-        <div class="hero-shot hero-shot--main">
+        <div class="hero-shot hero-shot--app">
           <div class="hero-shot-bar"><span></span><span></span><span></span><em>app.tonpilote.com</em></div>
-          <div class="hero-shot-ui hero-real hero-real--dash" role="img" aria-label="Tableau de bord TonPilote : suivi des chantiers et avancement en temps réel">
-            <div class="stage">
-              <img src="/landing/assets/screens/DashboardTonPilote.jpg" alt="Tableau de bord TonPilote" width="1200" height="719">
-              <span class="ov ovc-num" data-count-to>22</span>
-              <i class="ov ovc-bar bar1"></i>
-              <i class="ov ovc-bar bar2"></i>
-              <i class="ov ovc-bar bar3"></i>
-              <i class="ov ovc-bar bar4"></i>
-              <i class="ov ovc-bar bar5"></i>
-            </div>
-          </div>
-        </div>
-        <div class="hero-shot hero-shot--planning">
-          <div class="hero-shot-bar"><span></span><span></span><span></span><em>Planning équipes</em></div>
-          <div class="hero-shot-ui hero-real hero-real--plan" role="img" aria-label="Planning TonPilote : affectation des équipes par chantier, jour par jour">
-            <div class="stage">
-              <img src="/landing/assets/screens/PlanningTonPilote.jpg" alt="Planning TonPilote" width="1200" height="719" loading="lazy">
-              <b class="ov ovp-chip cc-grn c1">TH</b>
-              <b class="ov ovp-chip cc-blu c2">EM</b>
-              <b class="ov ovp-chip cc-vio c3">LP</b>
-              <b class="ov ovp-chip cc-amb c4">AC</b>
-              <b class="ov ovp-chip cc-grn c5">EP</b>
-              <b class="ov ovp-chip cc-blu c6">EM</b>
-            </div>
+          <div class="hero-appframe">
+            <iframe id="heroAppFrame" src="/landing/assets/screens/app-anime.html" title="Aperçu animé de TonPilote — tableau de bord et planning" loading="lazy" scrolling="no" tabindex="-1"></iframe>
           </div>
         </div>
       </div>
@@ -1147,16 +1125,30 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 <script>
-/* Compteur vivant du dashboard hero : fait varier le nombre de chantiers en boucle. */
+/* Hero : met l'iframe de l'aperçu animé (stage 1200px) à l'échelle du cadre,
+   et supprime la marge grise du bundle (même origine => accès au document). */
 (function () {
-  var el = document.querySelector('.ovc-num[data-count-to]');
-  if (!el || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-  var values = [22, 23, 21, 24, 22, 20];
-  var i = 0;
-  setInterval(function () {
-    i = (i + 1) % values.length;
-    el.textContent = values[i];
-  }, 2200);
+  var frame = document.querySelector('.hero-appframe');
+  var ifr = document.getElementById('heroAppFrame');
+  if (!frame || !ifr) return;
+  function fit() {
+    var k = frame.clientWidth / 1200;
+    ifr.style.transform = 'scale(' + k + ')';
+  }
+  if (window.ResizeObserver) { new ResizeObserver(fit).observe(frame); }
+  else { window.addEventListener('resize', fit); }
+  fit();
+  ifr.addEventListener('load', function () {
+    fit();
+    try {
+      var d = ifr.contentDocument;
+      d.body.style.alignItems = 'flex-start';
+      d.body.style.justifyContent = 'flex-start';
+      d.body.style.minHeight = '0';
+      d.body.style.background = 'transparent';
+      d.documentElement.style.background = 'transparent';
+    } catch (e) {}
+  });
 })();
 </script>
 <script src="/landing/scripts.js"></script>

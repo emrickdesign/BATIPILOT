@@ -10,4 +10,3 @@ tsconfig.tsbuildinfo
 # macOS
 .DS_Store
 **/.DS_Store
-public/landing/assets/screens/*.html
