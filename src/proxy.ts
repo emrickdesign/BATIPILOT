@@ -2,6 +2,14 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
+  // Landing publique (page de vente) servie à `/` + ses assets statiques sous /landing,
+  // et le manifest PWA : accessibles à tout visiteur non connecté, sans contrôle d'auth.
+  // Sinon le proxy renverrait chaque prospect vers /login avant même de voir la page.
+  const path = request.nextUrl.pathname
+  if (path === '/' || path.startsWith('/landing') || path === '/manifest.json') {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
