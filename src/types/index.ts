@@ -512,3 +512,74 @@ export interface SubcontractorMessage {
   direction: 'sortant' | 'entrant'
   created_at: string
 }
+
+// ===== Module Réunions =====
+
+export type MeetingType = 'chantier_hebdo' | 'securite' | 'demarrage' | 'client' | 'rh' | 'custom'
+export type MeetingStatus = 'draft' | 'recording' | 'processing' | 'ready' | 'published'
+
+/** Compte-rendu structuré produit par l'IA à partir du transcript. */
+export interface MeetingSummary {
+  tldr: string
+  decisions: string[]
+  topics: { title: string; points: string[] }[]
+  risks: string[]
+  next_steps: string[]
+}
+
+export interface Meeting {
+  id: string
+  user_id: string
+  title: string
+  type: MeetingType
+  project_id?: string | null
+  client_id?: string | null
+  status: MeetingStatus
+  consent: boolean
+  confidential: boolean
+  audio_path?: string | null
+  duration_sec?: number | null
+  transcript?: string | null
+  summary?: MeetingSummary | null
+  occurred_at: string
+  published_at?: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface MeetingParticipant {
+  id: string
+  user_id: string
+  meeting_id: string
+  employee_id: string
+  created_at: string
+}
+
+export type MeetingActionPriority = 'low' | 'normal' | 'high'
+export type MeetingActionStatus = 'todo' | 'doing' | 'done'
+
+export interface MeetingAction {
+  id: string
+  user_id: string
+  meeting_id: string
+  employee_id?: string | null
+  project_id?: string | null
+  title: string
+  details?: string | null
+  due_date?: string | null
+  priority: MeetingActionPriority
+  status: MeetingActionStatus
+  done_at?: string | null
+  sort_order: number
+  created_at: string
+}
+
+export interface MeetingMarker {
+  id: string
+  user_id: string
+  meeting_id: string
+  at_sec: number
+  kind: 'note' | 'decision' | 'action'
+  label: string
+  created_at: string
+}
