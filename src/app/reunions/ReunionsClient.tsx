@@ -56,13 +56,7 @@ export default function ReunionsClient({
     if (!consent) { toast.error('Merci de confirmer que les participants sont informés de l’enregistrement.'); return }
     setSaving(true)
     try {
-      const { id } = await createMeeting({
-        title,
-        type,
-        projectId: projectId || null,
-        participantIds: participants,
-        consent,
-      })
+      const { id } = await createMeeting({ title, type, projectId: projectId || null, participantIds: participants, consent })
       toast.success('Réunion créée — prête à enregistrer')
       router.push(`/reunions/${id}`)
     } catch (e: any) {
@@ -72,31 +66,32 @@ export default function ReunionsClient({
   }
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6">
+    <div className="w-full">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
-            <Mic className="size-6 text-orange-600" /> Réunions
+            <span className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 text-white"><Mic className="size-5" /></span>
+            Réunions
           </h1>
           <p className="mt-1 text-sm text-slate-500">
             Enregistrez vos réunions, l’IA rédige le compte-rendu et assigne les actions à vos salariés.
           </p>
         </div>
-        <Button onClick={() => setOpen(true)}>
+        <Button size="lg" onClick={() => setOpen(true)}>
           <Plus className="size-4" /> Nouvelle réunion
         </Button>
       </div>
 
       {meetings.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-16 text-center">
-          <div className="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-orange-50 text-orange-600">
-            <Mic className="size-7" />
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-20 text-center">
+          <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-orange-50 text-orange-600">
+            <Mic className="size-8" />
           </div>
           <h2 className="text-lg font-semibold text-slate-800">Aucune réunion pour l’instant</h2>
           <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
             Lancez votre première réunion : point chantier, sécurité, brief d’équipe… L’IA s’occupe des notes et des actions.
           </p>
-          <Button className="mt-5" onClick={() => setOpen(true)}>
+          <Button size="lg" className="mt-5" onClick={() => setOpen(true)}>
             <Plus className="size-4" /> Démarrer une réunion
           </Button>
         </div>
@@ -111,45 +106,34 @@ export default function ReunionsClient({
               <Link
                 key={m.id}
                 href={`/reunions/${m.id}`}
-                className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-orange-300 hover:shadow-sm"
+                className="group flex items-center gap-4 rounded-2xl border border-slate-200 bg-white p-4 transition hover:border-orange-300 hover:shadow-md"
               >
-                <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-orange-50 text-orange-600">
+                <div className="flex size-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-50 to-orange-100 text-orange-600">
                   {m.type === 'securite' ? <ShieldAlert className="size-5" /> : m.type === 'demarrage' || m.type === 'chantier_hebdo' ? <HardHat className="size-5" /> : <Mic className="size-5" />}
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <h3 className="truncate font-semibold text-slate-900">{m.title}</h3>
+                    <h3 className="truncate text-[15px] font-semibold text-slate-900">{m.title}</h3>
                     {m.confidential && <span className="rounded-full bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-white">RH</span>}
                   </div>
                   <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
-                    <span>{meetingTypeLabel(m.type)}</span>
+                    <span className="font-medium text-orange-600">{meetingTypeLabel(m.type)}</span>
                     <span className="inline-flex items-center gap-1"><Calendar className="size-3" />{new Date(m.occurred_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>
                     <span className="inline-flex items-center gap-1"><Clock className="size-3" />{formatDuration(m.duration_sec)}</span>
-                    {actions.length > 0 && (
-                      <span className="inline-flex items-center gap-1"><CheckSquare className="size-3" />{doneCount}/{actions.length} actions</span>
-                    )}
+                    {actions.length > 0 && <span className="inline-flex items-center gap-1"><CheckSquare className="size-3" />{doneCount}/{actions.length} actions</span>}
                   </div>
                 </div>
-                <div className="flex -space-x-2">
-                  {parts.slice(0, 4).map((p) => {
+                <div className="hidden -space-x-2 sm:flex">
+                  {parts.slice(0, 5).map((p) => {
                     const e = empById.get(p.employee_id)
                     if (!e) return null
                     return (
-                      <span
-                        key={p.employee_id}
-                        title={e.full_name}
-                        className="flex size-7 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white"
-                        style={{ background: e.color || '#c1531e' }}
-                      >
+                      <span key={p.employee_id} title={e.full_name} className="flex size-8 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white" style={{ background: e.color || '#c1531e' }}>
                         {employeeInitials(e.full_name)}
                       </span>
                     )
                   })}
-                  {parts.length > 4 && (
-                    <span className="flex size-7 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[10px] font-bold text-slate-600">
-                      +{parts.length - 4}
-                    </span>
-                  )}
+                  {parts.length > 5 && <span className="flex size-8 items-center justify-center rounded-full border-2 border-white bg-slate-200 text-[11px] font-bold text-slate-600">+{parts.length - 5}</span>}
                 </div>
                 <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${st.className}`}>{st.label}</span>
               </Link>
@@ -159,82 +143,67 @@ export default function ReunionsClient({
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Nouvelle réunion</DialogTitle>
+            <DialogTitle className="text-xl">Nouvelle réunion</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="m-title">Titre</Label>
-              <Input id="m-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex. Point chantier — semaine 12" />
+          <div className="grid gap-5 md:grid-cols-2">
+            {/* Colonne gauche : infos */}
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="m-title">Titre</Label>
+                <Input id="m-title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex. Point chantier — semaine 12" className="mt-1" />
+              </div>
+              <div>
+                <Label htmlFor="m-type">Type de réunion</Label>
+                <select id="m-type" value={type} onChange={(e) => setType(e.target.value as MeetingType)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                  {MEETING_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+                <p className="mt-1 text-xs text-slate-400">{MEETING_TYPES.find((t) => t.value === type)?.hint}</p>
+              </div>
+              <div>
+                <Label htmlFor="m-project">Chantier lié <span className="text-slate-400">(optionnel)</span></Label>
+                <select id="m-project" value={projectId} onChange={(e) => setProjectId(e.target.value)} className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                  <option value="">— Aucun —</option>
+                  {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              </div>
             </div>
 
-            <div>
-              <Label htmlFor="m-type">Type de réunion</Label>
-              <select
-                id="m-type"
-                value={type}
-                onChange={(e) => setType(e.target.value as MeetingType)}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-              >
-                {MEETING_TYPES.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-              <p className="mt-1 text-xs text-slate-400">{MEETING_TYPES.find((t) => t.value === type)?.hint}</p>
-            </div>
-
-            <div>
-              <Label htmlFor="m-project">Chantier lié <span className="text-slate-400">(optionnel)</span></Label>
-              <select
-                id="m-project"
-                value={projectId}
-                onChange={(e) => setProjectId(e.target.value)}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm"
-              >
-                <option value="">— Aucun —</option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.title}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <Label>Participants</Label>
+            {/* Colonne droite : participants */}
+            <div className="flex flex-col">
+              <Label>Participants {participants.length > 0 && <span className="text-orange-600">({participants.length})</span>}</Label>
               {employees.length === 0 ? (
-                <p className="mt-1 text-xs text-slate-400">Aucun salarié — ajoutez votre équipe dans « Salariés ».</p>
+                <p className="mt-2 text-xs text-slate-400">Aucun salarié — ajoutez votre équipe dans « Salariés ».</p>
               ) : (
-                <div className="mt-2 flex flex-wrap gap-2">
+                <div className="mt-2 flex max-h-56 flex-col gap-1.5 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/50 p-2">
                   {employees.map((e) => {
                     const on = participants.includes(e.id)
                     return (
-                      <button
-                        key={e.id}
-                        type="button"
-                        onClick={() => toggleParticipant(e.id)}
-                        className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition ${on ? 'border-orange-400 bg-orange-50 text-orange-700' : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'}`}
-                      >
-                        <span className="flex size-5 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ background: e.color || '#c1531e' }}>
-                          {employeeInitials(e.full_name)}
+                      <button key={e.id} type="button" onClick={() => toggleParticipant(e.id)} className={`flex items-center gap-2.5 rounded-lg border px-2.5 py-2 text-left text-sm transition ${on ? 'border-orange-300 bg-orange-50' : 'border-transparent bg-white hover:bg-slate-100'}`}>
+                        <span className="flex size-7 items-center justify-center rounded-full text-[10px] font-bold text-white" style={{ background: e.color || '#c1531e' }}>{employeeInitials(e.full_name)}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-slate-800">{e.full_name}</span>
+                          {e.role && <span className="block truncate text-[11px] text-slate-400">{e.role}</span>}
                         </span>
-                        {e.full_name}
+                        <span className={`flex size-4 items-center justify-center rounded-full border ${on ? 'border-orange-500 bg-orange-500' : 'border-slate-300'}`}>{on && <CheckSquare className="size-3 text-white" />}</span>
                       </button>
                     )
                   })}
                 </div>
               )}
             </div>
-
-            <label className="flex items-start gap-2 rounded-lg bg-slate-50 p-3 text-xs text-slate-600">
-              <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-4" />
-              <span>Je confirme que les participants ont été <strong>informés de l’enregistrement</strong> de cette réunion.</span>
-            </label>
           </div>
+
+          <label className="mt-1 flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-xs text-amber-800">
+            <input type="checkbox" checked={consent} onChange={(e) => setConsent(e.target.checked)} className="mt-0.5 size-4 accent-orange-600" />
+            <span>Je confirme que les participants ont été <strong>informés de l’enregistrement</strong> de cette réunion.</span>
+          </label>
 
           <DialogFooter>
             <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving}>Annuler</Button>
-            <Button onClick={submit} disabled={saving || !consent}>
+            <Button size="lg" onClick={submit} disabled={saving || !consent}>
               {saving ? 'Création…' : <><Mic className="size-4" /> Créer & enregistrer</>}
             </Button>
           </DialogFooter>
