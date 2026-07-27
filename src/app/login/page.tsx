@@ -15,6 +15,25 @@ export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [mode, setMode] = useState<'login' | 'forgot'>('login')
+
+  async function handleForgot(e: React.FormEvent) {
+    e.preventDefault()
+    if (!email) { toast.error('Entre ton email d’abord.'); return }
+    setLoading(true)
+    const supabase = createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    })
+    setLoading(false)
+    if (error) {
+      toast.error(error.message)
+    } else {
+      // Message neutre : on ne révèle pas si l'email existe ou non.
+      toast.success('Si un compte existe pour cet email, un lien de réinitialisation vient d’être envoyé. Pense à regarder tes spams.', { duration: 9000 })
+      setMode('login')
+    }
+  }
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
@@ -57,39 +76,83 @@ export default function LoginPage() {
           <p className="text-muted-foreground text-sm -mt-1">Votre assistant administratif</p>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="votre@email.com"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Mot de passe</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
-              {loading ? 'Connexion...' : 'Se connecter'}
-            </Button>
-          </form>
-          <div className="mt-5 text-center text-sm text-muted-foreground">
-            Pas encore de compte ?{' '}
-            <a href="/register" className="text-primary hover:underline font-medium">
-              Créer un compte
-            </a>
-          </div>
+          {mode === 'login' ? (
+            <>
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="votre@email.com"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Mot de passe</Label>
+                    <button
+                      type="button"
+                      onClick={() => setMode('forgot')}
+                      className="text-xs font-medium text-primary hover:underline"
+                    >
+                      Mot de passe oublié ?
+                    </button>
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
+                  {loading ? 'Connexion...' : 'Se connecter'}
+                </Button>
+              </form>
+              <div className="mt-5 text-center text-sm text-muted-foreground">
+                Pas encore de compte ?{' '}
+                <a href="/register" className="text-primary hover:underline font-medium">
+                  Créer un compte
+                </a>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mb-4 text-sm text-muted-foreground">
+                Entre l’email de ton compte : on t’envoie un lien pour définir un nouveau mot de passe.
+              </p>
+              <form onSubmit={handleForgot} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    placeholder="votre@email.com"
+                    required
+                  />
+                </div>
+                <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
+                  {loading ? 'Envoi...' : 'Envoyer le lien de réinitialisation'}
+                </Button>
+              </form>
+              <div className="mt-5 text-center text-sm">
+                <button
+                  type="button"
+                  onClick={() => setMode('login')}
+                  className="text-primary hover:underline font-medium"
+                >
+                  ← Retour à la connexion
+                </button>
+              </div>
+            </>
+          )}
         </CardContent>
       </Card>
     </div>

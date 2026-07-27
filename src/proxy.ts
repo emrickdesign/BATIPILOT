@@ -6,7 +6,7 @@ export async function proxy(request: NextRequest) {
   // et le manifest PWA : accessibles à tout visiteur non connecté, sans contrôle d'auth.
   // Sinon le proxy renverrait chaque prospect vers /login avant même de voir la page.
   const path = request.nextUrl.pathname
-  if (path === '/' || path.startsWith('/landing') || path === '/manifest.json') {
+  if (path === '/' || path.startsWith('/landing') || path === '/manifest.json' || path.startsWith('/reset-password')) {
     return NextResponse.next({ request })
   }
 
