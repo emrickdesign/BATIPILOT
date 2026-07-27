@@ -188,6 +188,11 @@ function LiveRecorder({ meetingId, consent, participants, onDone }: { meetingId:
           {!consent && <p className="mt-3 rounded-lg bg-amber-50 px-2 py-1.5 text-[11px] text-amber-700">Consentement non confirmé — enregistrement bloqué.</p>}
         </div>
 
+        <div className="flex items-start gap-2 rounded-xl border border-slate-100 bg-slate-50/60 p-3 text-xs text-slate-500">
+          <Mic className="mt-0.5 size-3.5 shrink-0 text-orange-500" />
+          <span>Pour une bonne transcription, <strong className="text-slate-700">parlez près de l’appareil, dans un endroit calme</strong>. Sur un chantier bruyant ou à plusieurs, rapprochez le micro du locuteur : la reconnaissance du navigateur capte mal le son lointain ou couvert par le bruit.</span>
+        </div>
+
         {participants.length > 0 && (
           <div className="rounded-2xl border border-slate-200 bg-white p-4">
             <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-400"><Users className="size-3.5" /> Intervenants</div>

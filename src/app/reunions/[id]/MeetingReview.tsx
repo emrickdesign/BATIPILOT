@@ -114,8 +114,8 @@ export default function MeetingReview({
   const confirmedCount = actions.filter((a) => confirmed.has(a.id)).length
 
   return (
-    <div className="space-y-5 pb-24">
-      {/* En bref — bandeau coloré */}
+    <div className="space-y-5 pb-28">
+      {/* En bref — bandeau coloré pleine largeur */}
       {summary?.tldr && (
         <div className="rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 via-orange-50/60 to-white p-5">
           <div className="mb-1 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide text-orange-600"><Sparkles className="size-3.5" /> En bref</div>
@@ -123,139 +123,138 @@ export default function MeetingReview({
         </div>
       )}
 
-      {/* Décisions + Détail sur 2 colonnes */}
-      <div className="grid gap-5 lg:grid-cols-2">
-        {summary && summary.decisions.length > 0 && (
-          <Section title="Décisions" tone="green">
-            <ul className="space-y-2">
-              {summary.decisions.map((d, i) => <li key={i} className="flex gap-2 text-sm text-slate-700"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" />{d}</li>)}
-            </ul>
-          </Section>
-        )}
-        {summary && (summary.topics.length > 0 || summary.risks.length > 0 || summary.next_steps.length > 0) && (
-          <Section title="Sujets & suites" tone="blue">
-            {summary.topics.map((t, i) => (
-              <div key={i} className="mb-3 last:mb-0">
-                <div className="text-sm font-semibold text-slate-800">{t.title}</div>
-                <ul className="mt-1 space-y-1">{t.points.map((p, j) => <li key={j} className="text-sm text-slate-600">• {p}</li>)}</ul>
-              </div>
-            ))}
-            {summary.risks.length > 0 && (
-              <div className="mt-3 rounded-xl bg-amber-50 p-3">
-                <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-amber-700"><AlertTriangle className="size-4" /> Points de vigilance</div>
-                <ul className="space-y-1">{summary.risks.map((r, i) => <li key={i} className="text-sm text-amber-800">{r}</li>)}</ul>
-              </div>
-            )}
-            {summary.next_steps.length > 0 && (
-              <div className="mt-3">
-                <div className="mb-1 text-sm font-semibold text-slate-800">Prochaines étapes</div>
-                <ul className="space-y-1">{summary.next_steps.map((s, i) => <li key={i} className="flex items-center gap-1.5 text-sm text-slate-600"><ArrowRight className="size-3.5 text-blue-500" />{s}</li>)}</ul>
-              </div>
-            )}
-          </Section>
-        )}
-      </div>
-
-      {/* Transcription complète */}
-      <TranscriptPanel text={meeting.transcript} open={showTranscript} onToggle={() => setShowTranscript((s) => !s)} />
-
-      {/* ACTIONS — juste avant publication */}
-      <div className="rounded-2xl border border-slate-200 bg-white">
-        <div className="flex items-center justify-between border-b border-slate-100 p-4">
-          <h3 className="flex items-center gap-2 font-semibold text-slate-800"><ListChecks className="size-5 text-orange-600" /> Actions à assigner {actions.length > 0 && <span className="text-slate-400">· {confirmedCount}/{actions.length} validées</span>}</h3>
-          <Button variant="outline" size="sm" onClick={onAdd}><Plus className="size-3.5" /> Ajouter une action</Button>
+      {/* Résumé (gauche) + Actions à assigner (droite) */}
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+        {/* Colonne gauche : décisions + sujets */}
+        <div className="space-y-5">
+          {summary && summary.decisions.length > 0 && (
+            <Section title="Décisions" tone="green">
+              <ul className="space-y-2">
+                {summary.decisions.map((d, i) => <li key={i} className="flex gap-2 text-sm text-slate-700"><CheckCircle2 className="mt-0.5 size-4 shrink-0 text-green-600" />{d}</li>)}
+              </ul>
+            </Section>
+          )}
+          {summary && (summary.topics.length > 0 || summary.risks.length > 0 || summary.next_steps.length > 0) && (
+            <Section title="Sujets & suites" tone="blue">
+              {summary.topics.map((t, i) => (
+                <div key={i} className="mb-3 last:mb-0">
+                  <div className="text-sm font-semibold text-slate-800">{t.title}</div>
+                  <ul className="mt-1 space-y-1">{t.points.map((p, j) => <li key={j} className="text-sm text-slate-600">• {p}</li>)}</ul>
+                </div>
+              ))}
+              {summary.risks.length > 0 && (
+                <div className="mt-3 rounded-xl bg-amber-50 p-3">
+                  <div className="mb-1 flex items-center gap-1.5 text-sm font-semibold text-amber-700"><AlertTriangle className="size-4" /> Points de vigilance</div>
+                  <ul className="space-y-1">{summary.risks.map((r, i) => <li key={i} className="text-sm text-amber-800">{r}</li>)}</ul>
+                </div>
+              )}
+              {summary.next_steps.length > 0 && (
+                <div className="mt-3">
+                  <div className="mb-1 text-sm font-semibold text-slate-800">Prochaines étapes</div>
+                  <ul className="space-y-1">{summary.next_steps.map((s, i) => <li key={i} className="flex items-center gap-1.5 text-sm text-slate-600"><ArrowRight className="size-3.5 text-blue-500" />{s}</li>)}</ul>
+                </div>
+              )}
+            </Section>
+          )}
         </div>
 
-        {actions.length === 0 ? (
-          <p className="p-6 text-center text-sm text-slate-400">Aucune action — ajoutez-en une ou régénérez le compte-rendu.</p>
-        ) : (
-          <div className="space-y-2.5 p-4">
-            {actions.map((a) => {
-              const isConfirmed = confirmed.has(a.id)
-              const emp = a.employee_id ? empById.get(a.employee_id) : null
-              const prio = PRIOS.find((p) => p.v === a.priority) || PRIOS[1]
+        {/* Colonne droite : actions à assigner */}
+        <div className="rounded-2xl border border-slate-200 bg-white">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 p-4">
+            <h3 className="flex items-center gap-2 font-semibold text-slate-800"><ListChecks className="size-5 text-orange-600" /> Actions à assigner {actions.length > 0 && <span className="text-sm font-normal text-slate-400">· {confirmedCount}/{actions.length} validées</span>}</h3>
+            <Button variant="outline" size="sm" onClick={onAdd}><Plus className="size-3.5" /> Ajouter</Button>
+          </div>
 
-              if (isConfirmed) {
-                return (
-                  <div key={a.id} className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50/60 p-3">
-                    <CheckCircle2 className="size-5 shrink-0 text-green-600" />
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium text-slate-800">{a.title}</div>
-                      <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                        {emp ? <span className="inline-flex items-center gap-1"><span className="flex size-4 items-center justify-center rounded-full text-[8px] font-bold text-white" style={{ background: emp.color }}>{employeeInitials(emp.full_name)}</span>{emp.full_name}</span> : <span className="text-slate-400">Non assignée</span>}
-                        {a.due_date && <span>· {new Date(a.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>}
-                        <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] ${prio.cls}`}><span className={`size-1.5 rounded-full ${prio.dot}`} />{prio.label}</span>
+          {actions.length === 0 ? (
+            <p className="p-6 text-center text-sm text-slate-400">Aucune action — ajoutez-en une ou régénérez le compte-rendu.</p>
+          ) : (
+            <div className="space-y-2.5 p-4">
+              {actions.map((a) => {
+                const isConfirmed = confirmed.has(a.id)
+                const emp = a.employee_id ? empById.get(a.employee_id) : null
+                const prio = PRIOS.find((p) => p.v === a.priority) || PRIOS[1]
+
+                if (isConfirmed) {
+                  return (
+                    <div key={a.id} className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50/60 p-3">
+                      <CheckCircle2 className="size-5 shrink-0 text-green-600" />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-sm font-medium text-slate-800">{a.title}</div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                          {emp ? <span className="inline-flex items-center gap-1"><span className="flex size-4 items-center justify-center rounded-full text-[8px] font-bold text-white" style={{ background: emp.color }}>{employeeInitials(emp.full_name)}</span>{emp.full_name}</span> : <span className="text-slate-400">Non assignée</span>}
+                          {a.due_date && <span>· {new Date(a.due_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}</span>}
+                          <span className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] ${prio.cls}`}><span className={`size-1.5 rounded-full ${prio.dot}`} />{prio.label}</span>
+                        </div>
                       </div>
+                      <button onClick={() => toggleConfirm(a)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Modifier"><Pencil className="size-3.5" /></button>
                     </div>
-                    <button onClick={() => toggleConfirm(a)} className="rounded-lg px-2 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100"><Pencil className="size-3.5" /></button>
+                  )
+                }
+
+                return (
+                  <div key={a.id} className={`rounded-xl border border-l-4 border-slate-200 bg-white p-3 ${a.priority === 'high' ? 'border-l-red-400' : a.priority === 'low' ? 'border-l-slate-300' : 'border-l-blue-400'}`}>
+                    <div className="flex items-start gap-2">
+                      <input
+                        autoFocus={justAdded === a.id}
+                        value={a.title}
+                        onChange={(e) => patchLocal(a.id, { title: e.target.value })}
+                        onBlur={(e) => saveAction(a.id, { title: e.target.value })}
+                        placeholder="Intitulé de l’action à réaliser…"
+                        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm font-medium text-slate-800 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-orange-300 focus:bg-white"
+                      />
+                      <button onClick={() => onDelete(a.id)} className="mt-1 rounded-lg p-1.5 text-slate-300 hover:bg-red-50 hover:text-red-500"><Trash2 className="size-4" /></button>
+                    </div>
+
+                    <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                      <div className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white pl-2 text-xs">
+                        <User className="size-3.5 text-slate-400" />
+                        <select value={a.employee_id || ''} onChange={(e) => saveAction(a.id, { employee_id: e.target.value || null })} className="h-8 max-w-[130px] bg-transparent pr-1 text-slate-700 outline-none">
+                          <option value="">Non assignée</option>
+                          {employees.map((e) => <option key={e.id} value={e.id}>{e.full_name}</option>)}
+                        </select>
+                      </div>
+
+                      <DatePicker value={a.due_date} onChange={(v) => saveAction(a.id, { due_date: v })} />
+
+                      <div className="inline-flex overflow-hidden rounded-full border border-slate-200">
+                        {PRIOS.map((p) => (
+                          <button key={p.v} onClick={() => saveAction(a.id, { priority: p.v })} className={`px-2.5 py-1 text-[11px] font-medium transition ${a.priority === p.v ? p.cls + ' border-0' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      <button onClick={() => toggleConfirm(a)} className="inline-flex items-center gap-1.5 rounded-full bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">
+                        <Check className="size-3.5" /> Valider
+                      </button>
+                    </div>
                   </div>
                 )
-              }
-
-              return (
-                <div key={a.id} className={`rounded-xl border-l-4 border border-slate-200 bg-white p-3 ${a.priority === 'high' ? 'border-l-red-400' : a.priority === 'low' ? 'border-l-slate-300' : 'border-l-blue-400'}`}>
-                  <div className="flex items-start gap-2">
-                    <input
-                      autoFocus={justAdded === a.id}
-                      value={a.title}
-                      onChange={(e) => patchLocal(a.id, { title: e.target.value })}
-                      onBlur={(e) => saveAction(a.id, { title: e.target.value })}
-                      placeholder="Intitulé de l’action à réaliser…"
-                      className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2 text-sm font-medium text-slate-800 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-orange-300 focus:bg-white"
-                    />
-                    <button onClick={() => onDelete(a.id)} className="mt-1 rounded-lg p-1.5 text-slate-300 hover:bg-red-50 hover:text-red-500"><Trash2 className="size-4" /></button>
-                  </div>
-
-                  <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                    {/* Assigné à */}
-                    <div className="relative inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white pl-2 pr-1 text-xs">
-                      <User className="size-3.5 text-slate-400" />
-                      <select value={a.employee_id || ''} onChange={(e) => saveAction(a.id, { employee_id: e.target.value || null })} className="h-8 max-w-[150px] bg-transparent pr-1 text-slate-700 outline-none">
-                        <option value="">Non assignée</option>
-                        {employees.map((e) => <option key={e.id} value={e.id}>{e.full_name}</option>)}
-                      </select>
-                    </div>
-
-                    {/* Échéance (calendrier design) */}
-                    <DatePicker value={a.due_date} onChange={(v) => saveAction(a.id, { due_date: v })} />
-
-                    {/* Priorité en pills colorées */}
-                    <div className="inline-flex overflow-hidden rounded-full border border-slate-200">
-                      {PRIOS.map((p) => (
-                        <button key={p.v} onClick={() => saveAction(a.id, { priority: p.v })} className={`px-2.5 py-1 text-[11px] font-medium transition ${a.priority === p.v ? p.cls + ' border-0' : 'bg-white text-slate-400 hover:bg-slate-50'}`}>
-                          {p.label}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Valider à droite */}
-                    <button onClick={() => toggleConfirm(a)} className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-green-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-green-700">
-                      <Check className="size-3.5" /> Valider
-                    </button>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        )}
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Barre de publication (fixée en bas) */}
+      {/* Transcription complète — pleine largeur, sous les deux colonnes */}
+      <TranscriptPanel text={meeting.transcript} open={showTranscript} onToggle={() => setShowTranscript((s) => !s)} />
+
+      {/* Barre de publication (fixée en bas), boutons plus gros */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:left-60">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
           <div className="text-sm">
             {published
-              ? <span className="inline-flex items-center gap-1.5 font-medium text-green-700"><CheckCircle2 className="size-4" /> Publiée — visible par les salariés</span>
+              ? <span className="inline-flex items-center gap-1.5 font-medium text-green-700"><CheckCircle2 className="size-5" /> Publiée — visible par les salariés</span>
               : actions.length > 0
                 ? <span className="text-slate-500"><strong className="text-slate-700">{confirmedCount}/{actions.length}</strong> actions validées — vérifiez, assignez, puis publiez.</span>
                 : <span className="text-slate-500">Publier envoie le compte-rendu aux salariés.</span>}
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={generate} disabled={generating}>
-              {generating ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />} Régénérer
+          <div className="flex gap-3">
+            <Button variant="outline" size="lg" className="h-12 px-6 text-[15px]" onClick={generate} disabled={generating}>
+              {generating ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />} Régénérer
             </Button>
-            <Button size="lg" onClick={publish} disabled={publishing}>
-              {publishing ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />} {published ? 'Republier' : 'Publier & assigner'}
+            <Button size="lg" className="h-12 px-8 text-[15px]" onClick={publish} disabled={publishing}>
+              {publishing ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />} {published ? 'Republier' : 'Publier & assigner'}
             </Button>
           </div>
         </div>
