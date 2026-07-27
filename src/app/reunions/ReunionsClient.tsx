@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Mic, Plus, Calendar, Clock, CheckSquare, HardHat, ShieldAlert } from 'lucide-react'
+import ReunionsTabs from './ReunionsTabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -48,6 +49,27 @@ export default function ReunionsClient({
 
   const empById = new Map(employees.map((e) => [e.id, e]))
 
+  const [fType, setFType] = useState('')
+  const [fProj, setFProj] = useState('')
+  const [fStatus, setFStatus] = useState('')
+  const [fPeriod, setFPeriod] = useState<'all' | 'month' | 'quarter'>('all')
+
+  const filtered = useMemo(() => {
+    const now = Date.now()
+    return meetings.filter((m) => {
+      if (fType && m.type !== fType) return false
+      if (fProj && m.project_id !== fProj) return false
+      if (fStatus && m.status !== fStatus) return false
+      if (fPeriod !== 'all') {
+        const days = (now - new Date(m.occurred_at).getTime()) / 86400000
+        if (fPeriod === 'month' && days > 31) return false
+        if (fPeriod === 'quarter' && days > 92) return false
+      }
+      return true
+    })
+  }, [meetings, fType, fProj, fStatus, fPeriod])
+  const anyFilter = fType || fProj || fStatus || fPeriod !== 'all'
+
   function toggleParticipant(id: string) {
     setParticipants((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]))
   }
@@ -67,6 +89,7 @@ export default function ReunionsClient({
 
   return (
     <div className="w-full">
+      <ReunionsTabs />
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-slate-900">
@@ -82,6 +105,29 @@ export default function ReunionsClient({
         </Button>
       </div>
 
+      {meetings.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <select value={fType} onChange={(e) => setFType(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm">
+            <option value="">Tous les types</option>
+            {MEETING_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </select>
+          <select value={fProj} onChange={(e) => setFProj(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm">
+            <option value="">Tous les chantiers</option>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.title}</option>)}
+          </select>
+          <select value={fStatus} onChange={(e) => setFStatus(e.target.value)} className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm">
+            <option value="">Tous les statuts</option>
+            {(Object.keys(MEETING_STATUS) as (keyof typeof MEETING_STATUS)[]).map((s) => <option key={s} value={s}>{MEETING_STATUS[s].label}</option>)}
+          </select>
+          <div className="inline-flex overflow-hidden rounded-lg border border-slate-200">
+            {([['all', 'Toutes'], ['month', '30 j'], ['quarter', '3 mois']] as const).map(([v, l]) => (
+              <button key={v} onClick={() => setFPeriod(v)} className={`px-3 py-1.5 text-sm transition ${fPeriod === v ? 'bg-orange-600 text-white' : 'bg-white text-slate-600 hover:bg-slate-50'}`}>{l}</button>
+            ))}
+          </div>
+          {anyFilter && <button onClick={() => { setFType(''); setFProj(''); setFStatus(''); setFPeriod('all') }} className="text-sm text-slate-400 hover:text-slate-600">Réinitialiser</button>}
+        </div>
+      )}
+
       {meetings.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-20 text-center">
           <div className="mx-auto mb-4 flex size-16 items-center justify-center rounded-full bg-orange-50 text-orange-600">
@@ -95,9 +141,13 @@ export default function ReunionsClient({
             <Plus className="size-4" /> Démarrer une réunion
           </Button>
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-6 py-12 text-center text-sm text-slate-500">
+          Aucune réunion ne correspond aux filtres.
+        </div>
       ) : (
         <div className="grid gap-3">
-          {meetings.map((m) => {
+          {filtered.map((m) => {
             const st = MEETING_STATUS[m.status] ?? MEETING_STATUS.draft
             const parts = m.meeting_participants ?? []
             const actions = m.meeting_actions ?? []

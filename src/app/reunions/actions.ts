@@ -162,3 +162,36 @@ export async function deleteAction(actionId: string) {
   if (!user) throw new Error('Non authentifié')
   await supabase.from('meeting_actions').delete().eq('id', actionId).eq('user_id', user.id)
 }
+
+/** Transforme une action de réunion en affectation planning (table assignments). */
+export async function assignActionToPlanning(actionId: string, date: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non authentifié')
+
+  const { data: action } = await supabase
+    .from('meeting_actions')
+    .select('employee_id, project_id, title')
+    .eq('id', actionId)
+    .eq('user_id', user.id)
+    .single()
+  if (!action) throw new Error('Action introuvable')
+  if (!action.employee_id) throw new Error('Assigne d’abord un salarié à cette action.')
+  if (!action.project_id) throw new Error('Cette action n’est liée à aucun chantier.')
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('Date invalide')
+
+  const { error } = await supabase.from('assignments').insert({
+    user_id: user.id,
+    employee_id: action.employee_id,
+    project_id: action.project_id,
+    date,
+    start_hour: 8,
+    end_hour: 17,
+    note: action.title,
+  })
+  if (error) throw new Error(error.message)
+  // On bascule l'action en "en cours"
+  await supabase.from('meeting_actions').update({ status: 'doing' }).eq('id', actionId).eq('user_id', user.id)
+  revalidatePath('/reunions/actions')
+  revalidatePath('/planning')
+}
