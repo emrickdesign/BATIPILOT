@@ -17,6 +17,7 @@ type NavLink = { href: string; label: string; icon: any }
 const topNav: NavLink[] = [
   { href: '/dashboard', label: 'Tableau de bord', icon: LayoutDashboard },
   { href: '/messages', label: 'Messages', icon: MessageSquare },
+  { href: '/reunions', label: 'Réunions', icon: Mic },
 ]
 
 // Familles repliables
@@ -51,7 +52,6 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
     id: 'finances',
     label: 'Admin & finances',
     items: [
-      { href: '/reunions', label: 'Réunions', icon: Mic },
       { href: '/banque', label: 'Paiements', icon: CreditCard },
       { href: '/depenses', label: 'Dépenses', icon: Wallet },
       { href: '/comptable', label: 'Comptable', icon: Calculator },
