@@ -3,13 +3,14 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Mic, Square, Loader2, Sparkles, Users, HardHat, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Mic, Square, Loader2, Users, HardHat, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { employeeInitials } from '@/lib/equipe'
 import type { Meeting, MeetingAction } from '@/types'
-import { meetingTypeLabel, MEETING_STATUS, formatDuration } from '../meta'
+import { meetingTypeLabel, MEETING_STATUS } from '../meta'
 import { saveTranscript } from '../actions'
+import MeetingReview from './MeetingReview'
 
 type ParticipantRow = { employee_id: string; employees: { id: string; full_name: string; color: string } | null }
 
@@ -17,6 +18,7 @@ export default function MeetingRecorder({
   meeting,
   participants,
   actions,
+  employees,
 }: {
   meeting: Meeting & { projects?: { title: string } | null }
   participants: ParticipantRow[]
@@ -64,7 +66,7 @@ export default function MeetingRecorder({
 
       {isRecordingStage
         ? <LiveRecorder meetingId={meeting.id} consent={meeting.consent} onDone={() => router.refresh()} />
-        : <RecordedView meeting={meeting} actions={actions} />}
+        : <MeetingReview meeting={meeting} participants={participants} actions={actions} employees={employees} />}
     </div>
   )
 }
@@ -225,38 +227,3 @@ function LiveRecorder({ meetingId, consent, onDone }: { meetingId: string; conse
   )
 }
 
-/* ------------------------------ Vue après enregistrement ------------------------------ */
-
-function RecordedView({ meeting, actions }: { meeting: Meeting; actions: MeetingAction[] }) {
-  return (
-    <div className="space-y-5">
-      <div className="rounded-2xl border border-orange-100 bg-orange-50/50 p-5 text-center">
-        <Sparkles className="mx-auto size-6 text-orange-500" />
-        <h3 className="mt-2 font-semibold text-slate-800">Transcription prête</h3>
-        <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
-          Durée {formatDuration(meeting.duration_sec)} · {(meeting.transcript || '').split(/\s+/).filter(Boolean).length} mots.
-          La génération du compte-rendu IA et l’assignation des actions arrivent à la prochaine étape.
-        </p>
-        <Button className="mt-4" disabled title="Bientôt disponible">
-          <Sparkles className="size-4" /> Générer le compte-rendu (bientôt)
-        </Button>
-      </div>
-
-      {actions.length > 0 && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-          <h3 className="mb-2 text-sm font-semibold text-slate-700">Actions</h3>
-          <ul className="space-y-1.5">
-            {actions.map((a) => (
-              <li key={a.id} className="text-sm text-slate-600">• {a.title}</li>
-            ))}
-          </ul>
-        </div>
-      )}
-
-      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-        <h3 className="mb-2 text-sm font-semibold text-slate-700">Transcription</h3>
-        <p className="whitespace-pre-wrap text-sm leading-relaxed text-slate-600">{meeting.transcript || '—'}</p>
-      </div>
-    </div>
-  )
-}

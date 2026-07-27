@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  Sun, HardHat, MapPin, Navigation, Camera, ReceiptText, Clock, User, Users2, LogIn, ArrowRight, ChevronLeft, MessageSquare, Building2,
+  Sun, HardHat, MapPin, Navigation, Camera, ReceiptText, Clock, User, Users2, LogIn, ArrowRight, ChevronLeft, MessageSquare, Building2, Mic,
 } from 'lucide-react'
 import { employeeInitials } from '@/lib/equipe'
 
@@ -137,6 +137,21 @@ export default async function TerrainPage({ searchParams }: { searchParams: Prom
           <QuickAction href="/documents" icon={<Camera className="w-5 h-5" />} label="Photo" />
           <QuickAction href={`/terrain/messages?emp=${me.id}`} icon={<MessageSquare className="w-5 h-5" />} label="Messages" />
         </section>
+
+        {/* Mes réunions */}
+        <Link
+          href={`/terrain/reunions?emp=${me.id}`}
+          className="flex items-center gap-3 rounded-2xl border border-orange-100 bg-orange-50/60 p-4 transition hover:bg-orange-50"
+        >
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-600 text-white">
+            <Mic className="h-5 w-5" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold text-marine">Mes réunions</span>
+            <span className="block text-xs text-gray-500">Comptes-rendus et mes actions à faire</span>
+          </span>
+          <ArrowRight className="h-4 w-4 text-orange-400" />
+        </Link>
 
         {/* Mes chantiers */}
         <section>
