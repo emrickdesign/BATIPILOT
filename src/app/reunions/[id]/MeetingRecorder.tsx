@@ -283,13 +283,16 @@ function LiveRecorder({ meetingId, consent, participants, onDone }: { meetingId:
         ) : (
           <>
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Aperçu en direct</span>
+              <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">Aperçu en direct <span className="normal-case font-normal text-slate-300">· éditable</span></span>
               <span className="text-xs text-slate-400">{words} mots</span>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50/40 p-4 text-[15px] leading-relaxed text-slate-700">
-              {preview || <span className="text-slate-400">L’aperçu s’affiche pendant que vous parlez. La <strong>transcription complète et sans coupure</strong> est générée à la fin, à partir de l’audio enregistré.</span>}
-              {interim && <span className="italic text-slate-400"> {interim}…</span>}
-            </div>
+            <textarea
+              value={preview}
+              onChange={(e) => { setPreview(e.target.value); previewRef.current = e.target.value }}
+              placeholder="L’aperçu s’affiche pendant que vous parlez — vous pouvez corriger ou supprimer du texte. La transcription complète et sans coupure est générée à la fin, à partir de l’audio enregistré."
+              className="min-h-0 flex-1 resize-none rounded-xl border border-slate-100 bg-slate-50/40 p-4 text-[15px] leading-relaxed text-slate-700 outline-none focus:border-orange-300"
+            />
+            {interim && <p className="mt-2 text-[15px] italic text-slate-400">{interim}…</p>}
           </>
         )}
       </div>

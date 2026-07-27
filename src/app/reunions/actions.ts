@@ -71,6 +71,19 @@ export async function saveTranscript(meetingId: string, transcript: string, dura
   revalidatePath('/reunions')
 }
 
+/** Met à jour le texte de la transcription (nettoyage manuel : suppression de passages, corrections). */
+export async function updateTranscript(meetingId: string, transcript: string) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Non authentifié')
+  const { error } = await supabase
+    .from('meetings')
+    .update({ transcript, updated_at: new Date().toISOString() })
+    .eq('id', meetingId)
+    .eq('user_id', user.id)
+  if (error) throw new Error(error.message)
+}
+
 /** Ajoute un marqueur horodaté saisi pendant la réunion. */
 export async function addMarker(meetingId: string, atSec: number, kind: 'note' | 'decision' | 'action', label: string) {
   const supabase = await createClient()

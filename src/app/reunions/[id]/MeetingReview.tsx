@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { employeeInitials } from '@/lib/equipe'
 import type { Meeting, MeetingAction, MeetingSummary } from '@/types'
 import { formatDuration } from '../meta'
-import { updateAction, addAction, deleteAction, publishMeeting } from '../actions'
+import { updateAction, addAction, deleteAction, publishMeeting, updateTranscript } from '../actions'
 import DatePicker from '../DatePicker'
 
 type EmployeeLite = { id: string; full_name: string; color: string }
@@ -95,7 +95,7 @@ export default function MeetingReview({
   if (!hasSummary) {
     return (
       <div className="grid gap-5 lg:grid-cols-[1fr_minmax(320px,420px)]">
-        <TranscriptPanel text={meeting.transcript} open onToggle={() => {}} full />
+        <TranscriptPanel meetingId={meeting.id} text={meeting.transcript} open onToggle={() => {}} full />
         <div className="rounded-2xl border border-orange-200 bg-gradient-to-b from-orange-50 to-white p-6 text-center lg:sticky lg:top-6 lg:self-start">
           <div className="mx-auto flex size-14 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 text-white"><Sparkles className="size-7" /></div>
           <h3 className="mt-3 text-lg font-semibold text-slate-800">Compte-rendu automatique</h3>
@@ -237,7 +237,7 @@ export default function MeetingReview({
       </div>
 
       {/* Transcription complète — pleine largeur, sous les deux colonnes */}
-      <TranscriptPanel text={meeting.transcript} open={showTranscript} onToggle={() => setShowTranscript((s) => !s)} />
+      <TranscriptPanel meetingId={meeting.id} text={meeting.transcript} open={showTranscript} onToggle={() => setShowTranscript((s) => !s)} />
 
       {/* Barre de publication (fixée en bas), boutons plus gros */}
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:left-60">
@@ -274,14 +274,41 @@ function Section({ title, children, tone }: { title: string; children: React.Rea
   )
 }
 
-function TranscriptPanel({ text, open, onToggle, full }: { text?: string | null; open: boolean; onToggle: () => void; full?: boolean }) {
+function TranscriptPanel({ meetingId, text, open, onToggle, full }: { meetingId: string; text?: string | null; open: boolean; onToggle: () => void; full?: boolean }) {
+  const [val, setVal] = useState(text || '')
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const words = val.split(/\s+/).filter(Boolean).length
+
+  async function save() {
+    if (val === (text || '')) return
+    setSaving(true)
+    try { await updateTranscript(meetingId, val); setSaved(true); setTimeout(() => setSaved(false), 1500) }
+    catch { toast.error('Transcription non enregistrée') }
+    finally { setSaving(false) }
+  }
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white">
       <button onClick={onToggle} className="flex w-full items-center justify-between p-4 text-sm font-semibold text-slate-700">
-        <span className="flex items-center gap-2"><span className="h-4 w-1 rounded-full bg-slate-400" /> Transcription complète</span>
-        {!full && <ChevronDown className={`size-4 transition ${open ? 'rotate-180' : ''}`} />}
+        <span className="flex items-center gap-2"><span className="h-4 w-1 rounded-full bg-slate-400" /> Transcription complète <span className="font-normal text-slate-400">· {words} mots</span></span>
+        <span className="flex items-center gap-2">
+          {saving ? <Loader2 className="size-4 animate-spin text-slate-400" /> : saved ? <span className="text-xs font-medium text-green-600">Enregistré</span> : null}
+          {!full && <ChevronDown className={`size-4 transition ${open ? 'rotate-180' : ''}`} />}
+        </span>
       </button>
-      {open && <p className={`whitespace-pre-wrap px-4 pb-4 text-sm leading-relaxed text-slate-600 ${full ? 'max-h-[70vh] overflow-y-auto' : ''}`}>{text || '—'}</p>}
+      {open && (
+        <div className="px-4 pb-4">
+          <textarea
+            value={val}
+            onChange={(e) => setVal(e.target.value)}
+            onBlur={save}
+            placeholder="Transcription…"
+            className={`w-full resize-y rounded-xl border border-slate-100 bg-slate-50/40 p-3 text-sm leading-relaxed text-slate-700 outline-none focus:border-orange-300 ${full ? 'min-h-[50vh]' : 'min-h-[200px]'}`}
+          />
+          <p className="mt-1.5 text-xs text-slate-400">Sélectionnez et supprimez les passages à retirer (hors-sujet, privé…). Le compte-rendu est généré à partir de ce texte.</p>
+        </div>
+      )}
     </div>
   )
 }
