@@ -39,7 +39,15 @@ export default async function TerrainReunionsPage({ searchParams }: { searchPara
       actions = (acts || []).filter((a) => pubIds.has(a.meeting_id))
     }
 
-    return <EmployeeReunionsView meetings={meetings} actions={actions} />
+    const { data: notifications } = await service
+      .from('notifications')
+      .select('*')
+      .eq('user_id', session.userId)
+      .eq('employee_id', session.employeeId)
+      .order('created_at', { ascending: false })
+      .limit(20)
+
+    return <EmployeeReunionsView meetings={meetings} actions={actions} notifications={notifications || []} />
   }
 
   const sp = await searchParams

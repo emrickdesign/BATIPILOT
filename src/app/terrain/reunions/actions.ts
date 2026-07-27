@@ -25,3 +25,16 @@ export async function markActionDone(actionId: string, done: boolean) {
   if (error) throw new Error(error.message)
   revalidatePath('/terrain/reunions')
 }
+
+/** Marque comme lues les notifications du salarié courant (à l'ouverture de son onglet). */
+export async function markMyNotificationsRead() {
+  const session = await getEmployeeSession()
+  if (!session) return
+  const service = createServiceClient()
+  await service
+    .from('notifications')
+    .update({ read_at: new Date().toISOString() })
+    .eq('user_id', session.userId)
+    .eq('employee_id', session.employeeId)
+    .is('read_at', null)
+}

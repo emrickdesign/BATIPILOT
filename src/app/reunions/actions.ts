@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import { notify } from '@/lib/notifications'
 import type { MeetingType } from '@/types'
 
 /** Crée une réunion (statut "recording") + ses participants, renvoie son id. */
@@ -119,6 +120,30 @@ export async function publishMeeting(meetingId: string) {
     .eq('id', meetingId)
     .eq('user_id', user.id)
   if (error) throw new Error(error.message)
+
+  // Notifier chaque salarié participant (sauf réunion confidentielle RH)
+  const [{ data: mtg }, { data: parts }, { data: acts }] = await Promise.all([
+    supabase.from('meetings').select('title, confidential').eq('id', meetingId).eq('user_id', user.id).single(),
+    supabase.from('meeting_participants').select('employee_id').eq('meeting_id', meetingId).eq('user_id', user.id),
+    supabase.from('meeting_actions').select('employee_id').eq('meeting_id', meetingId).eq('user_id', user.id),
+  ])
+  if (mtg && !mtg.confidential) {
+    const countByEmp: Record<string, number> = {}
+    for (const a of acts || []) if (a.employee_id) countByEmp[a.employee_id] = (countByEmp[a.employee_id] || 0) + 1
+    for (const p of parts || []) {
+      const n = countByEmp[p.employee_id] || 0
+      await notify(supabase, {
+        user_id: user.id,
+        employee_id: p.employee_id,
+        kind: 'meeting_published',
+        title: `Réunion : ${mtg.title}`,
+        body: n > 0 ? `${n} action${n > 1 ? 's' : ''} à faire pour toi` : 'Compte-rendu disponible',
+        href: '/terrain/reunions',
+        meeting_id: meetingId,
+      })
+    }
+  }
+
   revalidatePath(`/reunions/${meetingId}`)
   revalidatePath('/reunions')
   revalidatePath('/terrain/reunions')

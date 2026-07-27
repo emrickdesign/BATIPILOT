@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/relances",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/rappels-actions",
+      "schedule": "30 6 * * *"
     }
   ]
 }

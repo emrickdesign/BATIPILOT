@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { isPole } from '@/lib/roles'
+import NotificationBell from '@/components/NotificationBell'
 
 type NavLink = { href: string; label: string; icon: any }
 
@@ -272,9 +273,17 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {/* Mobile header */}
       <div className="bp-sidebar md:hidden fixed top-0 left-0 right-0 z-50 flex items-center justify-between px-4 h-14">
         <Logo />
-        <button onClick={() => setMenuOpen(!menuOpen)} className="relative z-10 grid place-items-center w-9 h-9 rounded-lg text-white/90 hover:bg-white/15 transition-colors" aria-label="Menu">
-          {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        <div className="relative z-10 flex items-center gap-1">
+          <NotificationBell tone="onDark" />
+          <button onClick={() => setMenuOpen(!menuOpen)} className="grid place-items-center w-9 h-9 rounded-lg text-white/90 hover:bg-white/15 transition-colors" aria-label="Menu">
+            {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
+      </div>
+
+      {/* Cloche notifications — desktop (flotte en haut à droite du contenu) */}
+      <div className="hidden md:block fixed top-4 right-6 z-50">
+        <NotificationBell tone="onLight" />
       </div>
 
       {/* Mobile menu */}

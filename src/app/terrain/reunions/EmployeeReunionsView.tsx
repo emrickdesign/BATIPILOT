@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Mic, Calendar, CheckCircle2, Circle, Flag, HardHat } from 'lucide-react'
+import { ChevronLeft, Mic, Calendar, CheckCircle2, Circle, Flag, HardHat, Bell } from 'lucide-react'
 import { toast } from 'sonner'
-import type { MeetingAction, MeetingSummary } from '@/types'
+import type { MeetingAction, MeetingSummary, AppNotification } from '@/types'
 import { meetingTypeLabel } from '../../reunions/meta'
-import { markActionDone } from './actions'
+import { markActionDone, markMyNotificationsRead } from './actions'
 
 type MeetingRow = {
   id: string
@@ -20,11 +20,14 @@ type MeetingRow = {
 export default function EmployeeReunionsView({
   meetings,
   actions: initialActions,
+  notifications = [],
 }: {
   meetings: MeetingRow[]
   actions: MeetingAction[]
+  notifications?: AppNotification[]
 }) {
   const [actions, setActions] = useState<MeetingAction[]>(initialActions)
+  useEffect(() => { markMyNotificationsRead().catch(() => {}) }, [])
 
   async function toggle(a: MeetingAction) {
     const done = a.status !== 'done'
@@ -51,6 +54,21 @@ export default function EmployeeReunionsView({
         <p className="mb-5 text-sm text-slate-500">
           {openCount > 0 ? `${openCount} action${openCount > 1 ? 's' : ''} à faire.` : 'Aucune action en attente.'}
         </p>
+
+        {notifications.length > 0 && (
+          <div className="mb-5 space-y-2">
+            {notifications.slice(0, 5).map((n) => (
+              <div key={n.id} className={`flex items-start gap-2.5 rounded-xl border p-3 ${!n.read_at ? 'border-orange-200 bg-orange-50/60' : 'border-slate-200 bg-white'}`}>
+                <Bell className={`mt-0.5 size-4 shrink-0 ${!n.read_at ? 'text-orange-600' : 'text-slate-400'}`} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-medium text-slate-800">{n.title}</div>
+                  {n.body && <div className="text-xs text-slate-500">{n.body}</div>}
+                </div>
+                {!n.read_at && <span className="mt-1.5 size-2 shrink-0 rounded-full bg-orange-500" />}
+              </div>
+            ))}
+          </div>
+        )}
 
         {meetings.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white/60 px-4 py-12 text-center text-sm text-slate-500">

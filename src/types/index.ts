@@ -583,3 +583,16 @@ export interface MeetingMarker {
   label: string
   created_at: string
 }
+
+export interface AppNotification {
+  id: string
+  user_id: string
+  employee_id?: string | null
+  kind: string
+  title: string
+  body?: string | null
+  href?: string | null
+  meeting_id?: string | null
+  read_at?: string | null
+  created_at: string
+}

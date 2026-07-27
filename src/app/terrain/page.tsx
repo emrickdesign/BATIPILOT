@@ -63,6 +63,13 @@ export default async function TerrainPage({ searchParams }: { searchParams: Prom
     supabase.from('projects').select('id, title, address, notes').eq('user_id', user.id),
   ])
 
+  const { count: unreadReunions } = await supabase
+    .from('notifications')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('employee_id', me.id)
+    .is('read_at', null)
+
   const projById = new Map((projects || []).map(p => [p.id, p]))
   const empName = new Map(emps.map(e => [e.id, e.full_name]))
   const todayProjectIds = [...new Set((myAssign || []).filter(a => a.date === todayStr).map(a => a.project_id))]
@@ -143,12 +150,15 @@ export default async function TerrainPage({ searchParams }: { searchParams: Prom
           href={`/terrain/reunions?emp=${me.id}`}
           className="flex items-center gap-3 rounded-2xl border border-orange-100 bg-orange-50/60 p-4 transition hover:bg-orange-50"
         >
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-600 text-white">
+          <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-600 text-white">
             <Mic className="h-5 w-5" />
+            {unreadReunions ? (
+              <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">{unreadReunions > 9 ? '9+' : unreadReunions}</span>
+            ) : null}
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-semibold text-marine">Mes réunions</span>
-            <span className="block text-xs text-gray-500">Comptes-rendus et mes actions à faire</span>
+            <span className="block text-xs text-gray-500">{unreadReunions ? `${unreadReunions} nouvelle${unreadReunions > 1 ? 's' : ''} notification${unreadReunions > 1 ? 's' : ''}` : 'Comptes-rendus et mes actions à faire'}</span>
           </span>
           <ArrowRight className="h-4 w-4 text-orange-400" />
         </Link>
