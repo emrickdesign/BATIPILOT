@@ -84,14 +84,18 @@ function initTestimonialCarousel() {
       const opacity = Math.max(0, 1 - abs * 0.32);
       const zIndex  = Math.round(100 - abs * 10);
 
-      if (hasGsap) {
+      if (hasGsap && animate) {
         gsap.to(card, {
           x, z, rotationY: rotY, scale, opacity, zIndex,
           xPercent: -50, yPercent: -50,
-          duration: animate ? 0.6 : 0,
+          duration: 0.6,
           ease: 'power2.out',
           overwrite: 'auto',
         });
+      } else if (hasGsap) {
+        // Instantané : gsap.set applique tout de suite, sans dépendre du ticker rAF
+        // (indispensable pour le pilotage au scroll, fluide même si l'onglet est throttlé).
+        gsap.set(card, { x, z, rotationY: rotY, scale, opacity, zIndex, xPercent: -50, yPercent: -50 });
       } else {
         card.style.transform = `translate(-50%,-50%) translateX(${x}px) translateZ(${z}px) rotateY(${rotY}deg) scale(${scale})`;
         card.style.opacity = String(opacity);
@@ -127,19 +131,25 @@ function initTestimonialCarousel() {
 
   render(false);
 
-  // Avance automatiquement au fil du scroll de la section (désactivé si prefers-reduced-motion)
-  if (hasGsap && typeof ScrollTrigger !== 'undefined' && section && !reduceMotion) {
-    gsap.registerPlugin(ScrollTrigger);
-    ScrollTrigger.create({
-      trigger: section,
-      start: 'top bottom',
-      end: 'bottom top',
-      scrub: 0.3,
-      onUpdate(self) {
-        idx = self.progress * (total - 1);
-        render(false);
-      },
-    });
+  // Avance au fil du scroll de la section. Piloté par getBoundingClientRect (relatif
+  // au viewport) et branché sur le scroll de la fenêtre ET du document (capture) : robuste
+  // quel que soit l'élément qui scrolle réellement (fenêtre ou body via overflow),
+  // contrairement à ScrollTrigger qui n'écoutait que la fenêtre et ne se déclenchait pas.
+  if (section && !reduceMotion) {
+    function applyScroll() {
+      const rect = section.getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+      const span = rect.height + vh;
+      let p = span > 0 ? (vh - rect.top) / span : 0;
+      p = Math.max(0, Math.min(1, p));
+      idx = p * (total - 1);
+      render(false);
+    }
+    // Appel synchrone : ne dépend pas du rAF, marche quel que soit l'élément qui scrolle.
+    window.addEventListener('scroll', applyScroll, { passive: true });
+    document.addEventListener('scroll', applyScroll, { passive: true, capture: true });
+    window.addEventListener('resize', applyScroll, { passive: true });
+    applyScroll();
   }
 }
 
