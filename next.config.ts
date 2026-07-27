@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ['pdfkit', 'mammoth', 'xlsx'],
+  serverExternalPackages: ['pdfkit', 'mammoth', 'xlsx', '@huggingface/transformers', 'onnxruntime-node'],
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
