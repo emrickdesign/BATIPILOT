@@ -13,68 +13,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initCounters();
   initMockCardFlip();
   initToolFlips();
-  initToolsScrolly();
 });
-
-/* ---- Centralisation : vidéo « fusion des outils » pilotée au scroll ----
-   Un conteneur haut (.tools-scrolly) épingle la vidéo (.tools-scrolly-sticky) et
-   mappe la progression du scroll de la section sur video.currentTime : la vidéo
-   se « déroule » au fur et à mesure. On règle currentTime directement (pas de
-   requestAnimationFrame) pour rester fluide même quand rAF est throttlé, et on
-   écoute le scroll de la fenêtre ET du document (capture), comme le carrousel de
-   témoignages — robuste quel que soit l'élément qui scrolle réellement. */
-function initToolsScrolly() {
-  const wrap  = document.querySelector('.tools-scrolly');
-  const video = document.querySelector('.tools-scrolly-video');
-  if (!wrap || !video) return;
-
-  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  let duration = 0, warmed = false, lastSet = -1;
-
-  function onMeta() {
-    duration = video.duration || 0;
-    // Accessibilité / mouvement réduit : on fige la dernière image (fusion terminée).
-    if (reduceMotion && duration) { try { video.currentTime = duration - 0.05; } catch (e) {} }
-    else apply();
-  }
-  if (video.readyState >= 1) onMeta();
-  video.addEventListener('loadedmetadata', onMeta);
-
-  if (reduceMotion) return;
-
-  // Réveille le pipeline de décodage (surtout iOS) : lecture muette aussitôt mise en pause.
-  function warmup() {
-    if (warmed) return; warmed = true;
-    const p = video.play();
-    if (p && p.then) p.then(() => video.pause()).catch(() => {});
-    else { try { video.pause(); } catch (e) {} }
-  }
-
-  function apply() {
-    if (!duration) return;
-    const rect = wrap.getBoundingClientRect();
-    const vh   = window.innerHeight || document.documentElement.clientHeight || 0;
-    // Hors champ : on cale sur l'extrémité correspondante puis on s'arrête.
-    if (rect.bottom < -vh * 0.5 || rect.top > vh * 1.5) {
-      const edge = rect.top > 0 ? 0 : duration;
-      if (Math.abs(edge - lastSet) > 0.01) { lastSet = edge; try { video.currentTime = edge; } catch (e) {} }
-      return;
-    }
-    warmup();
-    const dist = wrap.offsetHeight - vh;                 // course de scroll utile
-    let p = dist > 0 ? (-rect.top) / dist : 0;
-    p = Math.max(0, Math.min(1, p));
-    const t = p * duration;
-    if (Math.abs(t - lastSet) < 0.008) return;           // évite les seeks redondants
-    lastSet = t;
-    try { video.currentTime = t; } catch (e) {}
-  }
-
-  window.addEventListener('scroll',   apply, { passive: true });
-  document.addEventListener('scroll', apply, { passive: true, capture: true });
-  window.addEventListener('resize',   apply, { passive: true });
-  apply();
-}
+// La section « Centralisation » (vidéo plein écran pilotée au scroll) est gérée
+// par GSAP ScrollTrigger dans gsap-enhance.js (pin + scrub). En mouvement réduit,
+// le CSS affiche la vidéo figée sur sa 1re image (grille des outils).
 
 /* ---- Tool flip cards — tap/click toggles (hover handles desktop) ---- */
 function initToolFlips() {

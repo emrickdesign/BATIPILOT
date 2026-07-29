@@ -224,29 +224,23 @@
 </section>
 
 <!-- ===================== CENTRALISATION DES OUTILS ===================== -->
-<section id="outils" class="tools-section bg-soft-blobs" style="padding:80px 0;background:#f0ece4;">
-  <div class="container">
-    <div class="eyebrow scroll-anim" style="justify-content:center;">Centralisation</div>
-    <h2 class="scroll-anim d1" style="font-size:clamp(28px,3.6vw,44px);font-weight:800;letter-spacing:-0.02em;line-height:1.15;margin-bottom:14px;text-align:center;">
-      Tous vos outils. En un clic.<br><span class="serif accent-orange">Une seule application les remplace.</span>
-    </h2>
-    <p class="scroll-anim d2" style="text-align:center;color:var(--gray-light);font-size:15px;max-width:560px;margin:0 auto;line-height:1.65;">
-      Chaque outil séparé, c'est un abonnement de plus, du temps perdu et des infos qui s'égarent entre les écrans.
-    </p>
-
-    <!-- Fusion des outils : vidéo pilotée au scroll (remplace la grille de cartes) -->
-    <div class="tools-scrolly">
-      <div class="tools-scrolly-sticky">
-        <video class="tools-scrolly-video" muted playsinline preload="auto" aria-hidden="true"
-               poster="" src="/landing/assets/TonPilote%20Fusion.mp4"></video>
-      </div>
+<section id="outils" class="tools-fusion-section" style="background:#f0ece4;">
+  <!-- Écran plein : la vidéo « fusion des outils » se déroule au scroll (pin + scrub GSAP) -->
+  <div class="tools-fusion-pin">
+    <div class="tools-fusion-overlay">
+      <div class="eyebrow" style="justify-content:center;">Centralisation</div>
+      <h2>Tous vos outils. En un clic.<br><span class="serif accent-orange">Une seule application les remplace.</span></h2>
+      <p>Chaque outil séparé, c'est un abonnement de plus, du temps perdu et des infos qui s'égarent entre les écrans.</p>
     </div>
+    <video class="tools-scrolly-video" muted playsinline preload="auto" aria-hidden="true"
+           src="/landing/assets/TonPilote%20Fusion.mp4"></video>
+  </div>
 
+  <div class="container tools-fusion-outro">
     <p class="tools-more-line scroll-anim">
       + <strong>Zapier</strong>, <strong>DocuSign</strong>, <strong>HubSpot</strong>, <strong>Monday</strong>, <strong>QuickBooks</strong>, <strong>AutoCAD</strong>… et tous les outils métier de votre secteur, sur devis.
     </p>
-
-    <p class="scroll-anim" style="text-align:center;margin-top:32px;">
+    <p class="scroll-anim" style="text-align:center;margin-top:12px;">
       <a href="/register" class="btn-primary">Je veux centraliser mes outils &rarr;</a>
     </p>
   </div>
