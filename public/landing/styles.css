@@ -3091,6 +3091,36 @@ button { touch-action: manipulation; }
   .tools-cat-wrap { grid-template-columns: 1fr; }
 }
 
+/* --- Centralisation : vidéo « fusion des outils » pilotée au scroll --- */
+.tools-scrolly {
+  position: relative;
+  height: 280vh;              /* distance de scroll pour dérouler les 5 s de vidéo */
+  margin-top: 10px;
+}
+.tools-scrolly-sticky {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tools-scrolly-video {
+  width: min(100%, 1080px);
+  aspect-ratio: 16 / 9;
+  display: block;
+  object-fit: contain;
+  background: #f0ece4;        /* = fond interne de la vidéo → raccord invisible */
+  pointer-events: none;
+}
+@media (max-width: 700px) {
+  .tools-scrolly { height: 220vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tools-scrolly { height: auto; margin: 24px 0; }
+  .tools-scrolly-sticky { position: static; height: auto; }
+}
+
 .tools-flow-down {
   display: flex;
   flex-direction: column;
