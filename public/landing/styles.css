@@ -3099,7 +3099,7 @@ button { touch-action: manipulation; }
 .tools-fusion-scroll {
   position: relative;
   width: 100%;
-  height: 250vh;              /* distance de scrub ≈ 150vh (1,5× écran) */
+  height: 175vh;              /* distance de scrub ≈ 75vh (0,75× écran) → déroulé 2× plus rapide */
 }
 .tools-fusion-sticky {
   position: sticky;
@@ -3151,7 +3151,7 @@ button { touch-action: manipulation; }
 .tools-fusion-outro { padding: 40px 0 80px; }
 
 @media (max-width: 700px) {
-  .tools-fusion-scroll { height: 210vh; }   /* scrub un peu plus court sur mobile */
+  .tools-fusion-scroll { height: 155vh; }   /* scrub plus court sur mobile (2× plus rapide) */
 }
 @media (prefers-reduced-motion: reduce) {
   /* Pas d'épinglage ni de scrub : titre puis vidéo figée sur sa 1re image (grille) */
