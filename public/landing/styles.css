@@ -1673,7 +1673,9 @@ section { padding: 100px 0; }
   position: relative;
   overflow: hidden;
   padding: 66px 0 72px;
-  background: linear-gradient(180deg, #ffffff 0%, #faf8f3 100%);
+  /* commence exactement sur la couleur de la vidéo (#f0ece4) puis fond vers le
+     blanc, qui rejoint sans rupture la section bénéfices (blanche) en dessous */
+  background: linear-gradient(180deg, #f0ece4 0%, #f6f2ec 50%, #ffffff 100%);
 }
 .stats-glow {
   position: absolute;
@@ -3038,6 +3040,9 @@ button { touch-action: manipulation; }
   position: relative;
   z-index: 2;
   padding: 6px 0 60px;
+  /* fond qui glisse du blanc vers la couleur de la vidéo (#f0ece4) en bas :
+     aucune coupure nette avant la section vidéo qui suit */
+  background: linear-gradient(180deg, #ffffff 0%, #ffffff 55%, #f0ece4 100%);
 }
 .testimonial-carousel {
   display: flex;
