@@ -54,10 +54,10 @@ function initToolsFusion() {
   const st = ScrollTrigger.create({
     trigger: pin,
     start: 'top top',
-    end: () => '+=' + Math.round((window.innerHeight || 800) * 2.6), // course de scroll
+    end: () => '+=' + Math.round((window.innerHeight || 800) * 1.5), // course de scroll (plus courte = déroulé plus rapide/sensible)
     pin: true,
     pinSpacing: true,
-    scrub: 0.6,                 // léger lissage → fluide dans les deux sens
+    scrub: 0.5,                 // léger lissage → fluide dans les deux sens
     invalidateOnRefresh: true,
     onUpdate: self => seek(self.progress),
   });
