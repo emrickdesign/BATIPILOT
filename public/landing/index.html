@@ -225,15 +225,19 @@
 
 <!-- ===================== CENTRALISATION DES OUTILS ===================== -->
 <section id="outils" class="tools-fusion-section" style="background:#f0ece4;">
-  <!-- Écran plein : la vidéo « fusion des outils » se déroule au scroll (pin + scrub GSAP) -->
-  <div class="tools-fusion-pin">
-    <div class="tools-fusion-overlay">
-      <div class="eyebrow" style="justify-content:center;">Centralisation</div>
-      <h2>Tous vos outils. En un clic.<br><span class="serif accent-orange">Une seule application les remplace.</span></h2>
-      <p>Chaque outil séparé, c'est un abonnement de plus, du temps perdu et des infos qui s'égarent entre les écrans.</p>
+  <!-- Écran plein : la vidéo « fusion des outils » se déroule au scroll.
+       Épinglage via position:sticky natif (calage exact, recalé à chaque reflow) ;
+       le scroll pilote video.currentTime dans scripts.js (initToolsFusion). -->
+  <div class="tools-fusion-scroll">
+    <div class="tools-fusion-sticky">
+      <div class="tools-fusion-overlay">
+        <div class="eyebrow" style="justify-content:center;">Centralisation</div>
+        <h2>Tous vos outils. En un clic.<br><span class="serif accent-orange">Une seule application les remplace.</span></h2>
+        <p>Chaque outil séparé, c'est un abonnement de plus, du temps perdu et des infos qui s'égarent entre les écrans.</p>
+      </div>
+      <video class="tools-scrolly-video" muted playsinline preload="auto" aria-hidden="true"
+             src="/landing/assets/tonpilote-fusion.mp4"></video>
     </div>
-    <video class="tools-scrolly-video" muted playsinline preload="auto" aria-hidden="true"
-           src="/landing/assets/tonpilote-fusion.mp4"></video>
   </div>
 
   <div class="container tools-fusion-outro">

@@ -20,57 +20,10 @@ document.addEventListener('DOMContentLoaded', () => {
   initBpKpiCounters();
   initBpChartGrow();
   initToolCardStagger();
-  initToolsFusion();
+  // La section « Centralisation » (vidéo plein écran) utilise un épinglage CSS
+  // sticky natif + pilotage du scroll dans scripts.js (initToolsFusion) — pas de
+  // pin GSAP ici (le calcul de départ décalait le démarrage).
 });
-
-/* ---- Centralisation : vidéo « fusion des outils » plein écran, pilotée au scroll ----
-   ScrollTrigger épingle la section (100vh) dès qu'elle remplit l'écran, puis mappe
-   la progression du scroll sur video.currentTime (bas = avance, haut = rembobine).
-   Le titre en overlay s'estompe dès que la fusion démarre. Fin du scrub → dépin →
-   la page continue normalement. */
-function initToolsFusion() {
-  const pin     = document.querySelector('.tools-fusion-pin');
-  const video   = document.querySelector('.tools-scrolly-video');
-  const overlay = document.querySelector('.tools-fusion-overlay');
-  if (!pin || !video) return;
-
-  let duration = video.duration || 0;
-  let warmed = false;
-
-  // Réveille le pipeline de décodage (surtout iOS) : lecture muette aussitôt mise en pause.
-  function warmup() {
-    if (warmed) return; warmed = true;
-    const p = video.play();
-    if (p && p.then) p.then(() => video.pause()).catch(() => {});
-    else { try { video.pause(); } catch (e) {} }
-  }
-
-  function seek(progress) {
-    warmup();
-    if (duration) { try { video.currentTime = progress * duration; } catch (e) {} }
-    if (overlay) overlay.style.opacity = String(Math.max(0, 1 - progress / 0.16));
-  }
-
-  const st = ScrollTrigger.create({
-    trigger: pin,
-    start: 'top top',
-    end: () => '+=' + Math.round((window.innerHeight || 800) * 1.5), // course de scroll (plus courte = déroulé plus rapide/sensible)
-    pin: true,
-    pinSpacing: true,
-    scrub: 0.5,                 // léger lissage → fluide dans les deux sens
-    invalidateOnRefresh: true,
-    onUpdate: self => seek(self.progress),
-  });
-
-  // La durée peut n'être connue qu'après le chargement des métadonnées.
-  if (video.readyState < 1) {
-    video.addEventListener('loadedmetadata', () => {
-      duration = video.duration || 0;
-      seek(st.progress);
-      ScrollTrigger.refresh();
-    }, { once: true });
-  }
-}
 
 /* ---- H1 hero : cascade mot par mot, en plus du fondu de bloc existant (.hero-entry) ---- */
 function initHeroTitleSplit() {

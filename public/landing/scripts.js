@@ -13,10 +13,66 @@ document.addEventListener('DOMContentLoaded', () => {
   initCounters();
   initMockCardFlip();
   initToolFlips();
+  initToolsFusion();
 });
-// La section « Centralisation » (vidéo plein écran pilotée au scroll) est gérée
-// par GSAP ScrollTrigger dans gsap-enhance.js (pin + scrub). En mouvement réduit,
-// le CSS affiche la vidéo figée sur sa 1re image (grille des outils).
+
+/* ---- Centralisation : vidéo « fusion des outils » plein écran, pilotée au scroll ----
+   L'épinglage est 100 % CSS (position:sticky sur .tools-fusion-sticky). Ici on ne fait
+   que mapper la progression du scroll DANS .tools-fusion-scroll sur video.currentTime
+   (bas = avance, haut = rembobine) et estomper le titre en overlay. On règle currentTime
+   directement (pas de rAF) → fluide et « collé » au scroll même si rAF est throttlé, et
+   on écoute le scroll fenêtre + document (capture), robuste quel que soit le scroller. */
+function initToolsFusion() {
+  const scroll  = document.querySelector('.tools-fusion-scroll');
+  const video   = document.querySelector('.tools-scrolly-video');
+  const overlay = document.querySelector('.tools-fusion-overlay');
+  if (!scroll || !video) return;
+
+  const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let duration = 0, warmed = false, lastSet = -1;
+
+  function onMeta() {
+    duration = video.duration || 0;
+    if (reduceMotion && duration) { try { video.currentTime = duration - 0.05; } catch (e) {} }
+    else apply();
+  }
+  if (video.readyState >= 1) onMeta();
+  video.addEventListener('loadedmetadata', onMeta);
+
+  if (reduceMotion) return;
+
+  // Réveille le pipeline de décodage (surtout iOS) : lecture muette aussitôt mise en pause.
+  function warmup() {
+    if (warmed) return; warmed = true;
+    const p = video.play();
+    if (p && p.then) p.then(() => video.pause()).catch(() => {});
+    else { try { video.pause(); } catch (e) {} }
+  }
+
+  function apply() {
+    if (!duration) return;
+    const rect = scroll.getBoundingClientRect();
+    const vh   = window.innerHeight || document.documentElement.clientHeight || 0;
+    // Hors champ : cale sur l'extrémité correspondante puis s'arrête.
+    if (rect.bottom < -vh * 0.5 || rect.top > vh * 1.5) {
+      const edge = rect.top > 0 ? 0 : duration;
+      if (Math.abs(edge - lastSet) > 0.01) { lastSet = edge; try { video.currentTime = edge; } catch (e) {} }
+      return;
+    }
+    warmup();
+    const dist = scroll.offsetHeight - vh;                // course de scrub (= hauteur − 100vh)
+    let p = dist > 0 ? (-rect.top) / dist : 0;
+    p = Math.max(0, Math.min(1, p));
+    const t = p * duration;
+    if (Math.abs(t - lastSet) >= 0.008) { lastSet = t; try { video.currentTime = t; } catch (e) {} }
+    if (overlay) overlay.style.opacity = String(Math.max(0, 1 - p / 0.16));
+  }
+
+  window.addEventListener('scroll',   apply, { passive: true });
+  document.addEventListener('scroll', apply, { passive: true, capture: true });
+  window.addEventListener('resize',   apply, { passive: true });
+  apply();
+}
 
 /* ---- Tool flip cards — tap/click toggles (hover handles desktop) ---- */
 function initToolFlips() {
