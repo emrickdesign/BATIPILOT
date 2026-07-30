@@ -49,24 +49,37 @@ function initToolsFusion() {
     else { try { video.pause(); } catch (e) {} }
   }
 
-  function apply() {
-    if (!duration) return;
+  let rafId = null;
+
+  // Rend une image et renvoie true tant que la section est dans la zone active.
+  // Piloté par une boucle rAF (kick), donc immunisé contre les events scroll
+  // throttlés/absorbés (momentum mobile, iOS…) : tant qu'on est dans la zone,
+  // on relit la position à chaque frame.
+  function render() {
     const rect = scroll.getBoundingClientRect();
     const vh   = window.innerHeight || document.documentElement.clientHeight || 0;
-    // Hors champ : cale sur l'extrémité correspondante puis s'arrête.
-    if (rect.bottom < -vh * 0.5 || rect.top > vh * 1.5) {
+    const inView = rect.bottom > -vh * 0.5 && rect.top < vh * 1.5;
+    if (!duration) return inView;
+    if (!inView) {
       const edge = rect.top > 0 ? 0 : duration;
       if (Math.abs(edge - lastSet) > 0.01) { lastSet = edge; try { video.currentTime = edge; } catch (e) {} }
-      return;
+      return false;
     }
     warmup();
     const dist = scroll.offsetHeight - vh;                // course de scrub (= hauteur − 100vh)
     let p = dist > 0 ? (-rect.top) / dist : 0;
     p = Math.max(0, Math.min(1, p));
     const t = p * duration;
-    if (Math.abs(t - lastSet) >= 0.008) { lastSet = t; try { video.currentTime = t; } catch (e) {} }
+    if (Math.abs(t - lastSet) >= 0.006) { lastSet = t; try { video.currentTime = t; } catch (e) {} }
     if (overlay) overlay.style.opacity = String(Math.max(0, 1 - p / 0.16));
+    return true;
   }
+
+  function loop() { rafId = render() ? requestAnimationFrame(loop) : null; }
+  function kick() { if (rafId == null) rafId = requestAnimationFrame(loop); }
+  // Hybride : réglage IMMÉDIAT à chaque scroll (fonctionne même sans rAF) +
+  // boucle rAF pour un suivi continu et lissé entre deux events (momentum mobile).
+  function apply() { render(); kick(); }
 
   window.addEventListener('scroll',   apply, { passive: true });
   document.addEventListener('scroll', apply, { passive: true, capture: true });
