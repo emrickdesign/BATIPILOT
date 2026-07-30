@@ -1673,20 +1673,11 @@ section { padding: 100px 0; }
   position: relative;
   overflow: hidden;
   padding: 66px 0 72px;
-  /* commence exactement sur la couleur de la vidéo (#f0ece4) puis fond vers le
-     blanc, qui rejoint sans rupture la section bénéfices (blanche) en dessous */
-  background: linear-gradient(180deg, #f0ece4 0%, #f6f2ec 50%, #ffffff 100%);
+  /* dégradé vertical lisse et uniforme : démarre exactement sur la couleur de la
+     vidéo (#f0ece4) et fond doucement vers le blanc, qui rejoint sans rupture la
+     section bénéfices (blanche) en dessous. Aucun halo → aucune tache de couleur. */
+  background: linear-gradient(180deg, #f0ece4 0%, #f5f1ea 45%, #ffffff 100%);
 }
-.stats-glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(70px);
-  opacity: 0.55;
-  pointer-events: none;
-  z-index: 0;
-}
-.stats-glow--a { width: 380px; height: 380px; left: -90px;  top: -130px;    background: radial-gradient(circle, rgba(244,146,106,0.55), transparent 70%); }
-.stats-glow--b { width: 440px; height: 440px; right: -110px; bottom: -180px; background: radial-gradient(circle, rgba(76,111,24,0.30),  transparent 70%); }
 .stats-section .container { position: relative; z-index: 1; }
 .stats-grid {
   display: grid;
