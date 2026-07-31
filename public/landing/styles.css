@@ -1667,13 +1667,12 @@ section { padding: 100px 0; }
 .adv-card p  { font-size: 14.5px; color: var(--gray-light); line-height: 1.6; }
 
 /* =============================================
-   BANDEAU INTÉGRATIONS (réassurance — logos d'outils réellement intégrés)
+   BANDEAU INTÉGRATIONS — carrousel fluide (intégrations réelles, sans bordures)
    ============================================= */
 .integrations-strip {
-  padding: 30px 0 34px;
+  padding: 34px 0 38px;
   background: var(--bg);
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  overflow: hidden;            /* pas de bordures haut/bas */
 }
 .integrations-label {
   text-align: center;
@@ -1684,26 +1683,47 @@ section { padding: 100px 0; }
   color: var(--gray);
   margin-bottom: 22px;
 }
-.integrations-logos {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: clamp(22px, 4.5vw, 52px);
+/* Ruban défilant, fondu doux sur les deux bords pour la fluidité */
+.int-viewport {
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 9%, #000 91%, transparent);
 }
-.int-logo {
+.int-marquee {
+  display: flex;
+  width: max-content;
+  animation: intScroll 34s linear infinite;
+}
+.int-marquee:hover { animation-play-state: paused; }
+.int-track {
+  display: flex;
+  align-items: center;
+  gap: clamp(30px, 4vw, 56px);
+  padding-right: clamp(30px, 4vw, 56px);
+}
+@keyframes intScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.int-item {
   display: inline-flex;
   align-items: center;
-  filter: grayscale(0.35) opacity(0.72);
-  transition: filter 0.3s ease, transform 0.3s ease;
+  gap: 11px;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--gray-light);
+  white-space: nowrap;
+  filter: grayscale(0.3) opacity(0.82);
+  transition: filter 0.3s ease;
 }
-.int-logo svg { width: 30px; height: 30px; display: block; border-radius: 6px; }
-.int-logo:hover { filter: grayscale(0) opacity(1); transform: translateY(-3px); }
+.int-item:hover { filter: grayscale(0) opacity(1); }
+.int-ico { display: inline-flex; }
+.int-ico svg { width: 26px; height: 26px; display: block; border-radius: 6px; }
 @media (max-width: 600px) {
-  .integrations-logos { gap: 20px; }
-  .int-logo svg { width: 26px; height: 26px; }
+  .int-item { font-size: 14px; gap: 9px; }
+  .int-ico svg { width: 23px; height: 23px; }
 }
-@media (prefers-reduced-motion: reduce) { .int-logo { transition: none; } }
+@media (prefers-reduced-motion: reduce) {
+  .int-marquee { animation: none; width: 100%; justify-content: center; flex-wrap: wrap; gap: 12px 34px; }
+  .int-track:last-child { display: none; }
+}
 
 /* =============================================
    STATS — tuiles chiffres animées (glossy, flottantes)
