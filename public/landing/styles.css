@@ -1667,6 +1667,45 @@ section { padding: 100px 0; }
 .adv-card p  { font-size: 14.5px; color: var(--gray-light); line-height: 1.6; }
 
 /* =============================================
+   BANDEAU INTÉGRATIONS (réassurance — logos d'outils réellement intégrés)
+   ============================================= */
+.integrations-strip {
+  padding: 30px 0 34px;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.integrations-label {
+  text-align: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gray);
+  margin-bottom: 22px;
+}
+.integrations-logos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(22px, 4.5vw, 52px);
+}
+.int-logo {
+  display: inline-flex;
+  align-items: center;
+  filter: grayscale(0.35) opacity(0.72);
+  transition: filter 0.3s ease, transform 0.3s ease;
+}
+.int-logo svg { width: 30px; height: 30px; display: block; border-radius: 6px; }
+.int-logo:hover { filter: grayscale(0) opacity(1); transform: translateY(-3px); }
+@media (max-width: 600px) {
+  .integrations-logos { gap: 20px; }
+  .int-logo svg { width: 26px; height: 26px; }
+}
+@media (prefers-reduced-motion: reduce) { .int-logo { transition: none; } }
+
+/* =============================================
    STATS — tuiles chiffres animées (glossy, flottantes)
    ============================================= */
 .stats-section {
