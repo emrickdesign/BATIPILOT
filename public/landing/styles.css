@@ -2753,7 +2753,38 @@ button { touch-action: manipulation; }
   z-index: 2;
 }
 /* application.html uniquement : un peu plus d'air avant la trust-strip */
+/* Page sans navbar : le hero peut remonter (seul le bouton CTA flotte en haut) */
+.hero-modern--app { padding-top: 84px; }
 .hero-modern--app .hero-modern-grid { padding-bottom: 52px; }
+
+/* Bouton CTA fixe, plein orange, en haut à droite (remplace la navbar) */
+.nav-cta-fixed {
+  position: fixed;
+  top: 18px;
+  right: 24px;
+  z-index: 300;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  background: var(--orange);
+  color: #fff;
+  border-radius: var(--radius-pill);
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 10px 26px -8px rgba(193,83,30,0.5);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+.nav-cta-fixed:hover {
+  transform: translateY(-2px);
+  background: #a8481a;
+  box-shadow: 0 16px 34px -10px rgba(193,83,30,0.6);
+}
+.nav-cta-fixed svg { width: 18px; height: 18px; }
+@media (max-width: 600px) {
+  .nav-cta-fixed { top: 12px; right: 12px; padding: 10px 15px; font-size: 13px; }
+  .hero-modern--app { padding-top: 66px; }
+}
 /* Atténue les blobs de droite/bas : plus de lueur colorée près du header/carrousel */
 .hero-modern--app .blob.b2 { opacity: 0.08; }
 .hero-modern--app .blob.b3 { opacity: 0.07; }
