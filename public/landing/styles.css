@@ -1670,7 +1670,7 @@ section { padding: 100px 0; }
    BANDEAU INTÉGRATIONS — carrousel fluide (intégrations réelles, sans bordures)
    ============================================= */
 .integrations-strip {
-  padding: 34px 0 38px;
+  padding: 30px 0 20px;
   background: var(--bg);
   overflow: hidden;            /* pas de bordures haut/bas */
 }
@@ -1680,7 +1680,7 @@ section { padding: 100px 0; }
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.15;
-  margin: 6px 0 28px;
+  margin: 0 0 24px;
 }
 /* Ruban défilant, fondu doux sur les deux bords pour la fluidité */
 .int-viewport {
