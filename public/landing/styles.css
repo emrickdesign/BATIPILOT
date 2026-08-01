@@ -2779,6 +2779,26 @@ button { touch-action: manipulation; }
   box-shadow: 0 34px 66px -28px rgba(20,15,5,0.45);
 }
 .laptop-screen img { display: block; width: 100%; height: auto; border-radius: 5px; }
+/* Aperçu animé (iframe) à la place de la capture : canevas 1200×720 mis à l'échelle du cadre */
+.laptop-embed {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1200 / 720;
+  border-radius: 5px;
+  overflow: hidden;
+  background: #F8F7F6;
+}
+.laptop-embed .screen-frame {
+  position: absolute;
+  top: 0; left: 0;
+  width: 1200px; height: 720px;
+  border: 0;
+  transform-origin: top left;
+  pointer-events: none;
+}
+@supports not (aspect-ratio: 1) {
+  .laptop-embed { height: 0; padding-bottom: 60%; }  /* 720/1200 */
+}
 .laptop-base {
   position: relative;
   height: 14px;
