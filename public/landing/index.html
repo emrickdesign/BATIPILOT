@@ -74,17 +74,9 @@
 <!-- ===================== HERO MODERNE ===================== -->
 <section class="hero-modern hero-modern--app" id="main-content">
   <div class="container">
-    <div class="hero-modern-grid hero-3col">
-      <!-- Interface 1 (Tableau de bord) — gauche, mockup ordinateur -->
-      <div class="hero-side hero-side--left hero-entry d2">
-        <div class="laptop laptop--l">
-          <div class="laptop-screen"><div class="laptop-embed"><iframe class="screen-frame" src="/landing/assets/screens/screen-anime.html?screen=dashboard" title="Tableau de bord TonPilote : chantiers, devis et compta en temps réel" loading="lazy" scrolling="no" tabindex="-1" aria-hidden="true"></iframe></div></div>
-          <div class="laptop-base" aria-hidden="true"></div>
-        </div>
-      </div>
-
-      <!-- Texte — centre -->
-      <div class="hero-modern-text hero-center">
+    <div class="hero-modern-grid hero-split">
+      <!-- Texte + proposition de valeur — gauche -->
+      <div class="hero-modern-text hero-left">
         <div class="eyebrow hero-entry">Application sur mesure</div>
         <h1 class="hero-entry d1">Tous vos outils.<br><span class="serif accent-orange">Un seul endroit.</span></h1>
         <div class="heading-divider hero-entry d2"><span class="d-orange"></span><span class="d-lime"></span></div>
@@ -103,12 +95,10 @@
         </div>
       </div>
 
-      <!-- Interface 2 (Planning) — droite, mockup ordinateur -->
-      <div class="hero-side hero-side--right hero-entry d3">
-        <div class="laptop laptop--r">
-          <div class="laptop-screen"><div class="laptop-embed"><iframe class="screen-frame" src="/landing/assets/screens/screen-anime.html?screen=planning" title="Planning des chantiers et des équipes dans TonPilote" loading="lazy" scrolling="no" tabindex="-1" aria-hidden="true"></iframe></div></div>
-          <div class="laptop-base" aria-hidden="true"></div>
-        </div>
+      <!-- Les deux interfaces 3D — droite, superposées (grande = Dashboard, petite = Planning) -->
+      <div class="hero-visuals hero-entry d2">
+        <div class="screen3d screen3d--main"><iframe class="screen-frame" src="/landing/assets/screens/screen-anime.html?screen=dashboard" title="Tableau de bord TonPilote : chantiers, devis et compta en temps réel" loading="lazy" scrolling="no" tabindex="-1" aria-hidden="true"></iframe></div>
+        <div class="screen3d screen3d--mini"><iframe class="screen-frame" src="/landing/assets/screens/screen-anime.html?screen=planning" title="Planning des chantiers et des équipes dans TonPilote" loading="lazy" scrolling="no" tabindex="-1" aria-hidden="true"></iframe></div>
       </div>
     </div>
   </div>
@@ -650,7 +640,7 @@ document.addEventListener('DOMContentLoaded', function() {
 /* Hero : met chaque iframe d'aperçu animé (canevas 1200×720) à l'échelle
    de son cadre laptop, de façon responsive. */
 (function () {
-  var embeds = document.querySelectorAll('.laptop-embed');
+  var embeds = document.querySelectorAll('.screen3d');
   if (!embeds.length) return;
   function fit(embed) {
     var ifr = embed.querySelector('.screen-frame');
