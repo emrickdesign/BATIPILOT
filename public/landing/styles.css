@@ -1676,11 +1676,12 @@ section { padding: 100px 0; }
 }
 .int-title {
   text-align: center;
-  font-size: clamp(22px, 2.6vw, 32px);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
-  margin: 0 0 24px;
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gray);
+  margin: 0 0 18px;
 }
 /* Ruban défilant, fondu doux sur les deux bords pour la fluidité */
 .int-viewport {
@@ -1697,35 +1698,25 @@ section { padding: 100px 0; }
 .int-track {
   display: flex;
   align-items: center;
-  gap: 16px;
-  padding-right: 16px;
+  gap: clamp(28px, 4vw, 52px);
+  padding-right: clamp(28px, 4vw, 52px);
 }
 @keyframes intScroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-/* Pastilles « 3D » : relief, léger dégradé, ombre douce */
+/* Logos + nom, sans cadre */
 .int-item {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 11px 18px 11px 14px;
-  border-radius: 14px;
-  background: linear-gradient(160deg, #ffffff 0%, #f4f1ec 100%);
-  border: 1px solid var(--border-card);
-  box-shadow: 0 10px 22px -12px rgba(61,40,20,0.30), inset 0 1px 0 rgba(255,255,255,0.9);
-  font-size: 14.5px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--white);
   white-space: nowrap;
-  transition: transform 0.3s cubic-bezier(.22,1,.36,1), box-shadow 0.3s ease;
-}
-.int-item:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 18px 34px -14px rgba(61,40,20,0.4), inset 0 1px 0 rgba(255,255,255,0.9);
 }
 .int-ico { display: inline-flex; }
-.int-ico svg { width: 24px; height: 24px; display: block; border-radius: 6px; }
+.int-ico svg { width: 26px; height: 26px; display: block; border-radius: 6px; }
 @media (max-width: 600px) {
-  .int-item { font-size: 13.5px; gap: 8px; padding: 9px 14px 9px 11px; }
-  .int-ico svg { width: 21px; height: 21px; }
+  .int-item { font-size: 13.5px; gap: 8px; }
+  .int-ico svg { width: 22px; height: 22px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .int-marquee { animation: none; width: 100%; justify-content: center; flex-wrap: wrap; gap: 12px 34px; }
@@ -2756,6 +2747,44 @@ button { touch-action: manipulation; }
 /* Page sans navbar : le hero peut remonter (seul le bouton CTA flotte en haut) */
 .hero-modern--app { padding-top: 84px; }
 .hero-modern--app .hero-modern-grid { padding-bottom: 52px; }
+
+/* Hero 3 colonnes : illustration gauche · texte centré · illustration droite */
+.hero-3col {
+  grid-template-columns: 1fr minmax(300px, 430px) 1fr;
+  gap: 22px;
+  align-items: center;
+}
+.hero-center { text-align: center; }
+.hero-center .eyebrow { justify-content: center; }
+.hero-center .heading-divider { margin-left: auto; margin-right: auto; }
+.hero-center .hero-sub,
+.hero-center p { text-align: center; }
+.hero-center .hero-ctas { justify-content: center; flex-wrap: wrap; }
+.hero-center .hero-mini-trust { justify-content: center; }
+.hero-side { min-width: 0; }
+.hero-shot--flow {
+  position: relative;
+  width: 100%;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgba(20,15,5,0.08);
+  box-shadow: 0 30px 62px -26px rgba(20,15,5,0.30);
+  animation: mockFloat 7s ease-in-out infinite;
+}
+.hero-shot--tl { transform: perspective(1200px) rotateY(9deg) rotate(-1.4deg); }
+.hero-shot--tr { transform: perspective(1200px) rotateY(-9deg) rotate(1.4deg); animation-delay: -3.5s; }
+.hero-side--left .hero-appframe { height: 250px; }
+.hero-side img { display: block; width: 100%; height: auto; }
+@media (max-width: 980px) {
+  .hero-3col { grid-template-columns: 1fr; gap: 20px; }
+  .hero-3col .hero-center { order: -1; }
+  .hero-side { max-width: 440px; margin: 0 auto; }
+  .hero-shot--tl, .hero-shot--tr { transform: none; }
+}
+@media (max-width: 560px) {
+  .hero-side--right { display: none; }   /* garde une seule illustration sur petit écran */
+}
 
 /* Bouton CTA fixe, plein orange, en haut à droite (remplace la navbar) */
 .nav-cta-fixed {
