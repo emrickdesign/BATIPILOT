@@ -3,31 +3,45 @@
 // La signature VISUELLE est une image PNG hébergée (bucket public `signatures`)
 // insérée en bas du mail HTML quand l'utilisateur l'active.
 
+export type ContactType = 'phone' | 'email' | 'website' | 'address'
+
+export interface Contact {
+  type: ContactType
+  value: string
+}
+
+export const CONTACT_TYPES: { id: ContactType; label: string }[] = [
+  { id: 'phone', label: 'Tél.' },
+  { id: 'email', label: 'Email' },
+  { id: 'website', label: 'Site' },
+  { id: 'address', label: 'Adresse' },
+]
+
 export interface SignatureConfig {
   full_name: string
   role: string
-  phone: string
-  email: string
-  website: string
+  contacts: Contact[]
   photo_url: string | null   // data URL ou URL hébergée (aperçu/génération)
   logo_url: string | null
   bg_color: string
   accent_color: string
   text_color: string
-  layout: 'photo_left' | 'compact' | 'banner'
+  card_radius: number        // arrondi de la carte (px)
+  icon_radius: number        // arrondi des tuiles d'icônes (px)
+  layout: 'photo_left'
 }
 
 export const DEFAULT_SIGNATURE_CONFIG: SignatureConfig = {
   full_name: '',
   role: '',
-  phone: '',
-  email: '',
-  website: '',
+  contacts: [],
   photo_url: null,
   logo_url: null,
   bg_color: '#111111',
   accent_color: '#E0674C',
   text_color: '#FFFFFF',
+  card_radius: 28,
+  icon_radius: 12,
   layout: 'photo_left',
 }
 

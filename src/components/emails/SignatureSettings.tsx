@@ -6,51 +6,73 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { X, Loader2, Upload, Wand2, Download, Image as ImageIcon, Type } from 'lucide-react'
+import { X, Loader2, Upload, Wand2, Download, Image as ImageIcon, Type, Plus, Trash2 } from 'lucide-react'
 import {
-  DEFAULT_SIGNATURE_CONFIG, buildDefaultSignatureText, type SignatureConfig,
+  DEFAULT_SIGNATURE_CONFIG, buildDefaultSignatureText, CONTACT_TYPES,
+  type SignatureConfig, type Contact, type ContactType,
 } from '@/lib/signature'
 
-// ─── Génération SVG de la carte de signature ────────────────────────────────
+// ─── Icônes vectorielles (tracé 24×24, style ligne) dessinées dans les tuiles ──
+const ICON_PATHS: Record<ContactType, string> = {
+  phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.81.36 1.6.68 2.34a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.74-1.24a2 2 0 0 1 2.11-.45c.74.32 1.53.55 2.34.68A2 2 0 0 1 22 16.92z"/>',
+  email: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 5L2 7"/>',
+  website: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>',
+  address: '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/>',
+}
+
 const CARD_W = 1100
-const CARD_H = 460
 
 function esc(s: string): string {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 }
 
-function buildSignatureSvg(c: SignatureConfig): string {
+// Choisit noir ou blanc pour rester lisible sur la couleur d'accent.
+function contrastColor(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim())
+  if (!m) return '#FFFFFF'
+  const n = parseInt(m[1], 16)
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
+  return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#111111' : '#FFFFFF'
+}
+
+function buildSignatureSvg(c: SignatureConfig): { svg: string; height: number } {
   const pad = 48
+  const rows = c.contacts.filter(r => r.value.trim())
+  const rowTop = 198
+  const rowStep = 62
+  // Hauteur dynamique : s'agrandit avec le nombre de lignes de contact.
+  const contentBottom = rowTop + Math.max(rows.length, 1) * rowStep + 28
+  const H = Math.max(460, contentBottom)
+
   const hasPhoto = !!c.photo_url
-  const photoSize = CARD_H - pad * 2
+  const photoSize = H - pad * 2
   const textX = hasPhoto ? pad + photoSize + 48 : pad
-  const rows = [
-    { label: 'Tél.', value: c.phone },
-    { label: 'Email', value: c.email },
-    { label: 'Site', value: c.website },
-  ].filter(r => r.value)
+  const cardR = Math.max(0, Math.min(60, c.card_radius))
+  const iconR = Math.max(0, Math.min(28, c.icon_radius))
+  const iconColor = contrastColor(c.accent_color)
 
   const photoBlock = hasPhoto ? `
-    <clipPath id="pc"><rect x="${pad}" y="${pad}" width="${photoSize}" height="${photoSize}" rx="24"/></clipPath>
+    <clipPath id="pc"><rect x="${pad}" y="${pad}" width="${photoSize}" height="${photoSize}" rx="${Math.min(cardR, photoSize / 2)}"/></clipPath>
     <image href="${c.photo_url}" x="${pad}" y="${pad}" width="${photoSize}" height="${photoSize}"
            preserveAspectRatio="xMidYMid slice" clip-path="url(#pc)"/>` : ''
 
   const logoBlock = c.logo_url
-    ? `<image href="${c.logo_url}" x="${CARD_W - pad - 200}" y="${pad}" width="200" height="70" preserveAspectRatio="xMidYMid meet"/>`
+    ? `<image href="${c.logo_url}" x="${CARD_W - pad - 200}" y="${pad}" width="200" height="72" preserveAspectRatio="xMidYMid meet"/>`
     : ''
 
   let rowsSvg = ''
-  const rowTop = 236
   rows.forEach((r, i) => {
-    const y = rowTop + i * 70
+    const y = rowTop + i * rowStep
+    const label = CONTACT_TYPES.find(t => t.id === r.type)?.label || ''
     rowsSvg += `
-      <rect x="${textX}" y="${y}" width="48" height="48" rx="12" fill="${esc(c.accent_color)}"/>
-      <text x="${textX + 66}" y="${y + 20}" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="700" fill="${esc(c.accent_color)}">${esc(r.label)}</text>
-      <text x="${textX + 66}" y="${y + 42}" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="${esc(c.text_color)}">${esc(r.value)}</text>`
+      <rect x="${textX}" y="${y}" width="48" height="48" rx="${iconR}" fill="${esc(c.accent_color)}"/>
+      <g transform="translate(${textX + 12},${y + 12})" fill="none" stroke="${iconColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICON_PATHS[r.type] || ''}</g>
+      <text x="${textX + 66}" y="${y + 18}" font-family="Arial, Helvetica, sans-serif" font-size="16" font-weight="700" fill="${esc(c.accent_color)}">${esc(label)}</text>
+      <text x="${textX + 66}" y="${y + 41}" font-family="Arial, Helvetica, sans-serif" font-size="24" fill="${esc(c.text_color)}">${esc(r.value)}</text>`
   })
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${CARD_H}" viewBox="0 0 ${CARD_W} ${CARD_H}">
-    <rect width="${CARD_W}" height="${CARD_H}" rx="28" fill="${esc(c.bg_color)}"/>
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${CARD_W}" height="${H}" viewBox="0 0 ${CARD_W} ${H}">
+    <rect width="${CARD_W}" height="${H}" rx="${cardR}" fill="${esc(c.bg_color)}"/>
     <rect x="${textX}" y="${pad + 4}" width="6" height="${c.role ? 150 : 96}" rx="3" fill="${esc(c.accent_color)}"/>
     ${photoBlock}
     ${logoBlock}
@@ -58,10 +80,11 @@ function buildSignatureSvg(c: SignatureConfig): string {
     ${c.role ? `<text x="${textX + 24}" y="${pad + 122}" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="${esc(c.accent_color)}">${esc(c.role)}</text>` : ''}
     ${rowsSvg}
   </svg>`
+  return { svg, height: H }
 }
 
 // Rasterise le SVG en PNG (2×). Photos/logos en data URL → canvas non « taint ».
-function svgToPngBlob(svg: string): Promise<Blob> {
+function svgToPngBlob(svg: string, height: number): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
@@ -70,11 +93,11 @@ function svgToPngBlob(svg: string): Promise<Blob> {
       const scale = 2
       const canvas = document.createElement('canvas')
       canvas.width = CARD_W * scale
-      canvas.height = CARD_H * scale
+      canvas.height = height * scale
       const ctx = canvas.getContext('2d')
       if (!ctx) { URL.revokeObjectURL(url); reject(new Error('canvas')); return }
       ctx.scale(scale, scale)
-      ctx.drawImage(img, 0, 0, CARD_W, CARD_H)
+      ctx.drawImage(img, 0, 0, CARD_W, height)
       URL.revokeObjectURL(url)
       canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob'))), 'image/png')
     }
@@ -91,6 +114,15 @@ function fileToDataUrl(file: File): Promise<string> {
     r.readAsDataURL(file)
   })
 }
+
+// Modèles prédéfinis : couleurs + arrondis en 1 clic.
+const TEMPLATES: { name: string; patch: Partial<SignatureConfig> }[] = [
+  { name: 'Sombre', patch: { bg_color: '#111111', accent_color: '#E0674C', text_color: '#FFFFFF', card_radius: 28, icon_radius: 12 } },
+  { name: 'Marine', patch: { bg_color: '#0F1B2D', accent_color: '#F2B705', text_color: '#FFFFFF', card_radius: 20, icon_radius: 10 } },
+  { name: 'Clair', patch: { bg_color: '#F5EFE6', accent_color: '#C14E33', text_color: '#1A1A1A', card_radius: 24, icon_radius: 12 } },
+  { name: 'Anguleux', patch: { bg_color: '#1A1A1A', accent_color: '#22A45A', text_color: '#FFFFFF', card_radius: 0, icon_radius: 0 } },
+  { name: 'Tout rond', patch: { bg_color: '#14213D', accent_color: '#FCA311', text_color: '#FFFFFF', card_radius: 48, icon_radius: 24 } },
+]
 
 const PALETTES: [string, string, string][] = [
   ['#111111', '#E0674C', '#FFFFFF'],
@@ -125,7 +157,7 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
       setUserId(user.id)
       const [{ data: profile }, { data: company }, { data: sig }] = await Promise.all([
         supabase.from('profiles').select('full_name').eq('id', user.id).single(),
-        supabase.from('companies').select('trade_name, phone, email, website, logo_url').eq('user_id', user.id).maybeSingle(),
+        supabase.from('companies').select('trade_name, phone, email, website, address, logo_url').eq('user_id', user.id).maybeSingle(),
         supabase.from('email_signatures').select('*').eq('user_id', user.id).maybeSingle(),
       ])
       const def = buildDefaultSignatureText({
@@ -136,21 +168,41 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
       setSignatureText(sig?.signature_text || def)
       setImageUrl(sig?.signature_image_url || null)
       setIncludeVisual(!!sig?.include_visual)
-      // Config visuelle : reprend l'enregistré, sinon pré-remplit avec le contexte connu.
-      const saved = (sig?.config || null) as Partial<SignatureConfig> | null
+
+      const saved = (sig?.config || null) as (Partial<SignatureConfig> & { phone?: string; email?: string; website?: string }) | null
+      // Contacts : reprend l'enregistré ; sinon migre l'ancien format plat ;
+      // sinon pré-remplit avec les coordonnées de l'entreprise.
+      let contacts: Contact[] = []
+      if (Array.isArray(saved?.contacts)) {
+        contacts = saved!.contacts.filter(c => c && typeof c.value === 'string')
+      } else if (saved && (saved.phone || saved.email || saved.website)) {
+        contacts = [
+          { type: 'phone' as ContactType, value: saved.phone || '' },
+          { type: 'email' as ContactType, value: saved.email || '' },
+          { type: 'website' as ContactType, value: saved.website || '' },
+        ].filter(c => c.value)
+      } else {
+        contacts = [
+          { type: 'phone' as ContactType, value: company?.phone || '' },
+          { type: 'email' as ContactType, value: company?.email || '' },
+          { type: 'website' as ContactType, value: company?.website || '' },
+        ].filter(c => c.value)
+        if (!contacts.length) contacts = [{ type: 'phone', value: '' }]
+      }
+
       setConfig({
         ...DEFAULT_SIGNATURE_CONFIG,
         full_name: saved?.full_name ?? profile?.full_name ?? '',
         role: saved?.role ?? '',
-        phone: saved?.phone ?? company?.phone ?? '',
-        email: saved?.email ?? company?.email ?? '',
-        website: saved?.website ?? company?.website ?? '',
+        contacts,
         photo_url: saved?.photo_url ?? null,
         logo_url: saved?.logo_url ?? company?.logo_url ?? null,
         bg_color: saved?.bg_color ?? DEFAULT_SIGNATURE_CONFIG.bg_color,
         accent_color: saved?.accent_color ?? DEFAULT_SIGNATURE_CONFIG.accent_color,
         text_color: saved?.text_color ?? DEFAULT_SIGNATURE_CONFIG.text_color,
-        layout: saved?.layout ?? 'photo_left',
+        card_radius: saved?.card_radius ?? DEFAULT_SIGNATURE_CONFIG.card_radius,
+        icon_radius: saved?.icon_radius ?? DEFAULT_SIGNATURE_CONFIG.icon_radius,
+        layout: 'photo_left',
       })
       setReady(true)
     })
@@ -160,8 +212,18 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
     setConfig(prev => ({ ...prev, [k]: v }))
   }
 
-  async function pickImage(ref: React.RefObject<HTMLInputElement | null>, key: 'photo_url' | 'logo_url', file?: File) {
-    const f = file || ref.current?.files?.[0]
+  function updateContact(i: number, patch: Partial<Contact>) {
+    setConfig(prev => ({ ...prev, contacts: prev.contacts.map((c, j) => j === i ? { ...c, ...patch } : c) }))
+  }
+  function addContact() {
+    setConfig(prev => ({ ...prev, contacts: [...prev.contacts, { type: 'phone', value: '' }] }))
+  }
+  function removeContact(i: number) {
+    setConfig(prev => ({ ...prev, contacts: prev.contacts.filter((_, j) => j !== i) }))
+  }
+
+  async function pickImage(ref: React.RefObject<HTMLInputElement | null>, key: 'photo_url' | 'logo_url') {
+    const f = ref.current?.files?.[0]
     if (!f) return
     if (!f.type.startsWith('image/')) { toast.error('Choisissez une image'); return }
     if (f.size > 3 * 1024 * 1024) { toast.error('Image trop lourde (3 Mo max)'); return }
@@ -169,10 +231,13 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
   }
 
   function randomColors() {
-    // Palette pseudo-aléatoire sans Math.random (indispo) : rotation par l'horloge.
     const idx = new Date().getSeconds() % PALETTES.length
     const [bg, accent, text] = PALETTES[idx]
     setConfig(prev => ({ ...prev, bg_color: bg, accent_color: accent, text_color: text }))
+  }
+
+  function applyTemplate(patch: Partial<SignatureConfig>) {
+    setConfig(prev => ({ ...prev, ...patch }))
   }
 
   async function saveText() {
@@ -189,8 +254,8 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
     if (!userId) return
     setSaving(true)
     try {
-      const svg = buildSignatureSvg(config)
-      const blob = await svgToPngBlob(svg)
+      const { svg, height } = buildSignatureSvg(config)
+      const blob = await svgToPngBlob(svg, height)
       const supabase = createClient()
       const path = `${userId}/signature.png`
       const up = await supabase.storage.from('signatures').upload(path, blob, {
@@ -198,7 +263,6 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
       })
       if (up.error) throw up.error
       const { data: pub } = supabase.storage.from('signatures').getPublicUrl(path)
-      // Cache-buster : l'URL est stable (upsert), on force le rafraîchissement.
       const url = `${pub.publicUrl}?v=${Date.now()}`
       const { error } = await supabase.from('email_signatures').upsert({
         user_id: userId, signature_image_url: url, config, include_visual: true, updated_at: new Date().toISOString(),
@@ -215,8 +279,8 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
     }
   }
 
-  async function importImage(file?: File) {
-    const f = file || importRef.current?.files?.[0]
+  async function importImage() {
+    const f = importRef.current?.files?.[0]
     if (!f || !userId) return
     if (!f.type.startsWith('image/')) { toast.error('Choisissez une image'); return }
     if (f.size > 3 * 1024 * 1024) { toast.error('Image trop lourde (3 Mo max)'); return }
@@ -248,7 +312,8 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
   }
 
   function downloadPng() {
-    svgToPngBlob(buildSignatureSvg(config)).then(blob => {
+    const { svg, height } = buildSignatureSvg(config)
+    svgToPngBlob(svg, height).then(blob => {
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = 'signature.png'
@@ -257,12 +322,11 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
     }).catch(() => toast.error('Export impossible'))
   }
 
-  const previewSvg = buildSignatureSvg(config)
+  const previewSvg = buildSignatureSvg(config).svg
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
-        {/* En-tête */}
         <div className="flex items-center justify-between border-b px-5 py-3">
           <h2 className="font-heading text-lg font-bold text-marine">Ma signature email</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Fermer">
@@ -270,7 +334,6 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
           </button>
         </div>
 
-        {/* Onglets */}
         <div className="flex gap-1 border-b px-4 pt-2">
           <button onClick={() => setTab('texte')} className={`flex items-center gap-1.5 rounded-t-lg px-4 py-2 text-sm font-medium ${tab === 'texte' ? 'border-b-2 border-[#E0674C] text-[#E0674C]' : 'text-gray-500 hover:text-gray-800'}`}>
             <Type className="h-4 w-4" /> Texte
@@ -310,12 +373,49 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
                 <img src={`data:image/svg+xml;utf8,${encodeURIComponent(previewSvg)}`} alt="Aperçu signature" className="w-full rounded-lg" />
               </div>
 
+              {/* Modèles prédéfinis */}
+              <div className="space-y-1.5">
+                <Label className="text-xs">Modèles</Label>
+                <div className="flex flex-wrap gap-2">
+                  {TEMPLATES.map(t => (
+                    <button key={t.name} type="button" onClick={() => applyTemplate(t.patch)}
+                      className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-[#E0674C] hover:text-[#E0674C]">
+                      <span className="flex h-4 w-4 overflow-hidden rounded-full border border-black/10">
+                        <span className="w-1/2" style={{ background: t.patch.bg_color }} />
+                        <span className="w-1/2" style={{ background: t.patch.accent_color }} />
+                      </span>
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Prénom Nom"><Input value={config.full_name} onChange={e => setC('full_name', e.target.value)} placeholder="Jean Dupont" /></Field>
                 <Field label="Rôle / fonction"><Input value={config.role} onChange={e => setC('role', e.target.value)} placeholder="Gérant" /></Field>
-                <Field label="Téléphone"><Input value={config.phone} onChange={e => setC('phone', e.target.value)} placeholder="07 12 34 56 78" /></Field>
-                <Field label="Email"><Input value={config.email} onChange={e => setC('email', e.target.value)} placeholder="contact@entreprise.fr" /></Field>
-                <Field label="Site web"><Input value={config.website} onChange={e => setC('website', e.target.value)} placeholder="monentreprise.fr" /></Field>
+              </div>
+
+              {/* Contacts dynamiques */}
+              <div className="space-y-1.5">
+                <Label>Coordonnées</Label>
+                <div className="space-y-2">
+                  {config.contacts.map((ct, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <select
+                        value={ct.type}
+                        onChange={e => updateContact(i, { type: e.target.value as ContactType })}
+                        className="h-9 flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2 text-sm"
+                      >
+                        {CONTACT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                      </select>
+                      <Input value={ct.value} onChange={e => updateContact(i, { value: e.target.value })} placeholder="Valeur…" className="h-9 flex-1" />
+                      <button type="button" onClick={() => removeContact(i)} className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500" aria-label="Retirer">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <Button variant="outline" size="sm" onClick={addContact} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Ajouter une info</Button>
               </div>
 
               {/* Photo + logo */}
@@ -344,6 +444,12 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
                 <ColorField label="Accent" value={config.accent_color} onChange={v => setC('accent_color', v)} />
                 <ColorField label="Texte" value={config.text_color} onChange={v => setC('text_color', v)} />
                 <Button variant="outline" size="sm" onClick={randomColors} className="gap-1.5"><Wand2 className="h-3.5 w-3.5" /> Couleurs au hasard</Button>
+              </div>
+
+              {/* Arrondis */}
+              <div className="grid gap-4 sm:grid-cols-2">
+                <RangeField label="Arrondi de la carte" value={config.card_radius} max={60} onChange={v => setC('card_radius', v)} />
+                <RangeField label="Arrondi des icônes" value={config.icon_radius} max={28} onChange={v => setC('icon_radius', v)} />
               </div>
 
               {/* Actions */}
@@ -387,6 +493,18 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
         <input type="color" value={value} onChange={e => onChange(e.target.value)} className="h-9 w-10 cursor-pointer rounded border border-gray-200 bg-white p-0.5" />
         <Input value={value} onChange={e => onChange(e.target.value)} className="h-9 w-24 text-xs" />
       </div>
+    </div>
+  )
+}
+
+function RangeField({ label, value, max, onChange }: { label: string; value: number; max: number; onChange: (v: number) => void }) {
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between">
+        <Label className="text-xs">{label}</Label>
+        <span className="text-xs text-gray-400">{value} px</span>
+      </div>
+      <input type="range" min={0} max={max} value={value} onChange={e => onChange(Number(e.target.value))} className="w-full accent-[#E0674C]" />
     </div>
   )
 }
