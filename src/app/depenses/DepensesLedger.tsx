@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
-  Landmark, Plus, Trash2, Search, HardHat, ReceiptText, Wallet, Download, TrendingDown, Camera, Loader2, Upload, Check, Paperclip,
+  Landmark, Plus, Trash2, Search, HardHat, ReceiptText, Wallet, Download, TrendingDown, Camera, Loader2, Upload, Check, Paperclip, Mail,
 } from 'lucide-react'
 import type { Expense } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -39,6 +39,7 @@ const sourceColors: Record<string, string> = {
   ticket: 'bg-accent text-primary',
   banque: 'bg-[#FCE7DE] text-[#B0472F]',
   manuel: 'bg-gray-100 text-gray-600',
+  email: 'bg-[#FDF6F3] text-[#E0674C]',
 }
 
 export default function DepensesLedger({
@@ -48,7 +49,7 @@ export default function DepensesLedger({
   const [showAdd, setShowAdd] = useState(false)
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
-  const [sourceFilter, setSourceFilter] = useState<'tous' | 'ticket' | 'banque' | 'manuel'>('tous')
+  const [sourceFilter, setSourceFilter] = useState<'tous' | 'ticket' | 'banque' | 'manuel' | 'email'>('tous')
 
   // Formulaire manuel
   const [supplier, setSupplier] = useState('')
@@ -398,7 +399,7 @@ export default function DepensesLedger({
             <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher (fournisseur, catégorie)..." className="pl-9" />
           </div>
           <div className="flex flex-wrap gap-2">
-            {(['tous', 'ticket', 'manuel', 'banque'] as const).map(s => {
+            {(['tous', 'ticket', 'email', 'manuel', 'banque'] as const).map(s => {
               const n = s === 'tous' ? expenses.length : expenses.filter(e => e.source === s).length
               if (s !== 'tous' && !n) return null
               return (
@@ -435,7 +436,7 @@ export default function DepensesLedger({
             <Card key={exp.id} className="card-interactive border border-gray-200/80">
               <CardContent className="p-3 flex items-center gap-3">
                 <span className="grid place-items-center w-10 h-10 rounded-lg bg-gray-50 text-gray-400 flex-shrink-0">
-                  {exp.source === 'ticket' ? <ReceiptText className="w-5 h-5" /> : exp.source === 'banque' ? <Landmark className="w-5 h-5" /> : <Wallet className="w-5 h-5" />}
+                  {exp.source === 'ticket' ? <ReceiptText className="w-5 h-5" /> : exp.source === 'banque' ? <Landmark className="w-5 h-5" /> : exp.source === 'email' ? <Mail className="w-5 h-5" /> : <Wallet className="w-5 h-5" />}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="font-medium text-gray-900 truncate">{exp.supplier || 'Dépense'}</div>

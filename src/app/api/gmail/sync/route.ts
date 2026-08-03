@@ -25,6 +25,25 @@ async function gmailFetch(url: string, accessToken: string) {
   return res.json()
 }
 
+// Tente d'extraire le montant TTC d'une facture depuis le texte du mail.
+// Heuristique volontairement prudente : renvoie 0 si rien de fiable (le montant
+// est souvent dans le PDF joint) — la dépense reste « à vérifier » pour l'artisan.
+function extractInvoiceAmount(text: string): number {
+  if (!text) return 0
+  const t = text.replace(/ /g, ' ')
+  const parse = (s: string): number => {
+    let x = s.replace(/\s/g, '')
+    if (/,\d{2}$/.test(x)) x = x.replace(/\./g, '').replace(',', '.') // 1.234,56 → 1234.56
+    else x = x.replace(/,/g, '')                                       // 1,234.56 → 1234.56
+    const n = Number(x)
+    return Number.isFinite(n) ? n : 0
+  }
+  const kw = t.match(/(?:total\s*ttc|net\s*à\s*payer|montant\s*(?:total|ttc)?|à\s*payer)[^0-9]{0,20}([0-9][0-9\s.,]*)\s*(?:€|eur)/i)
+  if (kw) return parse(kw[1])
+  const all = [...t.matchAll(/([0-9][0-9\s.,]*)\s*(?:€|eur)/gi)].map(m => parse(m[1])).filter(n => n > 0 && n < 1_000_000)
+  return all.length ? Math.max(...all) : 0
+}
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createClient()
@@ -151,7 +170,7 @@ Corps: ${bodyText.slice(0, 800)}`
           } catch {}
         }
 
-        await supabase.from('emails').insert({
+        const { data: insertedEmail } = await supabase.from('emails').insert({
           user_id: user.id,
           gmail_message_id: msg.id,
           thread_id: detail.threadId || null,
@@ -165,8 +184,31 @@ Corps: ${bodyText.slice(0, 800)}`
           ai_summary: aiSummary,
           ai_recommended_action: aiAction,
           status: 'non_traite',
-        })
+        }).select('id').single()
         synced++
+
+        // Facture reçue → dépense créée automatiquement (à vérifier). L'index
+        // unique (user_id, source_email_id) empêche tout doublon.
+        if (category === 'facture_recue' && insertedEmail?.id) {
+          try {
+            const ttc = extractInvoiceAmount(bodyText)
+            await supabase.from('expenses').insert({
+              user_id: user.id,
+              supplier: fromName || fromEmail,
+              expense_date: receivedAt.slice(0, 10),
+              amount_ttc: ttc,
+              amount_ht: 0,
+              vat_amount: 0,
+              category: 'Facture fournisseur',
+              notes: `Facture reçue par email : ${subject}`.slice(0, 500),
+              status: 'a_verifier',
+              source: 'email',
+              source_email_id: insertedEmail.id,
+            })
+          } catch (e) {
+            console.error('Auto-dépense facture:', e)
+          }
+        }
       } catch (e) {
         console.error('Error processing message', msg.id, e)
       }

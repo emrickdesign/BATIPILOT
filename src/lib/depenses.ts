@@ -29,6 +29,7 @@ export const expenseSourceLabels: Record<string, string> = {
   ticket: 'Ticket scanné',
   banque: 'Banque',
   manuel: 'Saisie manuelle',
+  email: 'Facture mail',
 }
 
 type ExportRow = {

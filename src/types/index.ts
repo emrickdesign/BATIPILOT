@@ -208,7 +208,7 @@ export interface SiteUpdate {
 }
 
 export type ExpenseStatus = 'a_verifier' | 'valide' | 'envoye_comptable' | 'archive'
-export type ExpenseSource = 'ticket' | 'banque' | 'manuel'
+export type ExpenseSource = 'ticket' | 'banque' | 'manuel' | 'email'
 
 export interface Expense {
   id: string
@@ -228,6 +228,8 @@ export interface Expense {
   status: ExpenseStatus
   source: ExpenseSource
   reconciled: boolean
+  /** Email (facture reçue) à l'origine d'une dépense créée automatiquement. */
+  source_email_id?: string | null
   created_at: string
   projects?: Project
 }
