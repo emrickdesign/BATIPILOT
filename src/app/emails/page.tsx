@@ -466,11 +466,12 @@ export default function EmailsPage() {
 
         <button
           onClick={() => setSignatureOpen(true)}
-          title="Ma signature"
-          aria-label="Réglages de signature"
-          className="flex-shrink-0 rounded-full p-2 text-gray-600 hover:bg-gray-100"
+          title="Paramètres des mails (signature, réponses IA)"
+          aria-label="Paramètres des mails"
+          className="flex flex-shrink-0 items-center gap-1.5 rounded-full border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100"
         >
-          <Settings2 className="h-[18px] w-[18px]" />
+          <Settings2 className="h-4 w-4" />
+          <span className="hidden sm:inline">Paramètres</span>
         </button>
       </div>
 

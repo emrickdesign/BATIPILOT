@@ -262,10 +262,11 @@ const PALETTES: [string, string, string][] = [
 
 // ─── Composant ──────────────────────────────────────────────────────────────
 export default function SignatureSettings({ onClose }: { onClose: () => void }) {
-  const [tab, setTab] = useState<'texte' | 'visuelle'>('texte')
+  const [tab, setTab] = useState<'texte' | 'visuelle' | 'ia'>('texte')
   const [ready, setReady] = useState(false)
   const [saving, setSaving] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [salesMode, setSalesMode] = useState(true)
 
   const [signatureText, setSignatureText] = useState('')
   const [defaultText, setDefaultText] = useState('')
@@ -295,6 +296,7 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
       setSignatureText(sig?.signature_text || def)
       setImageUrl(sig?.signature_image_url || null)
       setIncludeVisual(!!sig?.include_visual)
+      setSalesMode(sig?.ai_sales_mode !== false)
 
       const saved = (sig?.config || null) as (Partial<SignatureConfig> & { phone?: string; email?: string; website?: string }) | null
       // Contacts : reprend l'enregistré ; sinon migre l'ancien format plat ;
@@ -447,13 +449,20 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
       .upsert({ user_id: userId, include_visual: v, updated_at: new Date().toISOString() })
   }
 
+  async function toggleSalesMode(v: boolean) {
+    setSalesMode(v)
+    if (!userId) return
+    await createClient().from('email_signatures')
+      .upsert({ user_id: userId, ai_sales_mode: v, updated_at: new Date().toISOString() })
+  }
+
   const previewSvg = buildSignatureSvg(config).svg
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b px-5 py-3">
-          <h2 className="font-heading text-lg font-bold text-marine">Ma signature email</h2>
+          <h2 className="font-heading text-lg font-bold text-marine">Paramètres des mails</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Fermer">
             <X className="h-5 w-5" />
           </button>
@@ -461,10 +470,13 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
 
         <div className="flex gap-1 border-b px-4 pt-2">
           <button onClick={() => setTab('texte')} className={`flex items-center gap-1.5 rounded-t-lg px-4 py-2 text-sm font-medium ${tab === 'texte' ? 'border-b-2 border-[#E0674C] text-[#E0674C]' : 'text-gray-500 hover:text-gray-800'}`}>
-            <Type className="h-4 w-4" /> Texte
+            <Type className="h-4 w-4" /> Signature texte
           </button>
           <button onClick={() => setTab('visuelle')} className={`flex items-center gap-1.5 rounded-t-lg px-4 py-2 text-sm font-medium ${tab === 'visuelle' ? 'border-b-2 border-[#E0674C] text-[#E0674C]' : 'text-gray-500 hover:text-gray-800'}`}>
-            <ImageIcon className="h-4 w-4" /> Visuelle
+            <ImageIcon className="h-4 w-4" /> Signature visuelle
+          </button>
+          <button onClick={() => setTab('ia')} className={`flex items-center gap-1.5 rounded-t-lg px-4 py-2 text-sm font-medium ${tab === 'ia' ? 'border-b-2 border-[#E0674C] text-[#E0674C]' : 'text-gray-500 hover:text-gray-800'}`}>
+            <Wand2 className="h-4 w-4" /> Réponses IA
           </button>
         </div>
 
@@ -490,7 +502,7 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
                 </Button>
               </div>
             </div>
-          ) : (
+          ) : tab === 'visuelle' ? (
             <div className="grid gap-5 lg:grid-cols-2">
               {/* Colonne gauche : aperçu + actions, toujours visibles (collant) */}
               <div className="space-y-3 lg:sticky lg:top-0 lg:self-start">
@@ -619,6 +631,24 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
                 <RangeField label="Arrondi des icônes" value={config.icon_radius} max={28} onChange={v => setC('icon_radius', v)} />
               </div>
               </div>
+            </div>
+          ) : (
+            <div className="max-w-xl space-y-4">
+              <div>
+                <h3 className="font-semibold text-marine">Réponses IA orientées conversion</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  Quand un email est une demande de devis, une relance ou un échange client, l’IA applique des techniques de vente
+                  naturelles — bonnes questions dans le bon ordre, prochaine étape concrète, incitation douce à signer — sans jamais faire robot.
+                </p>
+              </div>
+              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-gray-200 p-4 transition-colors hover:border-gray-300">
+                <input type="checkbox" checked={salesMode} onChange={e => toggleSalesMode(e.target.checked)} className="mt-0.5 h-5 w-5 accent-[#E0674C]" />
+                <span>
+                  <span className="block font-medium text-marine">Optimiser mes réponses pour la conversion <span className="font-normal text-gray-400">(recommandé)</span></span>
+                  <span className="mt-0.5 block text-sm text-gray-500">Ex : à une demande de devis, l’IA remercie, pose les questions clés pour chiffrer, puis propose une visite ou un appel pour aller vite.</span>
+                </span>
+              </label>
+              <p className="text-xs text-gray-400">Désactivez si vous préférez des réponses neutres, sans angle commercial.</p>
             </div>
           )}
         </div>
