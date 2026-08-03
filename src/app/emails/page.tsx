@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import ComposeWindow, { type ComposeInit } from '@/components/emails/ComposeWindow'
@@ -90,6 +90,7 @@ export default function EmailsPage() {
   const [showMore, setShowMore] = useState(false)
   const [manageLabels, setManageLabels] = useState(false)
   const [signatureOpen, setSignatureOpen] = useState(false)
+  const [stats, setStats] = useState<{ demandesDevis: number; devisEnvoyes: number; signesEur: number } | null>(null)
 
   // Pagination Gmail : jetons opaques, empilés pour pouvoir revenir en arrière.
   const [pageTokens, setPageTokens] = useState<(string | null)[]>([null])
@@ -215,6 +216,12 @@ export default function EmailsPage() {
       document.removeEventListener('visibilitychange', tick)
     }
   }, [connected, loadMessages, loadLabels, selected.size, compose, pageIndex, openId])
+
+  // Preuve de valeur (ROI du mois) — rafraîchie quand la boîte est connectée.
+  useEffect(() => {
+    if (!connected) return
+    fetch('/api/emails/stats').then(r => r.ok ? r.json() : null).then(d => { if (d) setStats(d) }).catch(() => {})
+  }, [connected, compose])
 
   function changeView(next: string) {
     setView(next)
@@ -463,6 +470,15 @@ export default function EmailsPage() {
             </button>
           )}
         </form>
+
+        {/* Preuve de valeur (ce mois) — ce que le module mail rapporte */}
+        {stats && (stats.demandesDevis > 0 || stats.devisEnvoyes > 0 || stats.signesEur > 0) && (
+          <div className="hidden flex-shrink-0 items-center gap-1.5 lg:flex" title="Activité de ce mois-ci">
+            <span className="rounded-full bg-[#FDF6F3] px-2.5 py-1 text-xs font-medium text-[#C14E33]">{stats.demandesDevis} demande{stats.demandesDevis > 1 ? 's' : ''} de devis</span>
+            <span className="rounded-full bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-600">{stats.devisEnvoyes} devis envoyé{stats.devisEnvoyes > 1 ? 's' : ''}</span>
+            {stats.signesEur > 0 && <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-700">{formatCurrency(stats.signesEur)} signés</span>}
+          </div>
+        )}
 
         <button
           onClick={() => setSignatureOpen(true)}
