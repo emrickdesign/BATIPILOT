@@ -9,8 +9,10 @@ import { appendSignature, visualSignatureHtml } from '@/lib/signature'
 import { toast } from 'sonner'
 import {
   X, Minus, Maximize2, Minimize2, Paperclip, Send, Trash2,
-  Mic, Square, Sparkles, Loader2, FileText,
+  Mic, Square, Sparkles, Loader2, FileText, Files, Search, Receipt,
 } from 'lucide-react'
+import { formatCurrency } from '@/lib/utils'
+import { clientDisplayName } from '@/lib/clients'
 
 export type ComposeInit = {
   mode: 'new' | 'reply'
@@ -71,6 +73,13 @@ export default function ComposeWindow({
   // Signature (texte + visuelle) de l'utilisateur connecté.
   const [sigImageUrl, setSigImageUrl] = useState<string | null>(null)
   const [includeVisual, setIncludeVisual] = useState(false)
+
+  // Joindre un devis/facture depuis TonPilote (vrai PDF).
+  type Doc = { id: string; kind: 'devis' | 'facture'; number: string; client: string; total: number }
+  const [showDocs, setShowDocs] = useState(false)
+  const [docs, setDocs] = useState<Doc[] | null>(null)
+  const [docSearch, setDocSearch] = useState('')
+  const [attaching, setAttaching] = useState(false)
 
   const fileRef = useRef<HTMLInputElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
@@ -144,6 +153,46 @@ export default function ComposeWindow({
       return
     }
     setFiles(prev => [...prev, ...incoming])
+  }
+
+  async function openDocs() {
+    setShowDocs(true)
+    if (docs) return
+    try {
+      const supabase = createClient()
+      const [{ data: q }, { data: inv }] = await Promise.all([
+        supabase.from('quotes').select('id, quote_number, total_ttc, clients(type, first_name, last_name, company_name)').order('created_at', { ascending: false }).limit(30),
+        supabase.from('invoices').select('id, invoice_number, total_ttc, clients(type, first_name, last_name, company_name)').order('created_at', { ascending: false }).limit(30),
+      ])
+      const list: Doc[] = [
+        ...((q || []).map((x: any) => ({ id: x.id, kind: 'devis' as const, number: x.quote_number, client: clientDisplayName(x.clients), total: Number(x.total_ttc) || 0 }))),
+        ...((inv || []).map((x: any) => ({ id: x.id, kind: 'facture' as const, number: x.invoice_number, client: clientDisplayName(x.clients), total: Number(x.total_ttc) || 0 }))),
+      ]
+      setDocs(list)
+    } catch {
+      setDocs([])
+      toast.error('Impossible de charger vos documents')
+    }
+  }
+
+  async function attachDoc(d: Doc) {
+    setAttaching(true)
+    try {
+      const base = d.kind === 'devis' ? 'devis' : 'factures'
+      const res = await fetch(`/api/${base}/${d.id}/pdf?format=pdf`)
+      if (!res.ok) throw new Error()
+      const blob = await res.blob()
+      const file = new File([blob], `${d.number}.pdf`, { type: 'application/pdf' })
+      const total = [...files, file].reduce((s, f) => s + f.size, 0)
+      if (total > MAX_TOTAL_BYTES) { toast.error(`Pièces jointes trop lourdes (${humanSize(MAX_TOTAL_BYTES)} max)`); return }
+      setFiles(prev => [...prev, file])
+      setShowDocs(false)
+      toast.success(`${d.number}.pdf joint`)
+    } catch {
+      toast.error('Impossible de joindre ce document')
+    } finally {
+      setAttaching(false)
+    }
   }
 
   async function handleSend(asDraft = false) {
@@ -245,6 +294,46 @@ export default function ComposeWindow({
 
       {view !== 'minimized' && (
         <>
+          {/* Sélecteur de devis/facture à joindre (vrai PDF) */}
+          {showDocs && (
+            <div className="absolute inset-0 z-20 flex flex-col bg-white">
+              <div className="flex items-center justify-between border-b px-4 py-2.5">
+                <span className="text-sm font-medium text-gray-800">Joindre un devis ou une facture</span>
+                <button type="button" onClick={() => setShowDocs(false)} className="rounded-full p-1.5 text-gray-500 hover:bg-gray-100" aria-label="Fermer">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="border-b px-3 py-2">
+                <div className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5">
+                  <Search className="h-4 w-4 text-gray-400" />
+                  <input value={docSearch} onChange={e => setDocSearch(e.target.value)} placeholder="Rechercher un n°, un client…" className="w-full bg-transparent text-sm outline-none" autoFocus />
+                </div>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto p-2">
+                {!docs ? (
+                  <div className="flex h-32 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-gray-300" /></div>
+                ) : (() => {
+                  const s = docSearch.trim().toLowerCase()
+                  const filtered = docs.filter(d => !s || d.number.toLowerCase().includes(s) || d.client.toLowerCase().includes(s))
+                  if (!filtered.length) return <p className="py-8 text-center text-sm text-gray-400">Aucun document</p>
+                  return filtered.map(d => (
+                    <button key={`${d.kind}-${d.id}`} type="button" disabled={attaching} onClick={() => attachDoc(d)}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-gray-50 disabled:opacity-50">
+                      <span className={`grid h-8 w-8 flex-shrink-0 place-items-center rounded-lg ${d.kind === 'devis' ? 'bg-[#FDF6F3] text-[#E0674C]' : 'bg-emerald-50 text-emerald-600'}`}>
+                        {d.kind === 'devis' ? <FileText className="h-4 w-4" /> : <Receipt className="h-4 w-4" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-gray-900">{d.number} · {d.client}</span>
+                        <span className="text-xs text-gray-500">{d.kind === 'devis' ? 'Devis' : 'Facture'} · {formatCurrency(d.total)}</span>
+                      </span>
+                      {attaching ? <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-gray-400" /> : <Paperclip className="h-4 w-4 flex-shrink-0 text-gray-300" />}
+                    </button>
+                  ))
+                })()}
+              </div>
+            </div>
+          )}
+
           {/* Destinataires */}
           <div className="border-b px-4">
             <div className="flex items-center gap-2 border-b py-2">
@@ -441,6 +530,15 @@ export default function ComposeWindow({
               className="rounded-full p-2 text-gray-600 hover:bg-gray-100"
             >
               <Paperclip className="h-[18px] w-[18px]" />
+            </button>
+            <button
+              type="button"
+              aria-label="Joindre un devis ou une facture"
+              title="Joindre un devis / une facture (TonPilote)"
+              onClick={openDocs}
+              className="rounded-full p-2 text-[#E0674C] hover:bg-[#E0674C]/10"
+            >
+              <Files className="h-[18px] w-[18px]" />
             </button>
 
             {init.emailId && !showAi && (

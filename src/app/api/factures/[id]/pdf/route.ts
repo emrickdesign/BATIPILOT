@@ -14,6 +14,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (!invoice) return NextResponse.json({ error: 'Introuvable' }, { status: 404 })
 
+  // Vrai PDF (pièce jointe email) : ?format=pdf
+  if (req.nextUrl.searchParams.get('format') === 'pdf') {
+    const { generateInvoicePDF } = await import('@/lib/pdf-generator')
+    const pdf = await generateInvoicePDF(invoice, company)
+    return new NextResponse(new Uint8Array(pdf), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${invoice.invoice_number}.pdf"`,
+      },
+    })
+  }
+
   const client = invoice.clients as any
   const lines = (invoice.invoice_lines as any[]).sort((a, b) => a.sort_order - b.sort_order)
   const clientName = client?.type === 'professionnel'

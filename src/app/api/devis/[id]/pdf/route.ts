@@ -16,6 +16,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (!quote) return NextResponse.json({ error: 'Introuvable' }, { status: 404 })
 
+  // Vrai PDF (pièce jointe email) : ?format=pdf
+  if (req.nextUrl.searchParams.get('format') === 'pdf') {
+    const { generateQuotePDF } = await import('@/lib/pdf-generator')
+    const pdf = await generateQuotePDF(quote, company)
+    return new NextResponse(new Uint8Array(pdf), {
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `inline; filename="${quote.quote_number}.pdf"`,
+      },
+    })
+  }
+
   const client = quote.clients as any
   const lines = (quote.quote_lines as any[]).sort((a, b) => a.sort_order - b.sort_order)
   const clientName = client?.type === 'professionnel'
