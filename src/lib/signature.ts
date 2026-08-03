@@ -3,7 +3,8 @@
 // La signature VISUELLE est une image PNG hébergée (bucket public `signatures`)
 // insérée en bas du mail HTML quand l'utilisateur l'active.
 
-export type ContactType = 'phone' | 'email' | 'website' | 'address'
+export type ContactType =
+  | 'phone' | 'email' | 'website' | 'address' | 'whatsapp' | 'instagram' | 'linkedin'
 
 export interface Contact {
   type: ContactType
@@ -15,7 +16,12 @@ export const CONTACT_TYPES: { id: ContactType; label: string }[] = [
   { id: 'email', label: 'Email' },
   { id: 'website', label: 'Site' },
   { id: 'address', label: 'Adresse' },
+  { id: 'whatsapp', label: 'WhatsApp' },
+  { id: 'instagram', label: 'Instagram' },
+  { id: 'linkedin', label: 'LinkedIn' },
 ]
+
+export type BackgroundStyle = 'solid' | 'dots' | 'wave' | 'diagonal'
 
 export interface SignatureConfig {
   full_name: string
@@ -24,6 +30,8 @@ export interface SignatureConfig {
   photo_url: string | null   // data URL ou URL hébergée (aperçu/génération)
   logo_url: string | null
   bg_color: string
+  bg_color2: string          // 2e couleur (motifs de fond : points, vague, diagonale)
+  bg_style: BackgroundStyle
   accent_color: string
   text_color: string
   card_radius: number        // arrondi de la carte (px)
@@ -38,6 +46,8 @@ export const DEFAULT_SIGNATURE_CONFIG: SignatureConfig = {
   photo_url: null,
   logo_url: null,
   bg_color: '#111111',
+  bg_color2: '#2A2A2A',
+  bg_style: 'solid',
   accent_color: '#E0674C',
   text_color: '#FFFFFF',
   card_radius: 28,
