@@ -69,20 +69,25 @@ function buildSignatureSvg(c: SignatureConfig): { svg: string; height: number } 
 
   const hasPhoto = !!c.photo_url
   const photoSize = H - pad * 2
-  const textX = hasPhoto ? pad + photoSize + 48 : pad
   const cardR = Math.max(0, Math.min(60, c.card_radius))
   const iconR = Math.max(0, Math.min(28, c.icon_radius))
   const iconColor = contrastColor(c.accent_color)
 
-  // Motif de fond, clippé aux coins arrondis de la carte.
-  const dividerX = hasPhoto ? pad + photoSize + 24 : Math.round(CARD_W * 0.42)
+  // Fonds « séparés » (vague, diagonale) : une bande visuelle à gauche (bg_color2)
+  // accueille la photo/logo, et le CONTENU commence toujours à DROITE du
+  // séparateur — rien ne le traverse, quelle que soit la présence d'une photo.
+  const split = c.bg_style === 'wave' || c.bg_style === 'diagonal'
+  const A = 40 // amplitude de la vague / inclinaison de la diagonale
+  const bandW = split ? (hasPhoto ? pad + photoSize + 60 : 220) : 0
+  const textX = split ? bandW + A + 28 : (hasPhoto ? pad + photoSize + 48 : pad)
+
   let bgLayer = ''
   if (c.bg_style === 'dots') {
     bgLayer = `<rect width="${CARD_W}" height="${H}" fill="url(#sigdots)"/>`
   } else if (c.bg_style === 'wave') {
-    bgLayer = `<path d="M0 0 L ${dividerX} 0 C ${dividerX - 90} ${Math.round(H * 0.30)}, ${dividerX + 90} ${Math.round(H * 0.70)}, ${dividerX} ${H} L 0 ${H} Z" fill="${esc(c.bg_color2)}"/>`
+    bgLayer = `<path d="M0 0 L ${bandW} 0 C ${bandW - A} ${Math.round(H * 0.30)}, ${bandW + A} ${Math.round(H * 0.70)}, ${bandW} ${H} L 0 ${H} Z" fill="${esc(c.bg_color2)}"/>`
   } else if (c.bg_style === 'diagonal') {
-    bgLayer = `<path d="M0 0 L ${Math.round(CARD_W * 0.5)} 0 L ${Math.round(CARD_W * 0.32)} ${H} L 0 ${H} Z" fill="${esc(c.bg_color2)}"/>`
+    bgLayer = `<path d="M0 0 L ${bandW + A} 0 L ${bandW - A} ${H} L 0 ${H} Z" fill="${esc(c.bg_color2)}"/>`
   }
 
   const defs = `<defs>
@@ -95,9 +100,18 @@ function buildSignatureSvg(c: SignatureConfig): { svg: string; height: number } 
     ? `<image href="${c.photo_url}" x="${pad}" y="${pad}" width="${photoSize}" height="${photoSize}" preserveAspectRatio="xMidYMid slice" clip-path="url(#sigphoto)"/>`
     : ''
 
-  const logoBlock = c.logo_url
-    ? `<image href="${c.logo_url}" x="${CARD_W - pad - 200}" y="${pad}" width="200" height="72" preserveAspectRatio="xMidYMid meet"/>`
-    : ''
+  // Logo : dans la bande gauche (centré) quand il n'y a pas de photo mais un
+  // fond séparé ; sinon en haut à droite, côté contenu.
+  let logoBlock = ''
+  if (c.logo_url) {
+    if (split && !hasPhoto) {
+      const lw = Math.min(160, bandW - 2 * pad), lh = 64
+      const lx = Math.max(pad, (bandW - A - lw) / 2), ly = Math.round((H - lh) / 2)
+      logoBlock = `<image href="${c.logo_url}" x="${lx}" y="${ly}" width="${lw}" height="${lh}" preserveAspectRatio="xMidYMid meet"/>`
+    } else {
+      logoBlock = `<image href="${c.logo_url}" x="${CARD_W - pad - 200}" y="${pad}" width="200" height="72" preserveAspectRatio="xMidYMid meet"/>`
+    }
+  }
 
   let rowsSvg = ''
   rows.forEach((r, i) => {
@@ -388,7 +402,7 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
+      <div className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b px-5 py-3">
           <h2 className="font-heading text-lg font-bold text-marine">Ma signature email</h2>
           <button onClick={onClose} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700" aria-label="Fermer">
@@ -428,13 +442,37 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
               </div>
             </div>
           ) : (
-            <div className="space-y-4">
-              {/* Aperçu en direct — pas d'arrondi CSS ici, sinon il masque l'arrondi réel de la carte */}
-              <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={`data:image/svg+xml;utf8,${encodeURIComponent(previewSvg)}`} alt="Aperçu signature" className="w-full" />
+            <div className="grid gap-5 lg:grid-cols-2">
+              {/* Colonne gauche : aperçu + actions, toujours visibles (collant) */}
+              <div className="space-y-3 lg:sticky lg:top-0 lg:self-start">
+                {/* Pas d'arrondi CSS ici, sinon il masque l'arrondi réel de la carte */}
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`data:image/svg+xml;utf8,${encodeURIComponent(previewSvg)}`} alt="Aperçu signature" className="w-full" />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button onClick={generateAndSave} disabled={saving} className="gap-1.5 bg-[#E0674C] hover:bg-[#c9563d]">
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} Générer & enregistrer
+                  </Button>
+                  <Button variant="outline" onClick={downloadPng} className="gap-1.5"><Download className="h-4 w-4" /> PNG</Button>
+                  <input ref={importRef} type="file" accept="image/*" hidden onChange={() => importImage()} />
+                  <Button variant="outline" onClick={() => importRef.current?.click()} disabled={saving} className="gap-1.5"><Upload className="h-4 w-4" /> Importer</Button>
+                </div>
+                {imageUrl && (
+                  <div className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
+                    <p className="text-xs font-medium text-gray-500">Signature enregistrée (utilisée dans les mails)</p>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={imageUrl} alt="Signature enregistrée" className="max-h-24 rounded-lg border border-gray-200" />
+                    <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+                      <input type="checkbox" checked={includeVisual} onChange={e => toggleInclude(e.target.checked)} className="h-4 w-4 accent-[#E0674C]" />
+                      L&apos;inclure par défaut dans mes mails
+                    </label>
+                  </div>
+                )}
               </div>
 
+              {/* Colonne droite : réglages */}
+              <div className="space-y-4">
               {/* Modèles prédéfinis */}
               <div className="space-y-1.5">
                 <Label className="text-xs">Modèles</Label>
@@ -533,28 +571,7 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
                 <RangeField label="Arrondi de la carte" value={config.card_radius} max={60} onChange={v => setC('card_radius', v)} />
                 <RangeField label="Arrondi des icônes" value={config.icon_radius} max={28} onChange={v => setC('icon_radius', v)} />
               </div>
-
-              {/* Actions */}
-              <div className="flex flex-wrap items-center gap-2 border-t pt-3">
-                <Button onClick={generateAndSave} disabled={saving} className="gap-1.5 bg-[#E0674C] hover:bg-[#c9563d]">
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} Générer & enregistrer
-                </Button>
-                <Button variant="outline" onClick={downloadPng} className="gap-1.5"><Download className="h-4 w-4" /> Télécharger le PNG</Button>
-                <input ref={importRef} type="file" accept="image/*" hidden onChange={() => importImage()} />
-                <Button variant="outline" onClick={() => importRef.current?.click()} disabled={saving} className="gap-1.5"><Upload className="h-4 w-4" /> Importer une image</Button>
               </div>
-
-              {imageUrl && (
-                <div className="space-y-2 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                  <p className="text-xs font-medium text-gray-500">Signature enregistrée (utilisée dans les mails)</p>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={imageUrl} alt="Signature enregistrée" className="max-h-24 rounded-lg border border-gray-200" />
-                  <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
-                    <input type="checkbox" checked={includeVisual} onChange={e => toggleInclude(e.target.checked)} className="h-4 w-4 accent-[#E0674C]" />
-                    L’inclure par défaut dans mes mails
-                  </label>
-                </div>
-              )}
             </div>
           )}
         </div>
