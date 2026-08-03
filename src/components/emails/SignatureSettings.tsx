@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { X, Loader2, Upload, Wand2, Download, Image as ImageIcon, Type, Plus, Trash2 } from 'lucide-react'
+import { X, Loader2, Upload, Wand2, Image as ImageIcon, Type, Plus, Trash2 } from 'lucide-react'
 import {
   DEFAULT_SIGNATURE_CONFIG, buildDefaultSignatureText, CONTACT_TYPES,
   type SignatureConfig, type Contact, type ContactType, type BackgroundStyle,
@@ -344,10 +344,10 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
       if (error) throw error
       setImageUrl(url)
       setIncludeVisual(true)
-      toast.success('Signature visuelle générée et enregistrée')
+      toast.success('Signature enregistrée — elle sera ajoutée à vos mails')
     } catch (e) {
-      console.error(e)
-      toast.error('Génération impossible')
+      console.error('Signature enregistrement:', e)
+      toast.error(`Enregistrement impossible${e instanceof Error && e.message ? ` : ${e.message}` : ' — réessayez'}`)
     } finally {
       setSaving(false)
     }
@@ -383,19 +383,6 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
     if (!userId) return
     await createClient().from('email_signatures')
       .upsert({ user_id: userId, include_visual: v, updated_at: new Date().toISOString() })
-  }
-
-  async function downloadPng() {
-    try {
-      const safe = { ...config, photo_url: await toDataUrl(config.photo_url), logo_url: await toDataUrl(config.logo_url) }
-      const { svg, height } = buildSignatureSvg(safe)
-      const blob = await svgToPngBlob(svg, height)
-      const a = document.createElement('a')
-      a.href = URL.createObjectURL(blob)
-      a.download = 'signature.png'
-      a.click()
-      URL.revokeObjectURL(a.href)
-    } catch { toast.error('Export impossible') }
   }
 
   const previewSvg = buildSignatureSvg(config).svg
@@ -450,13 +437,28 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`data:image/svg+xml;utf8,${encodeURIComponent(previewSvg)}`} alt="Aperçu signature" className="w-full" />
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                {/* Modèles — sous le rendu visuel */}
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Modèles</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {TEMPLATES.map(t => (
+                      <button key={t.name} type="button" onClick={() => applyTemplate(t.patch)}
+                        className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-[#E0674C] hover:text-[#E0674C]">
+                        <span className="flex h-4 w-4 overflow-hidden rounded-full border border-black/10">
+                          <span className="w-1/2" style={{ background: t.patch.bg_color }} />
+                          <span className="w-1/2" style={{ background: t.patch.accent_color }} />
+                        </span>
+                        {t.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 border-t pt-3">
                   <Button onClick={generateAndSave} disabled={saving} className="gap-1.5 bg-[#E0674C] hover:bg-[#c9563d]">
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} Générer & enregistrer
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Wand2 className="h-4 w-4" />} Enregistrer
                   </Button>
-                  <Button variant="outline" onClick={downloadPng} className="gap-1.5"><Download className="h-4 w-4" /> PNG</Button>
                   <input ref={importRef} type="file" accept="image/*" hidden onChange={() => importImage()} />
-                  <Button variant="outline" onClick={() => importRef.current?.click()} disabled={saving} className="gap-1.5"><Upload className="h-4 w-4" /> Importer</Button>
+                  <Button variant="outline" onClick={() => importRef.current?.click()} disabled={saving} className="gap-1.5"><Upload className="h-4 w-4" /> Importer ma signature</Button>
                 </div>
                 {imageUrl && (
                   <div className="space-y-2 rounded-xl border border-gray-200 bg-white p-3">
@@ -473,23 +475,6 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
 
               {/* Colonne droite : réglages */}
               <div className="space-y-4">
-              {/* Modèles prédéfinis */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">Modèles</Label>
-                <div className="flex flex-wrap gap-2">
-                  {TEMPLATES.map(t => (
-                    <button key={t.name} type="button" onClick={() => applyTemplate(t.patch)}
-                      className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-[#E0674C] hover:text-[#E0674C]">
-                      <span className="flex h-4 w-4 overflow-hidden rounded-full border border-black/10">
-                        <span className="w-1/2" style={{ background: t.patch.bg_color }} />
-                        <span className="w-1/2" style={{ background: t.patch.accent_color }} />
-                      </span>
-                      {t.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="grid gap-3 sm:grid-cols-2">
                 <Field label="Prénom Nom"><Input value={config.full_name} onChange={e => setC('full_name', e.target.value)} placeholder="Jean Dupont" /></Field>
                 <Field label="Rôle / fonction"><Input value={config.role} onChange={e => setC('role', e.target.value)} placeholder="Gérant" /></Field>
