@@ -141,8 +141,20 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const name = data?.full_name || user.email?.split('@')[0] || 'Mon compte'
       const initials = name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() || 'BP'
       setProfile({ name, role: 'Artisan', initials })
+
+      // Gate d'onboarding : un patron sans fiche entreprise finalisée est envoyé
+      // vers le wizard. Cache de session (clé = user.id, pour ne pas hériter du
+      // cache d'un autre compte connecté dans le même onglet).
+      if (typeof window !== 'undefined' && sessionStorage.getItem('bp_onboarded') === user.id) return
+      const { data: company } = await supabase
+        .from('companies').select('onboarding_completed_at').eq('user_id', user.id).maybeSingle()
+      if (company?.onboarding_completed_at) {
+        sessionStorage.setItem('bp_onboarded', user.id)
+      } else {
+        router.replace('/onboarding')
+      }
     })
-  }, [])
+  }, [router])
 
   // Pôle d'interface : reteinte toute l'app via data-pole sur <html>.
   // Override live stocké en local ; sinon le défaut 'commercial' (SSR) reste.
@@ -154,6 +166,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   async function handleLogout() {
     const supabase = createClient()
+    if (typeof window !== 'undefined') sessionStorage.removeItem('bp_onboarded')
     await supabase.auth.signOut()
     router.push('/login')
   }

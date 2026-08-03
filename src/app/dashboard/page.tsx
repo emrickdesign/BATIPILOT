@@ -15,17 +15,21 @@ import type { ProjectStatus } from '@/types'
 import EncaissementsChart from './EncaissementsChart'
 import DonutMetricCard from '@/components/charts/DonutMetricCard'
 import StatCard, { type StatTone } from '@/components/charts/StatCard'
+import TodoSnooze from './TodoSnooze'
 
 const DONUT_COLORS = ['#D05C43', '#C77D0E', '#8A4B24', '#3F7A2E', '#94918A']
 const ENTREE_COLORS = ['#22A45A', '#2F7DE0', '#0E9F8E', '#5CCB86', '#94918A']
 
-function TodoItem({ href, icon: Icon, tile, text }: { href: string; icon: LucideIcon; tile: string; text: string }) {
+function TodoItem({ href, icon: Icon, tile, text, todoKey }: { href: string; icon: LucideIcon; tile: string; text: string; todoKey: string }) {
   return (
-    <Link href={href} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-black/[0.03] transition-colors group">
-      <span className={`grid place-items-center w-9 h-9 rounded-lg flex-shrink-0 ${tile}`}><Icon className="w-4 h-4" /></span>
-      <span className="text-sm text-gray-700 flex-1">{text}</span>
-      <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors flex-shrink-0" />
-    </Link>
+    <div className="flex items-center gap-1 rounded-lg hover:bg-black/[0.03] transition-colors group">
+      <Link href={href} className="flex items-center gap-3 p-2.5 flex-1 min-w-0">
+        <span className={`grid place-items-center w-9 h-9 rounded-lg flex-shrink-0 ${tile}`}><Icon className="w-4 h-4" /></span>
+        <span className="text-sm text-gray-700 flex-1 min-w-0">{text}</span>
+        <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors flex-shrink-0" />
+      </Link>
+      <TodoSnooze todoKey={todoKey} />
+    </div>
   )
 }
 
@@ -69,7 +73,7 @@ async function getData(userId: string) {
     return x.getFullYear() === lastMonth.getFullYear() && x.getMonth() === lastMonth.getMonth()
   }
 
-  const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes, absRes, vehAsgRes] = await Promise.all([
+  const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes, absRes, vehAsgRes, snzRes] = await Promise.all([
     supabase.from('quotes').select('id, quote_number, status, total_ttc, subtotal_ht, issue_date, reminded_at, client_id, project_id, created_at').eq('user_id', userId),
     supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due, issue_date, due_date, client_id, quote_id, created_at').eq('user_id', userId),
     supabase.from('projects').select('id, title, status, start_date, end_date, progress, created_at').eq('user_id', userId).neq('status', 'archive'),
@@ -85,7 +89,9 @@ async function getData(userId: string) {
     supabase.from('clients').select('id, first_name, last_name, company_name, type, status, request_type, created_at').eq('user_id', userId),
     supabase.from('absences').select('id, employee_id, start_date, end_date, type, reason, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
     supabase.from('vehicle_assignments').select('vehicle_id, project_id').eq('user_id', userId).eq('date', today),
+    supabase.from('dashboard_snoozes').select('todo_key, snooze_until').eq('user_id', userId).gt('snooze_until', now.toISOString()),
   ])
+  const snoozed = new Set((snzRes.data || []).map(s => s.todo_key as string))
 
   const quotes = quotesRes.data || []
   const inv = invRes.data || []
@@ -125,15 +131,17 @@ async function getData(userId: string) {
     ...equipeDemain,
   ])
 
-  type Todo = { icon: LucideIcon; tile: string; text: string; href: string }
-  const todos: Todo[] = []
-  if (aRelancer > 0) todos.push({ icon: Bell, tile: 'bg-accent text-primary', text: `${aRelancer} devis à relancer`, href: '/relances' })
-  if (facturesEchues > 0) todos.push({ icon: Landmark, tile: 'bg-amber-100 text-amber-600', text: `${facturesEchues} facture${facturesEchues > 1 ? 's' : ''} échue${facturesEchues > 1 ? 's' : ''} à encaisser`, href: '/banque' })
-  if (aRapprocher > 0) todos.push({ icon: BadgeEuro, tile: 'bg-[#FCE7DE] text-[#C14E33]', text: `${aRapprocher} paiement${aRapprocher > 1 ? 's' : ''} à rapprocher`, href: '/banque' })
-  if (ticketsAValider > 0) todos.push({ icon: ReceiptText, tile: 'bg-[#FBE0DA] text-[#C0392B]', text: `${ticketsAValider} ticket${ticketsAValider > 1 ? 's' : ''} à valider`, href: '/tickets' })
-  if (aTransmettre > 0) todos.push({ icon: FileCheck2, tile: 'bg-[#F3E5D6] text-[#8A4B24]', text: `${aTransmettre} justificatif${aTransmettre > 1 ? 's' : ''} à transmettre comptable`, href: '/comptable' })
-  if (salariesSansHeures > 0) todos.push({ icon: Clock, tile: 'bg-amber-100 text-amber-600', text: `${salariesSansHeures} salarié${salariesSansHeures > 1 ? 's n\'ont' : ' n\'a'} pas déclaré ses heures`, href: '/heures' })
-  if (sansEquipeDemain > 0) todos.push({ icon: HardHat, tile: 'bg-[#FBE0DA] text-[#C0392B]', text: `${sansEquipeDemain} chantier${sansEquipeDemain > 1 ? 's' : ''} sans équipe prévue demain`, href: '/planning' })
+  type Todo = { key: string; icon: LucideIcon; tile: string; text: string; href: string }
+  const allTodos: Todo[] = []
+  if (aRelancer > 0) allTodos.push({ key: 'relances', icon: Bell, tile: 'bg-accent text-primary', text: `${aRelancer} devis à relancer`, href: '/relances' })
+  if (facturesEchues > 0) allTodos.push({ key: 'factures_echues', icon: Landmark, tile: 'bg-amber-100 text-amber-600', text: `${facturesEchues} facture${facturesEchues > 1 ? 's' : ''} échue${facturesEchues > 1 ? 's' : ''} à encaisser`, href: '/banque' })
+  if (aRapprocher > 0) allTodos.push({ key: 'rapprocher', icon: BadgeEuro, tile: 'bg-[#FCE7DE] text-[#C14E33]', text: `${aRapprocher} paiement${aRapprocher > 1 ? 's' : ''} à rapprocher`, href: '/banque' })
+  if (ticketsAValider > 0) allTodos.push({ key: 'tickets', icon: ReceiptText, tile: 'bg-[#FBE0DA] text-[#C0392B]', text: `${ticketsAValider} ticket${ticketsAValider > 1 ? 's' : ''} à valider`, href: '/tickets' })
+  if (aTransmettre > 0) allTodos.push({ key: 'comptable', icon: FileCheck2, tile: 'bg-[#F3E5D6] text-[#8A4B24]', text: `${aTransmettre} justificatif${aTransmettre > 1 ? 's' : ''} à transmettre comptable`, href: '/comptable' })
+  if (salariesSansHeures > 0) allTodos.push({ key: 'heures', icon: Clock, tile: 'bg-amber-100 text-amber-600', text: `${salariesSansHeures} salarié${salariesSansHeures > 1 ? 's n\'ont' : ' n\'a'} pas déclaré ses heures`, href: '/heures' })
+  if (sansEquipeDemain > 0) allTodos.push({ key: 'planning', icon: HardHat, tile: 'bg-[#FBE0DA] text-[#C0392B]', text: `${sansEquipeDemain} chantier${sansEquipeDemain > 1 ? 's' : ''} sans équipe prévue demain`, href: '/planning' })
+  // Masque les catégories mises en veille (snooze/ignoré) et encore actives.
+  const todos = allTodos.filter(t => !snoozed.has(t.key))
 
   // ── 3. Suivi des chantiers ──────────────────────────────────────────
   const chantiers = {
@@ -608,8 +616,8 @@ export default async function DashboardPage() {
                 </div>
               ) : (
                 <div className="space-y-0.5">
-                  {d.todos.slice(0, 4).map((t, i) => (
-                    <TodoItem key={i} href={t.href} icon={t.icon} tile={t.tile} text={t.text} />
+                  {d.todos.slice(0, 4).map((t) => (
+                    <TodoItem key={t.key} href={t.href} icon={t.icon} tile={t.tile} text={t.text} todoKey={t.key} />
                   ))}
                   {d.todos.length > 4 && (
                     <details className="group/more">
@@ -619,8 +627,8 @@ export default async function DashboardPage() {
                         <ArrowRight className="w-3.5 h-3.5 rotate-90 group-open/more:-rotate-90 transition-transform" />
                       </summary>
                       <div className="space-y-0.5 mt-0.5">
-                        {d.todos.slice(4).map((t, i) => (
-                          <TodoItem key={i} href={t.href} icon={t.icon} tile={t.tile} text={t.text} />
+                        {d.todos.slice(4).map((t) => (
+                          <TodoItem key={t.key} href={t.href} icon={t.icon} tile={t.tile} text={t.text} todoKey={t.key} />
                         ))}
                       </div>
                     </details>

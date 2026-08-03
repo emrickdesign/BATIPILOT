@@ -49,6 +49,14 @@ export interface Company {
   default_deposit_percent: number
   default_vat_rate: number
   legal_mentions?: string
+  /** Personnalisation : métier principal + secondaires (voir src/lib/trades.ts). */
+  trade?: string | null
+  secondary_trades?: string[]
+  /** NULL tant que le wizard d'onboarding n'est pas terminé. */
+  onboarding_completed_at?: string | null
+  google_review_url?: string | null
+  accountant_email?: string | null
+  template_style?: Record<string, unknown> | null
   created_at: string
 }
 

@@ -88,6 +88,23 @@ async function runRelances(req: NextRequest) {
 
   const companyCache = new Map<string, CompanyRow>()
   const tokenCache = new Map<string, { accessToken: string; gmailEmail: string } | null>()
+  // Réglages d'automatisation par entreprise (règle activée + délais personnalisés).
+  type Settings = { disabled: string[]; delays: number[] }
+  const settingsCache = new Map<string, Settings>()
+  const getSettings = async (userId: string): Promise<Settings> => {
+    if (!settingsCache.has(userId)) {
+      const { data } = await service
+        .from('automation_settings')
+        .select('disabled_rules, relance_delays')
+        .eq('user_id', userId)
+        .maybeSingle()
+      settingsCache.set(userId, {
+        disabled: Array.isArray(data?.disabled_rules) ? data!.disabled_rules : [],
+        delays: Array.isArray(data?.relance_delays) && data!.relance_delays.length ? data!.relance_delays : THRESHOLDS,
+      })
+    }
+    return settingsCache.get(userId)!
+  }
   const getCompany = async (userId: string): Promise<CompanyRow> => {
     if (!companyCache.has(userId)) {
       const { data } = await service.from('companies').select('*').eq('user_id', userId).single()
@@ -111,10 +128,15 @@ async function runRelances(req: NextRequest) {
     if (!client?.email) { bump('sans_email'); continue }
     const clientEmail: string = client.email
 
+    // Respect des réglages de l'entreprise : règle désactivée → on ne relance pas.
+    const settings = await getSettings(q.user_id)
+    if (settings.disabled.includes('devis_relance')) { bump('regle_desactivee'); continue }
+
     const ref = q.sent_at || q.issue_date
     if (!ref) { bump('sans_date'); continue }
     const days = Math.floor((Date.now() - new Date(ref).getTime()) / DAY)
-    const threshold = THRESHOLDS[q.reminder_count]
+    const threshold = settings.delays[q.reminder_count]
+    if (threshold == null) { bump('paliers_epuises'); continue }
     if (days < threshold) { bump('pas_encore_du'); continue }
 
     if (dryRun) { sent++; continue }

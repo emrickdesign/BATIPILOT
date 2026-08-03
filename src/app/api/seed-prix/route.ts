@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
+import { categoriesForTrades } from '@/lib/trades'
 
 const categories = [
   { name: 'Préparation / Protection', sort_order: 1 },
@@ -100,15 +101,26 @@ const itemsByCategory: Record<string, { name: string; unit: string; price: numbe
   ],
 }
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
+  // Filtre optionnel par métier(s) : ne seede que les catégories pertinentes.
+  // Corps de requête absent (ancien appel sans body) → base complète.
+  let trades: string[] = []
+  try {
+    const body = await req.json()
+    if (Array.isArray(body?.trades)) trades = body.trades.filter((t: unknown) => typeof t === 'string')
+  } catch { /* pas de body : base complète */ }
+
+  const keepCats = trades.length ? new Set(categoriesForTrades(trades)) : null
+  const selectedCategories = keepCats ? categories.filter(c => keepCats.has(c.name)) : categories
+
   // Créer les catégories
   const { data: createdCats } = await supabase
     .from('price_categories')
-    .insert(categories.map(c => ({ ...c, user_id: user.id })))
+    .insert(selectedCategories.map(c => ({ ...c, user_id: user.id })))
     .select()
 
   if (!createdCats) return NextResponse.json({ error: 'Erreur catégories' }, { status: 500 })

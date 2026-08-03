@@ -11,9 +11,10 @@ import { Card, CardContent } from '@/components/ui/card'
 import { FormSection, FormPageTitle } from '@/components/ui/form-section'
 import { entityColors } from '@/lib/entityColors'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp, User, HardHat, Receipt, ListChecks, Settings2 } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp, User, HardHat, Receipt, ListChecks, Settings2, Sparkles, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
+import DictationButton from '@/components/DictationButton'
 import type { Client, PriceItem, QuoteLine } from '@/types'
 
 type LineItem = Omit<QuoteLine, 'id' | 'quote_id' | 'created_at'> & { tempId: string }
@@ -42,6 +43,14 @@ function DevisForm() {
   const [searchQuery, setSearchQuery] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [showDepot, setShowDepot] = useState(false)
+  // Générateur IA de lignes depuis une description libre (texte ou vocal).
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
+  const [showAi, setShowAi] = useState(false)
+  // Réglages entreprise réinjectés dans le devis (TVA, validité, acompte, mentions).
+  const [companyDefaults, setCompanyDefaults] = useState<{
+    default_vat_rate: number; legal_mentions: string | null
+  }>({ default_vat_rate: 10, legal_mentions: null })
 
   useEffect(() => {
     const supabase = createClient()
@@ -49,10 +58,19 @@ function DevisForm() {
       supabase.from('clients').select('*').order('created_at', { ascending: false }),
       supabase.from('price_items').select('*, price_categories(name)').eq('is_active', true).order('name'),
       supabase.from('projects').select('id, title, client_id, status').neq('status', 'archive').order('created_at', { ascending: false }),
-    ]).then(([{ data: c }, { data: p }, { data: pr }]) => {
+      supabase.from('companies').select('quote_validity_days, default_deposit_percent, default_vat_rate, legal_mentions').maybeSingle(),
+    ]).then(([{ data: c }, { data: p }, { data: pr }, { data: co }]) => {
       setClients(c || [])
       setPriceItems(p || [])
       setProjects(pr || [])
+      if (co) {
+        setCompanyDefaults({
+          default_vat_rate: Number(co.default_vat_rate) || 10,
+          legal_mentions: co.legal_mentions ?? null,
+        })
+        if (co.quote_validity_days) setValidDays(String(co.quote_validity_days))
+        if (co.default_deposit_percent != null) setDepositPercent(String(co.default_deposit_percent))
+      }
     })
   }, [])
 
@@ -126,7 +144,7 @@ function DevisForm() {
       quantity: 1,
       unit: item?.unit || 'u',
       unit_price_ht: item?.unit_price_ht || 0,
-      vat_rate: item?.vat_rate || 10,
+      vat_rate: item?.vat_rate ?? companyDefaults.default_vat_rate,
       discount_percent: 0,
       total_ht: item?.unit_price_ht || 0,
       sort_order: lines.length,
@@ -149,6 +167,54 @@ function DevisForm() {
 
   function removeLine(tempId: string) {
     setLines(prev => prev.filter(l => l.tempId !== tempId))
+  }
+
+  async function generateLines() {
+    const description = aiPrompt.trim()
+    if (description.length < 8) { toast.error('Décrivez les travaux en quelques mots'); return }
+    setAiLoading(true)
+    try {
+      const res = await fetch('/api/devis/generer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description, vat_default: companyDefaults.default_vat_rate }),
+      })
+      const json = await res.json()
+      if (!res.ok) { toast.error(json?.error || 'Génération impossible'); return }
+      const generated: LineItem[] = (json.lignes || []).map((l: {
+        category?: string; designation?: string; description?: string
+        quantity?: number; unit?: string; unit_price_ht?: number; vat_rate?: number
+      }, i: number) => {
+        const qty = Number(l.quantity) || 1
+        const pu = Number(l.unit_price_ht) || 0
+        return {
+          tempId: crypto.randomUUID(),
+          price_item_id: undefined,
+          category: l.category || '',
+          designation: l.designation || '',
+          description: l.description || '',
+          quantity: qty,
+          unit: (l.unit as LineItem['unit']) || 'u',
+          unit_price_ht: pu,
+          vat_rate: l.vat_rate || companyDefaults.default_vat_rate,
+          discount_percent: 0,
+          total_ht: qty * pu,
+          sort_order: lines.length + i,
+          needs_verification: true,   // issu de l'IA : à vérifier par l'artisan
+          is_option: false,
+        }
+      })
+      if (!generated.length) { toast.error('Aucune prestation générée — précisez la demande'); return }
+      setLines(prev => [...prev, ...generated])
+      if (!title && json.title) setTitle(json.title)
+      setAiPrompt('')
+      setShowAi(false)
+      toast.success(`${generated.length} ligne${generated.length > 1 ? 's' : ''} générée${generated.length > 1 ? 's' : ''} — à vérifier`)
+    } catch {
+      toast.error('Erreur réseau — réessayez')
+    } finally {
+      setAiLoading(false)
+    }
   }
 
   // Les lignes « option » sont proposées mais exclues du total du devis.
@@ -191,7 +257,7 @@ function DevisForm() {
       deposit_amount: depositAmount || null,
       notes,
       internal_notes: '',
-      legal_mentions: 'TVA à taux réduit — Article 279-0 bis du CGI (travaux de rénovation)',
+      legal_mentions: companyDefaults.legal_mentions || 'TVA à taux réduit — Article 279-0 bis du CGI (travaux de rénovation)',
     }).select().single()
 
     if (error || !quote) { toast.error('Erreur création devis'); setSaving(false); return }
@@ -306,6 +372,42 @@ function DevisForm() {
         description={`${lines.length} ligne${lines.length > 1 ? 's' : ''}`}
       >
         <div className="space-y-2">
+          {/* Générateur IA : décris le chantier → lignes chiffrées sur ta base de prix */}
+          {showAi ? (
+            <div className="border border-[#D05C43]/40 bg-[#D05C43]/5 rounded-lg p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-marine">
+                <Sparkles className="w-4 h-4 text-[#D05C43]" />
+                Décrivez le chantier — l’IA chiffre sur votre base de prix
+              </div>
+              <Textarea
+                value={aiPrompt}
+                onChange={e => setAiPrompt(e.target.value)}
+                rows={3}
+                placeholder="Ex : rénovation d'une salle de bain de 6 m², dépose de l'ancien carrelage, faïence murale toute hauteur, pose d'un receveur et d'un meuble vasque, peinture du plafond."
+                disabled={aiLoading}
+              />
+              <div className="flex items-center gap-2">
+                <Button onClick={generateLines} disabled={aiLoading} className="gap-1.5">
+                  {aiLoading ? <><Loader2 className="w-4 h-4 animate-spin" /> Génération…</> : <><Sparkles className="w-4 h-4" /> Générer les lignes</>}
+                </Button>
+                <DictationButton value={aiPrompt} onChange={setAiPrompt} size="sm" title="Dicter la demande" />
+                <Button variant="ghost" size="sm" onClick={() => { setShowAi(false); setAiPrompt('') }} disabled={aiLoading}>
+                  Annuler
+                </Button>
+              </div>
+              <p className="text-xs text-slate-500">Les lignes générées sont marquées « à vérifier » : contrôlez quantités et prix avant d’envoyer.</p>
+            </div>
+          ) : (
+            <Button
+              variant="outline"
+              className="w-full gap-2 border-dashed border-[#D05C43]/50 text-[#D05C43] hover:bg-[#D05C43]/5"
+              onClick={() => setShowAi(true)}
+            >
+              <Sparkles className="w-4 h-4" />
+              Générer le devis avec l’IA (texte ou vocal)
+            </Button>
+          )}
+
           {lines.map((line) => (
             <div key={line.tempId} className={`border rounded-lg p-3 space-y-2 ${line.is_option ? 'border-dashed border-amber-300 bg-amber-50/40' : 'border-gray-200'}`}>
               <div className="flex items-start gap-2">

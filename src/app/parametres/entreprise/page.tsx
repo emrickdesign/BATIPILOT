@@ -10,13 +10,16 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
+import EntrepriseSearch from '@/components/EntrepriseSearch'
+import { TRADES } from '@/lib/trades'
+import type { CompanyResult } from '@/lib/siret'
 
 export default function EntreprisePage() {
   const [loading, setLoading] = useState(false)
   const [fetching, setFetching] = useState(true)
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [form, setForm] = useState({
-    trade_name: '', legal_name: '', siret: '', vat_number: '', legal_status: '',
+    trade_name: '', legal_name: '', siret: '', vat_number: '', legal_status: '', trade: '',
     address: '', phone: '', email: '', website: '',
     insurance_decennale: '', insurance_rc: '', iban: '',
     payment_terms: '30 jours à réception de facture',
@@ -38,6 +41,7 @@ export default function EntreprisePage() {
             siret: data.siret || '',
             vat_number: data.vat_number || '',
             legal_status: data.legal_status || '',
+            trade: data.trade || '',
             address: data.address || '',
             phone: data.phone || '',
             email: data.email || '',
@@ -62,6 +66,17 @@ export default function EntreprisePage() {
     setForm(prev => ({ ...prev, [field]: value }))
   }
 
+  function applySirene(c: CompanyResult) {
+    setForm(prev => ({
+      ...prev,
+      trade_name: prev.trade_name || c.name,
+      legal_name: c.name || prev.legal_name,
+      siret: c.siret || prev.siret,
+      address: c.address || prev.address,
+    }))
+    toast.success('Informations importées depuis l’annuaire officiel')
+  }
+
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -76,6 +91,7 @@ export default function EntreprisePage() {
       siret: form.siret || null,
       vat_number: form.vat_number || null,
       legal_status: form.legal_status || null,
+      trade: form.trade || null,
       address: form.address || null,
       phone: form.phone || null,
       email: form.email || null,
@@ -122,6 +138,10 @@ export default function EntreprisePage() {
           <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-base">Identité</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
             <div className="space-y-1">
+              <Label>Rechercher mon entreprise <span className="font-normal text-gray-400">(annuaire officiel, gratuit)</span></Label>
+              <EntrepriseSearch onSelect={applySirene} />
+            </div>
+            <div className="space-y-1">
               <Label>Nom commercial *</Label>
               <Input value={form.trade_name} onChange={e => set('trade_name', e.target.value)} placeholder="Mon Entreprise BTP" required />
             </div>
@@ -130,6 +150,15 @@ export default function EntreprisePage() {
                 <Label>Nom juridique</Label>
                 <Input value={form.legal_name} onChange={e => set('legal_name', e.target.value)} placeholder="Dupont Jean-Pierre" />
               </div>
+              <div className="space-y-1">
+                <Label>Métier principal</Label>
+                <select value={form.trade} onChange={e => set('trade', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+                  <option value="">Sélectionner...</option>
+                  {TRADES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>Statut juridique</Label>
                 <select value={form.legal_status} onChange={e => set('legal_status', e.target.value)} className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white">
@@ -142,16 +171,14 @@ export default function EntreprisePage() {
                   <option value="SASU">SASU</option>
                 </select>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>SIRET</Label>
-                <Input value={form.siret} onChange={e => set('siret', e.target.value)} placeholder="123 456 789 00012" />
-              </div>
               <div className="space-y-1">
                 <Label>N° TVA intra.</Label>
                 <Input value={form.vat_number} onChange={e => set('vat_number', e.target.value)} placeholder="FR12345678901" />
               </div>
+            </div>
+            <div className="space-y-1">
+              <Label>SIRET</Label>
+              <Input value={form.siret} onChange={e => set('siret', e.target.value)} placeholder="123 456 789 00012" />
             </div>
           </CardContent>
         </Card>
