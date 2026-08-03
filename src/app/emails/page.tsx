@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import ComposeWindow, { type ComposeInit } from '@/components/emails/ComposeWindow'
+import SignatureSettings from '@/components/emails/SignatureSettings'
 import MessageView, { type FullMessage } from '@/components/emails/MessageView'
 import ManageLabelsDialog from '@/components/emails/ManageLabelsDialog'
 import {
@@ -88,6 +89,7 @@ export default function EmailsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showMore, setShowMore] = useState(false)
   const [manageLabels, setManageLabels] = useState(false)
+  const [signatureOpen, setSignatureOpen] = useState(false)
 
   // Pagination Gmail : jetons opaques, empilés pour pouvoir revenir en arrière.
   const [pageTokens, setPageTokens] = useState<(string | null)[]>([null])
@@ -461,6 +463,15 @@ export default function EmailsPage() {
             </button>
           )}
         </form>
+
+        <button
+          onClick={() => setSignatureOpen(true)}
+          title="Ma signature"
+          aria-label="Réglages de signature"
+          className="flex-shrink-0 rounded-full p-2 text-gray-600 hover:bg-gray-100"
+        >
+          <Settings2 className="h-[18px] w-[18px]" />
+        </button>
       </div>
 
       <div className="relative flex min-h-0 flex-1">
@@ -777,6 +788,8 @@ export default function EmailsPage() {
           onSent={() => { loadMessages({ silent: true }); loadLabels() }}
         />
       )}
+
+      {signatureOpen && <SignatureSettings onClose={() => setSignatureOpen(false)} />}
     </div>
   )
 }

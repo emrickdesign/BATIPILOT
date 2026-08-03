@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useDictation } from '@/hooks/useDictation'
+import { createClient } from '@/lib/supabase/client'
+import { appendSignature, visualSignatureHtml } from '@/lib/signature'
 import { toast } from 'sonner'
 import {
   X, Minus, Maximize2, Minimize2, Paperclip, Send, Trash2,
@@ -66,8 +68,38 @@ export default function ComposeWindow({
   const [aiLoading, setAiLoading] = useState(false)
   const [showAi, setShowAi] = useState(init.mode === 'reply')
 
+  // Signature (texte + visuelle) de l'utilisateur connecté.
+  const [sigImageUrl, setSigImageUrl] = useState<string | null>(null)
+  const [includeVisual, setIncludeVisual] = useState(false)
+
   const fileRef = useRef<HTMLInputElement>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const sigAppliedRef = useRef(false)
+
+  // Charge la signature et pré-remplit le texte pour les nouveaux messages.
+  // Pour une réponse IA, la signature est déjà ajoutée par la route /api/gmail/draft
+  // (on évite ainsi le doublon).
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('email_signatures')
+        .select('signature_text, signature_image_url, include_visual')
+        .eq('user_id', user.id).maybeSingle()
+        .then(({ data }) => {
+          const text = (data?.signature_text || '').trim()
+          setSigImageUrl(data?.signature_image_url || null)
+          setIncludeVisual(!!data?.include_visual && !!data?.signature_image_url)
+          const willAutoAI = init.mode === 'reply' && !!init.emailId && !init.body
+          if (!willAutoAI && text && !sigAppliedRef.current) {
+            sigAppliedRef.current = true
+            setBody(prev => (prev.trim() ? appendSignature(prev, text) : `\n\n${text}`))
+          }
+        })
+    })
+    // Au montage uniquement.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const dictation = useDictation(chunk =>
     setIntent(prev => (prev ? `${prev} ${chunk}` : chunk))
@@ -127,7 +159,9 @@ export default function ComposeWindow({
     if (cc.trim()) form.set('cc', cc.trim())
     if (bcc.trim()) form.set('bcc', bcc.trim())
     form.set('subject', subject.trim())
-    form.set('html', textToHtml(body))
+    let html = textToHtml(body)
+    if (includeVisual && sigImageUrl) html += visualSignatureHtml(sigImageUrl)
+    form.set('html', html)
     if (init.threadId) form.set('threadId', init.threadId)
     if (init.inReplyTo) form.set('inReplyTo', init.inReplyTo)
     if (init.references) form.set('references', init.references)
@@ -361,6 +395,21 @@ export default function ComposeWindow({
                 </span>
               ))}
             </div>
+          )}
+
+          {/* Signature visuelle : à inclure dans le mail envoyé */}
+          {sigImageUrl && (
+            <label className="flex cursor-pointer items-center gap-2 border-t bg-gray-50 px-4 py-2 text-xs text-gray-600">
+              <input
+                type="checkbox"
+                checked={includeVisual}
+                onChange={e => setIncludeVisual(e.target.checked)}
+                className="h-3.5 w-3.5 accent-[#E0674C]"
+              />
+              Inclure ma signature visuelle
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={sigImageUrl} alt="Aperçu signature" className="ml-auto h-8 rounded border border-gray-200" />
+            </label>
           )}
 
           {/* Barre d'action */}

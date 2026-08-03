@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { buildDefaultSignatureText, appendSignature } from '@/lib/signature'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -16,6 +17,19 @@ export async function POST(req: NextRequest) {
     if (!email) return NextResponse.json({ error: 'Email introuvable' }, { status: 404 })
 
     const { data: company } = await supabase.from('companies').select('trade_name, phone, email, address').eq('user_id', user.id).single()
+
+    // Signature : celle configurée par la personne connectée, sinon une signature
+    // par défaut avec SON prénom/nom (profiles) + l'entreprise.
+    const [{ data: profile }, { data: sig }] = await Promise.all([
+      supabase.from('profiles').select('full_name').eq('id', user.id).single(),
+      supabase.from('email_signatures').select('signature_text').eq('user_id', user.id).maybeSingle(),
+    ])
+    const signatureText = (sig?.signature_text?.trim()) || buildDefaultSignatureText({
+      fullName: profile?.full_name,
+      tradeName: company?.trade_name,
+      phone: company?.phone,
+      email: company?.email,
+    })
 
     const prompt = `Tu es un assistant pour un artisan du bâtiment français.
 
@@ -35,9 +49,9 @@ Email : ${company?.email || ''}
 Règles :
 - Ton professionnel mais chaleureux
 - Court et direct (3-5 phrases max)
-- Terminer par les coordonnées si pertinent
 - Ne pas inventer d'infos
-- Commencer directement par la réponse (pas de "Objet :" ni en-tête)`
+- Commencer directement par la réponse (pas de "Objet :" ni en-tête)
+- NE PAS écrire de formule de politesse finale ni de signature (« Cordialement », nom, coordonnées) : elle est ajoutée automatiquement.`
 
     const msg = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',
@@ -45,7 +59,8 @@ Règles :
       messages: [{ role: 'user', content: prompt }],
     })
 
-    const draft = msg.content[0].type === 'text' ? msg.content[0].text : ''
+    const rawDraft = msg.content[0].type === 'text' ? msg.content[0].text : ''
+    const draft = appendSignature(rawDraft, signatureText)
     return NextResponse.json({ draft })
   } catch (err: any) {
     console.error('Draft error:', err)
