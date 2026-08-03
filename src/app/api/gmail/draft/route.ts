@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { buildDefaultSignatureText, appendSignature } from '@/lib/signature'
+import { findClientContext, clientContextPromptBlock } from '@/lib/emailContext'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
@@ -33,6 +34,10 @@ export async function POST(req: NextRequest) {
     const guidance = salesMode ? salesGuidance(email.category) : ''
     const isQuoteRequest = salesMode && email.category === 'demande_devis'
 
+    // Contexte CRM réel de l'expéditeur : l'IA peut citer le devis en cours, etc.
+    const clientCtx = await findClientContext(supabase, user.id, email.from_email, email.linked_client_id)
+    const clientBlock = clientContextPromptBlock(clientCtx)
+
     const prompt = `Tu es un assistant pour un artisan du bâtiment français, doublé d'un bon commercial.
 
 Rédige une réponse professionnelle à cet email en français.
@@ -47,7 +52,7 @@ Informations de l'artisan :
 Nom : ${company?.trade_name || 'Mon entreprise'}
 Téléphone : ${company?.phone || ''}
 Email : ${company?.email || ''}
-${guidance ? `\n${guidance}\n` : ''}
+${clientBlock ? `\n${clientBlock}\n` : ''}${guidance ? `\n${guidance}\n` : ''}
 Règles :
 - Ton professionnel mais chaleureux et HUMAIN (jamais robotique ni « copié-collé commercial »)
 - ${isQuoteRequest ? 'Tu peux aller jusqu\'à ~8 phrases pour poser les bonnes questions et proposer la suite' : 'Court et direct (3-5 phrases max)'}
