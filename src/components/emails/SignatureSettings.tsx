@@ -58,7 +58,19 @@ function contrastColor(hex: string): string {
   return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#111111' : '#FFFFFF'
 }
 
-function buildSignatureSvg(c: SignatureConfig): { svg: string; height: number } {
+interface Rect { x: number; y: number; w: number; h: number }
+interface SigGeometry {
+  svg: string
+  height: number
+  photo: (Rect & { rx: number }) | null
+  logo: Rect | null
+}
+
+// withImages=false : produit un SVG SANS <image> (fond, texte, icônes). La photo
+// et le logo sont alors dessinés séparément sur le canvas (voir renderSignaturePng)
+// — évite le bug WebKit/Safari qui « taint » le canvas dès qu'un SVG embarque une image.
+function buildSignatureSvg(c: SignatureConfig, opts: { withImages?: boolean } = {}): SigGeometry {
+  const withImages = opts.withImages !== false
   const pad = 48
   const rows = c.contacts.filter(r => r.value.trim())
   const rowTop = 198
@@ -90,28 +102,32 @@ function buildSignatureSvg(c: SignatureConfig): { svg: string; height: number } 
     bgLayer = `<path d="M0 0 L ${bandW + A} 0 L ${bandW - A} ${H} L 0 ${H} Z" fill="${esc(c.bg_color2)}"/>`
   }
 
+  // Géométrie photo/logo — utilisée pour le SVG (aperçu) ET pour la composition canvas.
+  const photo = hasPhoto ? { x: pad, y: pad, w: photoSize, h: photoSize, rx: Math.min(cardR, photoSize / 2) } : null
+  // Logo : dans la bande gauche (centré) quand il n'y a pas de photo mais un
+  // fond séparé ; sinon en haut à droite, côté contenu.
+  let logo: Rect | null = null
+  if (c.logo_url) {
+    if (split && !hasPhoto) {
+      const w = Math.min(160, bandW - 2 * pad), h = 64
+      logo = { x: Math.max(pad, (bandW - A - w) / 2), y: Math.round((H - h) / 2), w, h }
+    } else {
+      logo = { x: CARD_W - pad - 200, y: pad, w: 200, h: 72 }
+    }
+  }
+
   const defs = `<defs>
     <clipPath id="sigcard"><rect width="${CARD_W}" height="${H}" rx="${cardR}"/></clipPath>
-    ${hasPhoto ? `<clipPath id="sigphoto"><rect x="${pad}" y="${pad}" width="${photoSize}" height="${photoSize}" rx="${Math.min(cardR, photoSize / 2)}"/></clipPath>` : ''}
+    ${withImages && photo ? `<clipPath id="sigphoto"><rect x="${photo.x}" y="${photo.y}" width="${photo.w}" height="${photo.h}" rx="${photo.rx}"/></clipPath>` : ''}
     ${c.bg_style === 'dots' ? `<pattern id="sigdots" width="36" height="36" patternUnits="userSpaceOnUse"><circle cx="7" cy="7" r="3" fill="${esc(c.bg_color2)}"/></pattern>` : ''}
   </defs>`
 
-  const photoBlock = hasPhoto
-    ? `<image href="${c.photo_url}" x="${pad}" y="${pad}" width="${photoSize}" height="${photoSize}" preserveAspectRatio="xMidYMid slice" clip-path="url(#sigphoto)"/>`
+  const photoBlock = withImages && photo && c.photo_url
+    ? `<image href="${c.photo_url}" x="${photo.x}" y="${photo.y}" width="${photo.w}" height="${photo.h}" preserveAspectRatio="xMidYMid slice" clip-path="url(#sigphoto)"/>`
     : ''
-
-  // Logo : dans la bande gauche (centré) quand il n'y a pas de photo mais un
-  // fond séparé ; sinon en haut à droite, côté contenu.
-  let logoBlock = ''
-  if (c.logo_url) {
-    if (split && !hasPhoto) {
-      const lw = Math.min(160, bandW - 2 * pad), lh = 64
-      const lx = Math.max(pad, (bandW - A - lw) / 2), ly = Math.round((H - lh) / 2)
-      logoBlock = `<image href="${c.logo_url}" x="${lx}" y="${ly}" width="${lw}" height="${lh}" preserveAspectRatio="xMidYMid meet"/>`
-    } else {
-      logoBlock = `<image href="${c.logo_url}" x="${CARD_W - pad - 200}" y="${pad}" width="200" height="72" preserveAspectRatio="xMidYMid meet"/>`
-    }
-  }
+  const logoBlock = withImages && logo && c.logo_url
+    ? `<image href="${c.logo_url}" x="${logo.x}" y="${logo.y}" width="${logo.w}" height="${logo.h}" preserveAspectRatio="xMidYMid meet"/>`
+    : ''
 
   let rowsSvg = ''
   rows.forEach((r, i) => {
@@ -135,30 +151,77 @@ function buildSignatureSvg(c: SignatureConfig): { svg: string; height: number } 
     ${c.role ? `<text x="${textX + 24}" y="${pad + 122}" font-family="Arial, Helvetica, sans-serif" font-size="30" fill="${esc(c.accent_color)}">${esc(c.role)}</text>` : ''}
     ${rowsSvg}
   </svg>`
-  return { svg, height: H }
+  return { svg, height: H, photo, logo }
 }
 
-// Rasterise le SVG en PNG (2×). Photos/logos en data URL → canvas non « taint ».
-function svgToPngBlob(svg: string, height: number): Promise<Blob> {
+function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
     const img = new Image()
-    const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    img.onload = () => {
-      const scale = 2
-      const canvas = document.createElement('canvas')
-      canvas.width = CARD_W * scale
-      canvas.height = height * scale
-      const ctx = canvas.getContext('2d')
-      if (!ctx) { URL.revokeObjectURL(url); reject(new Error('canvas')); return }
-      ctx.scale(scale, scale)
-      ctx.drawImage(img, 0, 0, CARD_W, height)
-      URL.revokeObjectURL(url)
-      canvas.toBlob(b => (b ? resolve(b) : reject(new Error('toBlob'))), 'image/png')
-    }
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('svg load')) }
-    img.src = url
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('image load'))
+    img.src = src
   })
+}
+
+function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2))
+  ctx.beginPath()
+  ctx.moveTo(x + rr, y)
+  ctx.arcTo(x + w, y, x + w, y + h, rr)
+  ctx.arcTo(x + w, y + h, x, y + h, rr)
+  ctx.arcTo(x, y + h, x, y, rr)
+  ctx.arcTo(x, y, x + w, y, rr)
+  ctx.closePath()
+}
+
+// object-fit: cover
+function drawCover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
+  const ir = img.width / img.height, r = w / h
+  let sw: number, sh: number, sx: number, sy: number
+  if (ir > r) { sh = img.height; sw = sh * r; sx = (img.width - sw) / 2; sy = 0 }
+  else { sw = img.width; sh = sw / r; sx = 0; sy = (img.height - sh) / 2 }
+  ctx.drawImage(img, sx, sy, sw, sh, x, y, w, h)
+}
+
+// object-fit: contain (centré)
+function drawContain(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
+  const ir = img.width / img.height, r = w / h
+  let dw: number, dh: number
+  if (ir > r) { dw = w; dh = w / ir } else { dh = h; dw = h * ir }
+  ctx.drawImage(img, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh)
+}
+
+// Rendu PNG robuste (Safari + Chrome) : le SVG rasterisé ne contient AUCUNE image ;
+// photo et logo sont dessinés séparément depuis leurs data URLs → pas de « taint ».
+// `c` doit déjà avoir des images en data URL (voir toDataUrl).
+async function renderSignaturePng(c: SignatureConfig): Promise<Blob> {
+  const { svg, height, photo, logo } = buildSignatureSvg(c, { withImages: false })
+  const scale = 2
+  const canvas = document.createElement('canvas')
+  canvas.width = CARD_W * scale
+  canvas.height = height * scale
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('canvas indisponible')
+  ctx.scale(scale, scale)
+
+  const baseImg = await loadImage(`data:image/svg+xml;utf8,${encodeURIComponent(svg)}`)
+  ctx.drawImage(baseImg, 0, 0, CARD_W, height)
+
+  if (photo && c.photo_url) {
+    const p = await loadImage(c.photo_url)
+    ctx.save()
+    roundRectPath(ctx, photo.x, photo.y, photo.w, photo.h, photo.rx)
+    ctx.clip()
+    drawCover(ctx, p, photo.x, photo.y, photo.w, photo.h)
+    ctx.restore()
+  }
+  if (logo && c.logo_url) {
+    const l = await loadImage(c.logo_url)
+    drawContain(ctx, l, logo.x, logo.y, logo.w, logo.h)
+  }
+
+  return await new Promise<Blob>((resolve, reject) =>
+    canvas.toBlob(b => (b ? resolve(b) : reject(new Error('conversion PNG impossible'))), 'image/png'))
 }
 
 function fileToDataUrl(file: File): Promise<string> {
@@ -328,8 +391,7 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
     try {
       // Images en data URL (jamais d'URL distante) pour éviter le « taint » canvas.
       const safe = { ...config, photo_url: await toDataUrl(config.photo_url), logo_url: await toDataUrl(config.logo_url) }
-      const { svg, height } = buildSignatureSvg(safe)
-      const blob = await svgToPngBlob(svg, height)
+      const blob = await renderSignaturePng(safe)
       const supabase = createClient()
       const path = `${userId}/signature.png`
       const up = await supabase.storage.from('signatures').upload(path, blob, {
@@ -437,18 +499,18 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={`data:image/svg+xml;utf8,${encodeURIComponent(previewSvg)}`} alt="Aperçu signature" className="w-full" />
                 </div>
-                {/* Modèles — sous le rendu visuel */}
+                {/* Modèles — sous le rendu visuel, alignés en grille */}
                 <div className="space-y-1.5">
                   <Label className="text-xs">Modèles</Label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {TEMPLATES.map(t => (
                       <button key={t.name} type="button" onClick={() => applyTemplate(t.patch)}
-                        className="flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 transition-colors hover:border-[#E0674C] hover:text-[#E0674C]">
-                        <span className="flex h-4 w-4 overflow-hidden rounded-full border border-black/10">
+                        className="flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-white px-2 py-2 text-xs font-medium text-gray-700 transition-colors hover:border-[#E0674C] hover:text-[#E0674C]">
+                        <span className="flex h-3.5 w-3.5 flex-shrink-0 overflow-hidden rounded-full border border-black/10">
                           <span className="w-1/2" style={{ background: t.patch.bg_color }} />
                           <span className="w-1/2" style={{ background: t.patch.accent_color }} />
                         </span>
-                        {t.name}
+                        <span className="truncate">{t.name}</span>
                       </button>
                     ))}
                   </div>
@@ -485,22 +547,22 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
                 <Label>Coordonnées</Label>
                 <div className="space-y-2">
                   {config.contacts.map((ct, i) => (
-                    <div key={i} className="flex items-center gap-2">
+                    <div key={i} className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50/60 p-1.5">
                       <select
                         value={ct.type}
                         onChange={e => updateContact(i, { type: e.target.value as ContactType })}
-                        className="h-9 flex-shrink-0 rounded-lg border border-gray-200 bg-white px-2 text-sm"
+                        className="h-9 flex-shrink-0 rounded-xl border-0 bg-white px-2.5 text-sm font-medium text-gray-700 shadow-sm outline-none"
                       >
                         {CONTACT_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
                       </select>
-                      <Input value={ct.value} onChange={e => updateContact(i, { value: e.target.value })} placeholder="Valeur…" className="h-9 flex-1" />
-                      <button type="button" onClick={() => removeContact(i)} className="flex-shrink-0 rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-red-500" aria-label="Retirer">
+                      <Input value={ct.value} onChange={e => updateContact(i, { value: e.target.value })} placeholder="Valeur…" className="h-9 flex-1 rounded-xl border-0 bg-white shadow-sm" />
+                      <button type="button" onClick={() => removeContact(i)} className="grid h-9 w-9 flex-shrink-0 place-items-center rounded-full text-gray-400 transition-colors hover:bg-red-50 hover:text-red-500" aria-label="Retirer">
                         <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   ))}
                 </div>
-                <Button variant="outline" size="sm" onClick={addContact} className="gap-1.5"><Plus className="h-3.5 w-3.5" /> Ajouter une info</Button>
+                <Button variant="outline" size="sm" onClick={addContact} className="gap-1.5 rounded-full"><Plus className="h-3.5 w-3.5" /> Ajouter une info</Button>
               </div>
 
               {/* Photo + logo */}
@@ -540,7 +602,7 @@ export default function SignatureSettings({ onClose }: { onClose: () => void }) 
                       key={s.id}
                       type="button"
                       onClick={() => setC('bg_style', s.id)}
-                      className={`rounded-lg border px-3 py-1.5 text-sm transition-colors ${config.bg_style === s.id ? 'border-[#E0674C] bg-[#E0674C]/8 text-[#E0674C]' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
+                      className={`rounded-full border px-3.5 py-1.5 text-sm transition-colors ${config.bg_style === s.id ? 'border-[#E0674C] bg-[#E0674C]/8 text-[#E0674C]' : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300'}`}
                     >
                       {s.label}
                     </button>
@@ -573,9 +635,17 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
   return (
     <div className="space-y-1">
       <Label className="text-xs">{label}</Label>
-      <div className="flex items-center gap-1.5">
-        <input type="color" value={value} onChange={e => onChange(e.target.value)} className="h-9 w-10 cursor-pointer rounded border border-gray-200 bg-white p-0.5" />
-        <Input value={value} onChange={e => onChange(e.target.value)} className="h-9 w-24 text-xs" />
+      <div className="flex items-center gap-2">
+        <span className="relative inline-block h-9 w-9 flex-shrink-0 overflow-hidden rounded-full border border-gray-200 shadow-sm">
+          <input
+            type="color"
+            value={value}
+            onChange={e => onChange(e.target.value)}
+            className="absolute left-1/2 top-1/2 h-[150%] w-[150%] -translate-x-1/2 -translate-y-1/2 cursor-pointer border-0 bg-transparent p-0"
+            aria-label={label}
+          />
+        </span>
+        <Input value={value} onChange={e => onChange(e.target.value)} className="h-9 w-24 rounded-xl text-xs" />
       </div>
     </div>
   )
