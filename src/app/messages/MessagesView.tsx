@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { MessageSquarePlus, Send, Users2, Search, Mic, Square, Trash2, Video, Play, Pause, Phone, ArrowLeft } from 'lucide-react'
+import { MessageSquarePlus, Send, Users2, Search, Mic, Square, Trash2, Video, Play, Pause, Phone, ArrowLeft, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -323,7 +323,7 @@ export default function MessagesView({ conversations, participants, employees, i
   const callPhone = selected && selected.type !== 'group' ? (selectedParticipants[0]?.phone || null) : null
 
   return (
-    <div className="flex gap-4 h-[calc(100vh-9rem)] min-h-[540px]">
+    <div className="flex gap-4 h-[calc(100dvh-5.5rem)] md:h-[calc(100dvh-4rem)] min-h-[540px]">
       {/* ── Liste des conversations ── */}
       <div className={cn('w-full md:w-[300px] xl:w-[336px] flex-shrink-0 flex-col overflow-hidden rounded-2xl bg-white border border-[#EFE8DF] shadow-[var(--shadow-md)]', mobileThread ? 'hidden md:flex' : 'flex')}>
         <div className="p-4 pb-3">
@@ -353,7 +353,7 @@ export default function MessagesView({ conversations, participants, employees, i
             </div>
           )}
           <div className="flex gap-1 mt-3 p-1 rounded-full bg-[#F4F0E9]">
-            {([['all', 'Tous'], ['direct', 'Directs'], ['group', 'Groupes']] as const).map(([k, lbl]) => (
+            {([['all', 'Tous'], ['direct', 'Discussions'], ['group', 'Groupes']] as const).map(([k, lbl]) => (
               <button key={k} onClick={() => setTab(k)} className={cn('flex-1 py-1.5 rounded-full text-xs font-medium transition-colors', tab === k ? 'bg-white text-[#C14E33] shadow-sm' : 'text-gray-500 hover:text-gray-700')}>{lbl}</button>
             ))}
           </div>
@@ -642,15 +642,20 @@ function NewConversationDialog({ open, onOpenChange, roster, onCreated, viewer }
           <div className="max-h-64 overflow-y-auto space-y-1 rounded-lg border border-gray-100 p-2">
             {roster.length === 0 ? (
               <p className="text-sm text-gray-400 text-center py-4">Aucun salarié disponible.</p>
-            ) : roster.map(e => (
-              <label key={e.id} className="flex items-center gap-2.5 p-2 rounded-lg hover:bg-gray-50 cursor-pointer">
-                <input type="checkbox" checked={selectedIds.includes(e.id)} onChange={() => toggle(e.id)} className="accent-primary" />
-                <span className="grid place-items-center w-7 h-7 rounded-full text-white text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: e.color }}>
-                  {employeeInitials(e.full_name)}
-                </span>
-                <span className="text-sm text-gray-800">{e.full_name}</span>
-              </label>
-            ))}
+            ) : roster.map(e => {
+              const sel = selectedIds.includes(e.id)
+              return (
+                <button type="button" key={e.id} onClick={() => toggle(e.id)}
+                  className={cn('w-full flex items-center gap-2.5 p-2 rounded-lg text-left border transition-colors',
+                    sel ? 'bg-[#FCE7DE] border-[#F0C4B4]' : 'border-transparent hover:bg-gray-50')}>
+                  <span className="grid place-items-center w-7 h-7 rounded-full text-white text-[10px] font-bold flex-shrink-0" style={{ backgroundColor: e.color }}>
+                    {employeeInitials(e.full_name)}
+                  </span>
+                  <span className={cn('text-sm flex-1 min-w-0 truncate', sel ? 'text-[#C14E33] font-semibold' : 'text-gray-800')}>{e.full_name}</span>
+                  {sel && <Check className="w-4 h-4 text-[#C14E33] flex-shrink-0" />}
+                </button>
+              )
+            })}
           </div>
           {selectedIds.length > 1 && (
             <Input value={groupName} onChange={e => setGroupName(e.target.value)} placeholder="Nom du groupe (optionnel)" />
