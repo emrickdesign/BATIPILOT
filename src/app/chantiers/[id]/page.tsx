@@ -13,6 +13,7 @@ import type { Project, ProjectStatus } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
 import StatusSelect from '../StatusSelect'
 import MateriauxSection, { type MaterialRow } from './MateriauxSection'
+import AchatsSection, { type AchatDoc } from './AchatsSection'
 import AvancementControl from './AvancementControl'
 import ReceptionSection, { type Reception } from './ReceptionSection'
 import { buildNeeds, type QuoteLineLite } from '@/lib/materiaux'
@@ -38,6 +39,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     { data: quotes }, { data: invoices }, { data: plans }, { data: documents },
     { data: expenses }, { data: timeEntries }, { data: employees },
     { data: assignments }, { data: vehicleLogs }, { data: vehicles }, { data: subInvoices },
+    { data: supplierDocs },
   ] = await Promise.all([
     supabase.from('quotes').select('id,quote_number,status,total_ttc,subtotal_ht,issue_date').eq('project_id', id).order('created_at', { ascending: false }),
     supabase.from('invoices').select('id,invoice_number,status,total_ttc,amount_due,issue_date').eq('project_id', id).order('created_at', { ascending: false }),
@@ -50,6 +52,9 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     supabase.from('vehicle_logs').select('vehicle_id').eq('project_id', id),
     supabase.from('vehicles').select('id,name,plate').eq('user_id', user.id),
     supabase.from('subcontractor_invoices').select('amount_ht,amount_ttc,status').eq('project_id', id).eq('user_id', user.id),
+    supabase.from('supplier_documents')
+      .select('id,doc_type,supplier,doc_number,doc_date,total_ht,total_ttc,is_selected,consultation_label,storage_path,source,created_at, supplier_document_lines(id,designation,quantity,unit,unit_price_ht,total_ht,quality,sort_order)')
+      .eq('project_id', id).eq('user_id', user.id).order('created_at', { ascending: false }),
   ])
 
   // Album photo : images des documents + photos de pointage, URLs signées.
@@ -127,6 +132,19 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     }
   }
   materialRows.sort((a, b) => a.label.localeCompare(b.label, 'fr'))
+
+  // ── Achats fournisseurs (devis / BL / factures scannés) ──
+  const toNum = (v: unknown) => (v === null || v === undefined ? null : Number(v))
+  type SDLineRaw = { id: string; designation: string; quantity: unknown; unit: string | null; unit_price_ht: unknown; total_ht: unknown; quality: string | null; sort_order: number }
+  type SDRaw = { id: string; doc_type: 'devis' | 'bl' | 'facture'; supplier: string | null; doc_number: string | null; doc_date: string | null; total_ht: unknown; total_ttc: unknown; is_selected: boolean; consultation_label: string | null; storage_path: string | null; source: string; created_at: string; supplier_document_lines: SDLineRaw[] | null }
+  const achatDocs: AchatDoc[] = ((supplierDocs || []) as SDRaw[]).map(d => ({
+    id: d.id, doc_type: d.doc_type, supplier: d.supplier, doc_number: d.doc_number, doc_date: d.doc_date,
+    total_ht: toNum(d.total_ht), total_ttc: toNum(d.total_ttc), is_selected: d.is_selected,
+    consultation_label: d.consultation_label, storage_path: d.storage_path, source: d.source, created_at: d.created_at,
+    lines: (d.supplier_document_lines || [])
+      .map(l => ({ id: l.id, designation: l.designation, quantity: toNum(l.quantity), unit: l.unit, unit_price_ht: toNum(l.unit_price_ht), total_ht: toNum(l.total_ht), quality: l.quality, sort_order: l.sort_order }))
+      .sort((a, b) => a.sort_order - b.sort_order),
+  }))
 
   // Bloc équipe
   const assignedIds = [...new Set((assignments || []).map(a => a.employee_id))]
@@ -403,6 +421,9 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
 
       {/* Besoins matériaux (dérivés des devis acceptés) */}
       <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
+
+      {/* Achats & fournisseurs : comparatif devis + rapprochement Devis↔BL↔Facture */}
+      <AchatsSection projectId={id} docs={achatDocs} />
 
       {/* Plans liés */}
       {!!plans?.length && (
