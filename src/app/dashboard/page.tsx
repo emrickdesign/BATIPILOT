@@ -167,27 +167,58 @@ async function getData(userId: string) {
   const paid = inv.filter(i => isPaid(i.status) && i.issue_date)
   const sumBetween = (start: Date, end: Date) =>
     paid.filter(i => { const d = new Date(i.issue_date!); return d >= start && d < end }).reduce((s, i) => s + num(i.total_ttc), 0)
-  const s7 = Array.from({ length: 7 }, (_, k) => {
-    const d = new Date(now); d.setHours(0, 0, 0, 0); d.setDate(now.getDate() - (6 - k))
-    const e = new Date(d); e.setDate(d.getDate() + 1)
-    return { label: d.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', ''), value: sumBetween(d, e) }
-  })
-  const sMois = Array.from({ length: 12 }, (_, k) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - (11 - k), 1)
-    const e = new Date(now.getFullYear(), now.getMonth() - (11 - k) + 1, 1)
-    return { label: MONTHS[d.getMonth()], value: sumBetween(d, e) }
-  })
-  const curQ = Math.floor(now.getMonth() / 3)
-  const sTri = Array.from({ length: 4 }, (_, k) => {
-    const qi = curQ - (3 - k)
-    const y = now.getFullYear() + Math.floor(qi / 4)
-    const q = ((qi % 4) + 4) % 4
-    return { label: `T${q + 1}`, value: sumBetween(new Date(y, q * 3, 1), new Date(y, q * 3 + 3, 1)) }
-  })
-  const sAnnee = Array.from({ length: 5 }, (_, k) => {
-    const y = now.getFullYear() - (4 - k)
-    return { label: String(y), value: sumBetween(new Date(y, 0, 1), new Date(y + 1, 0, 1)) }
-  })
+  // Chaque période = { current, previous } : courbe actuelle + comparaison (pointillés).
+  const DAY_MS = 86400000
+  const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
+  const addDays = (d: Date, n: number) => { const x = startOfDay(d); x.setDate(x.getDate() + n); return x }
+  const wd = (d: Date) => d.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '')
+  const dm = (d: Date) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace('.', '')
+  // Buckets journaliers : [from, from+count[
+  const daily = (from: Date, count: number, label: (d: Date, i: number) => string) =>
+    Array.from({ length: count }, (_, k) => {
+      const a = addDays(from, k), b = addDays(a, 1)
+      return { label: label(a, k), value: sumBetween(a, b) }
+    })
+  // Buckets hebdomadaires
+  const weekly = (from: Date, count: number, label: (d: Date, i: number) => string) =>
+    Array.from({ length: count }, (_, k) => {
+      const a = addDays(from, k * 7), b = addDays(a, 7)
+      return { label: label(a, k), value: sumBetween(a, b) }
+    })
+  // Buckets mensuels à partir de (yy, mm)
+  const monthly = (yy: number, mm: number, count: number, label: (d: Date, i: number) => string) =>
+    Array.from({ length: count }, (_, k) => {
+      const a = new Date(yy, mm + k, 1), b = new Date(yy, mm + k + 1, 1)
+      return { label: label(a, k), value: sumBetween(a, b) }
+    })
+
+  const today0 = startOfDay(now)
+  const yNow = now.getFullYear(), mNow = now.getMonth(), dNow = now.getDate()
+
+  // 7 jours : 7 derniers jours vs 7 jours d'avant
+  const s7 = { current: daily(addDays(today0, -6), 7, wd), previous: daily(addDays(today0, -13), 7, wd) }
+
+  // Mois : mois en cours (jour 1 → aujourd'hui) vs même tranche du mois précédent
+  const prevMonthLen = new Date(yNow, mNow, 0).getDate()
+  const sMois = {
+    current: daily(new Date(yNow, mNow, 1), dNow, d => String(d.getDate())),
+    previous: daily(new Date(yNow, mNow - 1, 1), Math.min(dNow, prevMonthLen), d => String(d.getDate())),
+  }
+
+  // Trimestre : semaines écoulées du trimestre en cours vs trimestre précédent (mêmes semaines)
+  const curQ = Math.floor(mNow / 3)
+  const qStart = new Date(yNow, curQ * 3, 1)
+  const weeksElapsed = Math.min(14, Math.max(1, Math.ceil((today0.getTime() - startOfDay(qStart).getTime()) / (7 * DAY_MS)) + 1))
+  const sTri = {
+    current: weekly(qStart, weeksElapsed, dm),
+    previous: weekly(new Date(yNow, curQ * 3 - 3, 1), weeksElapsed, dm),
+  }
+
+  // Année : 12 mois de l'année en cours vs année précédente
+  const sAnnee = {
+    current: monthly(yNow, 0, 12, d => MONTHS[d.getMonth()]),
+    previous: monthly(yNow - 1, 0, 12, d => MONTHS[d.getMonth()]),
+  }
 
   // Devis envoyés vs acceptés (6 derniers mois) — 2e graphique du dashboard (doc §3.6)
   const devisSeries = Array.from({ length: 6 }, (_, k) => {
