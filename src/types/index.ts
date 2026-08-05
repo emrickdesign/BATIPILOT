@@ -606,3 +606,49 @@ export interface AppNotification {
   read_at?: string | null
   created_at: string
 }
+
+// ─── Achats fournisseurs (devis fournisseur, bon de livraison, facture fournisseur) ───
+export type SupplierDocType = 'devis' | 'bl' | 'facture'
+export type SupplierDocSource = 'admin' | 'terrain' | 'email'
+
+export interface SupplierDocumentLine {
+  id: string
+  document_id: string
+  user_id: string
+  designation: string
+  quantity?: number | null
+  unit?: string | null
+  unit_price_ht?: number | null
+  total_ht?: number | null
+  /** Gamme / qualité du matériau — clé pour comparer les devis. */
+  quality?: string | null
+  reference?: string | null
+  sort_order: number
+  created_at: string
+}
+
+export interface SupplierDocument {
+  id: string
+  user_id: string
+  project_id?: string | null
+  doc_type: SupplierDocType
+  supplier?: string | null
+  doc_number?: string | null
+  doc_date?: string | null
+  total_ht?: number | null
+  total_ttc?: number | null
+  vat_amount?: number | null
+  storage_path?: string | null
+  /** Devis fournisseur retenu = référence de prix du chantier. */
+  is_selected: boolean
+  consultation_label?: string | null
+  source: SupplierDocSource
+  employee_id?: string | null
+  source_email_id?: string | null
+  expense_id?: string | null
+  status: string
+  notes?: string | null
+  created_at: string
+  projects?: Project
+  supplier_document_lines?: SupplierDocumentLine[]
+}
