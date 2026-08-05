@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "skills": {
+    "Facebook/Meta Ads": {
+      "source": "claude-office-skills/skills",
+      "sourceType": "github",
+      "skillPath": "facebook-ads/SKILL.md",
+      "computedHash": "33cff4ee52d9243cd2c7f37a7197e322a6437cb1ece01ea1163b7ef4e0eadb99"
+    },
+    "ads-copywriter": {
+      "source": "claude-office-skills/skills",
+      "sourceType": "github",
+      "skillPath": "ads-copywriter/SKILL.md",
+      "computedHash": "143d60166187d611c5ef943ccb440252934306e0ea5e9615ce2a064e5ea4b7f8"
+    },
+    "ads-meta": {
+      "source": "agricidaniel/claude-ads",
+      "sourceType": "github",
+      "skillPath": "skills/ads-meta/SKILL.md",
+      "computedHash": "dc427d7c3c04fc31ecba77016949dc15cf3fb5938e315dc8d74436b8f14ce4be"
+    }
+  }
+}

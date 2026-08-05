@@ -13,11 +13,21 @@ import { toast } from 'sonner'
 import {
   ReceiptText, Camera, Upload, Trash2, Search, HardHat, FileText, Check, Send, Loader2, Download, Pencil,
 } from 'lucide-react'
-import type { Expense, ExpenseStatus } from '@/types'
+import type { Expense, ExpenseStatus, SupplierDocType } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import {
   expenseStatusLabels, expenseStatusColors, expenseCategoryOptions, paymentMethodOptions, expensesToCsv,
 } from '@/lib/depenses'
+import { supplierDocTypeLabels } from '@/lib/achats'
+import AchatsScanner from '@/components/achats/AchatsScanner'
+
+type ScanMode = 'ticket' | SupplierDocType
+const scanTabs: { key: ScanMode; label: string }[] = [
+  { key: 'ticket', label: 'Ticket' },
+  { key: 'bl', label: supplierDocTypeLabels.bl },
+  { key: 'facture', label: supplierDocTypeLabels.facture },
+  { key: 'devis', label: supplierDocTypeLabels.devis },
+]
 
 type Exp = Expense & { signedUrl?: string }
 type ProjectOption = { id: string; title: string }
@@ -37,12 +47,15 @@ const selectClass =
 const str = (v: unknown) => (v === null || v === undefined ? '' : String(v))
 
 export default function TicketsManager({
-  expenses, projects, preselectProject,
-}: { expenses: Exp[]; projects: ProjectOption[]; preselectProject?: string }) {
+  expenses, projects, preselectProject, initialType,
+}: { expenses: Exp[]; projects: ProjectOption[]; preselectProject?: string; initialType?: string }) {
   const router = useRouter()
   const cameraRef = useRef<HTMLInputElement>(null)
   const importRef = useRef<HTMLInputElement>(null)
 
+  const [mode, setMode] = useState<ScanMode>(
+    scanTabs.some(t => t.key === initialType) ? (initialType as ScanMode) : 'ticket',
+  )
   const [scanning, setScanning] = useState(false)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
@@ -184,24 +197,50 @@ export default function TicketsManager({
     <div className="space-y-5 animate-fade-up">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Scan tickets</h1>
-          <p className="text-gray-500 mt-1 text-sm">Photographiez vos tickets : on lit le montant et la TVA, et on garde le justificatif.</p>
+          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Scan tickets &amp; achats</h1>
+          <p className="text-gray-500 mt-1 text-sm">
+            {mode === 'ticket'
+              ? 'Photographiez vos tickets : on lit le montant et la TVA, et on garde le justificatif.'
+              : mode === 'bl'
+                ? 'Scannez un bon de livraison : on lit les matériaux livrés. Il ne crée pas de dépense — il sert au rapprochement du chantier.'
+                : mode === 'facture'
+                  ? 'Scannez une facture fournisseur : on lit le détail et on crée la dépense automatiquement.'
+                  : 'Scannez un devis fournisseur : on lit les prix pour le comparer aux autres devis dans la fiche du chantier.'}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
-          <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(f) }} />
-          <input ref={importRef} type="file" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(f) }} />
-          <Button variant="outline" className="h-10 gap-2" disabled={scanning} onClick={() => importRef.current?.click()}>
-            <Upload className="w-4 h-4" /> Importer
-          </Button>
-          <Button className="h-10 gap-2 shadow-sm" disabled={scanning} onClick={() => cameraRef.current?.click()}>
-            {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
-            {scanning ? 'Lecture...' : 'Prendre en photo'}
-          </Button>
-        </div>
+        {mode === 'ticket' && (
+          <div className="flex items-center gap-2">
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(f) }} />
+            <input ref={importRef} type="file" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(f) }} />
+            <Button variant="outline" className="h-10 gap-2" disabled={scanning} onClick={() => importRef.current?.click()}>
+              <Upload className="w-4 h-4" /> Importer
+            </Button>
+            <Button className="h-10 gap-2 shadow-sm" disabled={scanning} onClick={() => cameraRef.current?.click()}>
+              {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+              {scanning ? 'Lecture...' : 'Prendre en photo'}
+            </Button>
+          </div>
+        )}
       </div>
 
+      {/* Sélecteur de type de document */}
+      <div className="flex flex-wrap gap-2">
+        {scanTabs.map(t => (
+          <Chip key={t.key} active={mode === t.key} onClick={() => { setMode(t.key); setDraft(null) }}>{t.label}</Chip>
+        ))}
+      </div>
+
+      {mode !== 'ticket' ? (
+        <div className="space-y-2">
+          <AchatsScanner docType={mode} projects={projects} preselectProject={preselectProject} />
+          <p className="text-xs text-gray-400">
+            Retrouvez et comparez ces documents dans la fiche du chantier concerné (section Achats &amp; fournisseurs).
+          </p>
+        </div>
+      ) : (
+      <>
       {/* Totaux + export */}
       {expenses.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -359,6 +398,8 @@ export default function TicketsManager({
             )
           })}
         </div>
+      )}
+      </>
       )}
     </div>
   )

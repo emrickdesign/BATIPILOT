@@ -4,7 +4,7 @@ import TicketsManager from './TicketsManager'
 
 export default async function TicketsPage({
   searchParams,
-}: { searchParams: Promise<{ project?: string }> }) {
+}: { searchParams: Promise<{ project?: string; type?: string }> }) {
   const sp = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -34,6 +34,7 @@ export default async function TicketsPage({
       expenses={withUrls}
       projects={projects || []}
       preselectProject={sp.project}
+      initialType={sp.type}
     />
   )
 }
