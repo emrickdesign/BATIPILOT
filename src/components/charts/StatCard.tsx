@@ -76,7 +76,7 @@ export default function StatCard({ label, value, icon: Icon, tone, delta, gauge,
           ) : null}
         </div>
         <div className="text-[26px] font-bold text-white leading-none tracking-tight tabular-nums">{value}</div>
-        <div className="text-[12.5px] text-white/85 mt-1.5 font-medium">{label}</div>
+        <div className="text-[14px] text-white/90 mt-1.5 font-medium">{label}</div>
         {sp ? (
           <div className="-mx-4 -mb-4 mt-3">
             <svg className="w-full h-14 block" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden>
@@ -91,7 +91,7 @@ export default function StatCard({ label, value, icon: Icon, tone, delta, gauge,
             </svg>
           </div>
         ) : note ? (
-          <div className="text-[11px] text-white/70 mt-2 leading-tight">{note}</div>
+          <div className="text-[12px] text-white/75 mt-2 leading-tight">{note}</div>
         ) : null}
       </div>
     </div>

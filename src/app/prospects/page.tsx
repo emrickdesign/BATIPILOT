@@ -2,14 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { FluidTexture } from '@/components/ui/fluid-texture'
 import { Plus, UserPlus } from 'lucide-react'
 import type { Client, ClientStatus } from '@/types'
 import { clientDisplayName } from '@/lib/clients'
+import { STAT_TONES } from '@/components/charts/StatCard'
 import ProspectsKanban from './ProspectsKanban'
 import { PROSPECT_COLUMNS, type ProspectCardData } from './kanban-config'
-
-const PIPELINE_BLUE = '#D0562F'
 
 const num = (v: unknown) => Number(v) || 0
 
@@ -88,23 +86,26 @@ export default async function ProspectsPage() {
         </Card>
       ) : (
         <>
-          {/* §5.1 Résumé pipeline */}
-          <Card className="relative border-0 overflow-hidden text-white shadow-[var(--shadow-lg)] animate-fade-up" style={{ backgroundColor: PIPELINE_BLUE }}>
-            <FluidTexture color={PIPELINE_BLUE} />
-            <CardContent className="p-5 relative z-10">
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-x-4 gap-y-5">
-                {PROSPECT_COLUMNS.map(c => (
-                  <div key={c.key}>
-                    <div className="flex items-center gap-1.5 text-white/70 text-xs font-medium">
-                      <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: c.dot, boxShadow: '0 0 0 2px rgba(255,255,255,0.25)' }} />
-                      {c.label}
-                    </div>
-                    <div className="text-[28px] font-bold leading-none mt-1.5">{countCol(c)}</div>
+          {/* §5.1 Résumé pipeline — tuiles KPI pleine couleur (une par statut) */}
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 animate-fade-up">
+            {PROSPECT_COLUMNS.map(c => {
+              const t = STAT_TONES[c.tone]
+              return (
+                <div
+                  key={c.key}
+                  className="relative overflow-hidden rounded-xl p-4 text-white transition-all duration-200 hover:-translate-y-0.5"
+                  style={{ background: `linear-gradient(140deg, ${t.base} 0%, ${t.deep} 100%)`, boxShadow: `0 16px 34px -16px ${t.glow}` }}
+                >
+                  <div aria-hidden className="absolute -top-10 -right-8 w-28 h-28 rounded-full pointer-events-none"
+                    style={{ background: 'radial-gradient(circle, rgba(255,255,255,.20), transparent 70%)' }} />
+                  <div className="relative">
+                    <div className="text-[28px] font-bold leading-none tabular-nums">{countCol(c)}</div>
+                    <div className="text-[13px] text-white/90 mt-1.5 font-medium">{c.label}</div>
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+                </div>
+              )
+            })}
+          </div>
 
           {/* §5.2 Vue Kanban — glisser-déposer, grille responsive (s'adapte au repli de la sidebar) */}
           <div className="animate-fade-up">
