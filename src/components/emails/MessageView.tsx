@@ -37,7 +37,7 @@ function humanSize(bytes: number): string {
 
 const CATEGORY_LABEL: Record<string, string> = {
   demande_devis: '📋 Devis', client_a_repondre: '💬 Client', relance_client: '🔔 Relance',
-  fournisseur: '📦 Fournisseur', facture_recue: '🧾 Facture', document_admin: '📄 Admin',
+  fournisseur: '📦 Fournisseur', facture_recue: '🧾 Facture', bon_livraison: '🚚 Bon de livraison', document_admin: '📄 Admin',
   pub_newsletter: '📣 Pub', spam: '🗑️ Spam', personnel: '👤 Perso', a_verifier: '❓ À vérifier',
 }
 

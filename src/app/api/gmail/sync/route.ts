@@ -1,8 +1,38 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import { normalizeScanned, buildAchatsExtractionPrompt } from '@/lib/achats'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+
+type GmailPart = { filename?: string; mimeType?: string; body?: { attachmentId?: string; data?: string }; parts?: GmailPart[] }
+
+// Cherche la première pièce jointe PDF dans un message Gmail (récursif).
+function findPdfAttachment(part: GmailPart | undefined | null): { attachmentId: string; filename: string } | null {
+  if (!part) return null
+  const fn = part.filename || ''
+  if (part.body?.attachmentId && (part.mimeType === 'application/pdf' || fn.toLowerCase().endsWith('.pdf'))) {
+    return { attachmentId: part.body.attachmentId, filename: fn || 'document.pdf' }
+  }
+  if (Array.isArray(part.parts)) {
+    for (const p of part.parts) {
+      const found = findPdfAttachment(p)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+async function gmailFetchAttachment(messageId: string, attachmentId: string, accessToken: string): Promise<Buffer | null> {
+  const res = await fetch(
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${attachmentId}`,
+    { headers: { Authorization: `Bearer ${accessToken}` } },
+  )
+  if (!res.ok) return null
+  const json = await res.json()
+  if (!json?.data) return null
+  return Buffer.from(String(json.data).replace(/-/g, '+').replace(/_/g, '/'), 'base64')
+}
 
 async function refreshAccessToken(clientId: string, clientSecret: string, refreshToken: string) {
   const res = await fetch('https://oauth2.googleapis.com/token', {
@@ -151,7 +181,9 @@ export async function POST(req: NextRequest) {
               messages: [{
                 role: 'user',
                 content: `Analyse cet email d'un artisan du bâtiment et retourne uniquement ce JSON :
-{"category":"demande_devis|client_a_repondre|relance_client|fournisseur|facture_recue|document_admin|pub_newsletter|spam|personnel|a_verifier","importance":"urgent|important|normal|faible|ignorer","summary":"1 phrase résumé","action":"action recommandée en 1 phrase ou null"}
+{"category":"demande_devis|client_a_repondre|relance_client|fournisseur|facture_recue|bon_livraison|document_admin|pub_newsletter|spam|personnel|a_verifier","importance":"urgent|important|normal|faible|ignorer","summary":"1 phrase résumé","action":"action recommandée en 1 phrase ou null"}
+
+Notes : "facture_recue" = facture d'un fournisseur de matériaux. "bon_livraison" = bon de livraison d'un fournisseur (liste de marchandise livrée, souvent en pièce jointe).
 
 De: ${fromName} <${fromEmail}>
 Objet: ${subject}
@@ -187,26 +219,86 @@ Corps: ${bodyText.slice(0, 800)}`
         }).select('id').single()
         synced++
 
-        // Facture reçue → dépense créée automatiquement (à vérifier). L'index
-        // unique (user_id, source_email_id) empêche tout doublon.
-        if (category === 'facture_recue' && insertedEmail?.id) {
+        // Facture / bon de livraison fournisseur reçu par email → entre dans le
+        // système Achats (avec extraction du PDF joint). L'index unique
+        // (user_id, source_email_id) empêche tout doublon au re-sync.
+        if ((category === 'facture_recue' || category === 'bon_livraison') && insertedEmail?.id) {
           try {
-            const ttc = extractInvoiceAmount(bodyText)
-            await supabase.from('expenses').insert({
+            const docType = category === 'facture_recue' ? 'facture' : 'bl'
+
+            // Extraction détaillée depuis le PDF joint si présent.
+            let scanned = normalizeScanned({ supplier: fromName || fromEmail })
+            let storagePath: string | null = null
+            const att = findPdfAttachment(detail.payload)
+            if (att) {
+              const bytes = await gmailFetchAttachment(msg.id, att.attachmentId, accessToken)
+              if (bytes) {
+                const safe = att.filename.replace(/[^a-zA-Z0-9.\-_]/g, '_')
+                storagePath = `achats/${user.id}/email-${Date.now()}-${safe}`
+                await supabase.storage.from('documents').upload(storagePath, bytes, { contentType: 'application/pdf', upsert: false }).catch(() => {})
+                try {
+                  const ex = await anthropic.messages.create({
+                    model: 'claude-sonnet-4-6',
+                    max_tokens: 4096,
+                    messages: [{ role: 'user', content: [
+                      { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: bytes.toString('base64') } },
+                      { type: 'text', text: buildAchatsExtractionPrompt(docType) },
+                    ] }],
+                  })
+                  const exText = ex.content[0]?.type === 'text' ? ex.content[0].text : ''
+                  const jm = exText.match(/```json\n?([\s\S]*?)\n?```/) || exText.match(/(\{[\s\S]*\})/)
+                  if (jm) scanned = normalizeScanned(JSON.parse(jm[1] || jm[0]))
+                  if (!scanned.supplier) scanned.supplier = fromName || fromEmail
+                } catch (e) { console.error('Extraction PDF email:', e) }
+              }
+            }
+
+            // Facture → dépense (la facture, c'est la sortie d'argent). BL → pas de dépense.
+            let expenseId: string | null = null
+            if (docType === 'facture') {
+              const ttc = scanned.total_ttc ?? extractInvoiceAmount(bodyText)
+              const ht = scanned.total_ht ?? 0
+              const { data: exp } = await supabase.from('expenses').insert({
+                user_id: user.id,
+                supplier: scanned.supplier || fromName || fromEmail,
+                expense_date: scanned.doc_date || receivedAt.slice(0, 10),
+                amount_ttc: ttc,
+                amount_ht: ht,
+                vat_amount: scanned.vat_amount ?? 0,
+                category: 'Matériaux',
+                ticket_number: scanned.doc_number,
+                storage_path: storagePath,
+                notes: `Facture reçue par email : ${subject}`.slice(0, 500),
+                status: 'a_verifier',
+                source: 'email',
+                source_email_id: insertedEmail.id,
+              }).select('id').single()
+              expenseId = exp?.id ?? null
+            }
+
+            const { data: doc } = await supabase.from('supplier_documents').insert({
               user_id: user.id,
-              supplier: fromName || fromEmail,
-              expense_date: receivedAt.slice(0, 10),
-              amount_ttc: ttc,
-              amount_ht: 0,
-              vat_amount: 0,
-              category: 'Facture fournisseur',
-              notes: `Facture reçue par email : ${subject}`.slice(0, 500),
-              status: 'a_verifier',
+              doc_type: docType,
+              supplier: scanned.supplier,
+              doc_number: scanned.doc_number,
+              doc_date: scanned.doc_date || receivedAt.slice(0, 10),
+              total_ht: scanned.total_ht,
+              total_ttc: scanned.total_ttc,
+              vat_amount: scanned.vat_amount,
+              storage_path: storagePath,
               source: 'email',
               source_email_id: insertedEmail.id,
-            })
+              expense_id: expenseId,
+              status: 'a_verifier',
+            }).select('id').single()
+
+            if (doc?.id && scanned.lines.length) {
+              await supabase.from('supplier_document_lines').insert(
+                scanned.lines.map((l, i) => ({ document_id: doc.id, user_id: user.id, ...l, sort_order: i })),
+              )
+            }
           } catch (e) {
-            console.error('Auto-dépense facture:', e)
+            console.error('Ingestion achats email:', e)
           }
         }
       } catch (e) {

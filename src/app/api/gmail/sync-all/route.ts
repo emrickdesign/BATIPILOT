@@ -19,6 +19,9 @@ function classifyByKeywords(subject: string, fromEmail: string) {
   if (sub.includes('relance') || sub.includes('rappel') || sub.includes('reminder') || sub.includes('urgent')) {
     return { category: 'relance_client', importance: 'important', summary: 'Relance ou rappel', action: 'Répondre rapidement' }
   }
+  if (sub.includes('bon de livraison') || /\bbl\b/.test(sub)) {
+    return { category: 'bon_livraison', importance: 'normal', summary: 'Bon de livraison fournisseur', action: 'Rattacher au chantier' }
+  }
   if (sub.includes('commande') || sub.includes('livraison') || sub.includes('expedition') || sub.includes('bon de commande')) {
     return { category: 'fournisseur', importance: 'normal', summary: 'Commande ou livraison fournisseur', action: null }
   }
@@ -36,7 +39,7 @@ async function classifyWithAI(subject: string, fromName: string, fromEmail: stri
       messages: [{
         role: 'user',
         content: `Analyse cet email d'un artisan du bâtiment et retourne uniquement ce JSON :
-{"category":"demande_devis|client_a_repondre|relance_client|fournisseur|facture_recue|document_admin|pub_newsletter|spam|personnel|a_verifier","importance":"urgent|important|normal|faible|ignorer","summary":"1 phrase résumé","action":"action recommandée en 1 phrase ou null"}
+{"category":"demande_devis|client_a_repondre|relance_client|fournisseur|facture_recue|bon_livraison|document_admin|pub_newsletter|spam|personnel|a_verifier","importance":"urgent|important|normal|faible|ignorer","summary":"1 phrase résumé","action":"action recommandée en 1 phrase ou null"}
 
 De: ${fromName} <${fromEmail}>
 Objet: ${subject}

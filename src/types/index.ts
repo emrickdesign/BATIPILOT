@@ -21,7 +21,7 @@ export type InvoiceType = 'complete' | 'acompte' | 'intermediaire' | 'solde' | '
 
 export type EmailCategory =
   | 'demande_devis' | 'client_a_repondre' | 'relance_client' | 'fournisseur'
-  | 'facture_recue' | 'document_admin' | 'chantier_en_cours'
+  | 'facture_recue' | 'bon_livraison' | 'document_admin' | 'chantier_en_cours'
   | 'pub_newsletter' | 'spam' | 'personnel' | 'a_verifier'
 
 export type EmailImportance = 'urgent' | 'important' | 'normal' | 'faible' | 'ignorer'
