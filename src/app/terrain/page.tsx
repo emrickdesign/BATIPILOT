@@ -5,6 +5,7 @@ import {
   Sun, HardHat, MapPin, Navigation, Camera, ReceiptText, Clock, User, Users2, LogIn, ArrowRight, ChevronLeft, MessageSquare, Building2, Mic,
 } from 'lucide-react'
 import { employeeInitials } from '@/lib/equipe'
+import TerrainBlScanner from './TerrainBlScanner'
 
 const num = (v: unknown) => Number(v) || 0
 
@@ -144,6 +145,13 @@ export default async function TerrainPage({ searchParams }: { searchParams: Prom
           <QuickAction href="/documents" icon={<Camera className="w-5 h-5" />} label="Photo" />
           <QuickAction href={`/terrain/messages?emp=${me.id}`} icon={<MessageSquare className="w-5 h-5" />} label="Messages" />
         </section>
+
+        {/* Scan d'un bon de livraison (le salarié capte, l'admin contrôle) */}
+        <TerrainBlScanner
+          employeeId={me.id}
+          projects={(projects || []).map(p => ({ id: p.id, title: p.title }))}
+          defaultProjectId={todayProjectIds.length === 1 ? (todayProjectIds[0] as string) : undefined}
+        />
 
         {/* Mes réunions */}
         <Link
