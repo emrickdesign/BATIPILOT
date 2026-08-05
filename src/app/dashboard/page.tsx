@@ -3,15 +3,14 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
   Wallet, Send, Coins, FileText, Clock, ReceiptText, Landmark, HardHat,
-  AlertTriangle, CheckCircle2, TrendingUp, Banknote,
+  CheckCircle2, TrendingUp, Banknote,
   Bell, CalendarDays, ArrowRight, Receipt, Users, FileCheck2, BadgeEuro,
   type LucideIcon,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { formatCurrency } from '@/lib/utils'
-import { projectStatusLabels, projectStatusColors } from '@/lib/chantiers'
-import type { ProjectStatus } from '@/types'
+import { timeProgress, isAValider } from '@/lib/chantiers'
+import ChantiersActifsList from './ChantiersActifsList'
 import EncaissementsChart from './EncaissementsChart'
 import DonutMetricCard from '@/components/charts/DonutMetricCard'
 import StatCard, { type StatTone } from '@/components/charts/StatCard'
@@ -152,16 +151,27 @@ async function getData(userId: string) {
     sansEquipe: sansEquipeDemain,
   }
   const chantiersActifs = activeProjects
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .map(c => {
+      const tp = timeProgress(c.start_date, c.end_date, now)
+      return {
+        id: c.id,
+        title: c.title,
+        status: c.status,
+        hasDates: !!(c.start_date && c.end_date),
+        progress: tp ?? 0,
+        aValider: isAValider(c.status, c.end_date, today),
+        endDate: c.end_date ?? null,
+        retardJours: c.end_date && c.end_date < today ? daysSince(c.end_date) : 0,
+        sansEquipe: !teamProjects.has(c.id),
+        createdTs: new Date(c.created_at).getTime(),
+      }
+    })
+    // À valider en haut, puis avancement décroissant, puis plus récents
+    .sort((a, b) =>
+      (Number(b.aValider) - Number(a.aValider)) ||
+      (b.progress - a.progress) ||
+      (b.createdTs - a.createdTs))
     .slice(0, 5)
-    .map(c => ({
-      id: c.id,
-      title: c.title,
-      status: c.status,
-      progress: Math.max(0, Math.min(100, num((c as { progress?: number }).progress))),
-      retardJours: c.end_date && c.end_date < today ? daysSince(c.end_date) : 0,
-      sansEquipe: !teamProjects.has(c.id),
-    }))
 
   // ── 4. Évolution des encaissements (séries) ─────────────────────────
   const paid = inv.filter(i => isPaid(i.status) && i.issue_date)
@@ -704,40 +714,7 @@ export default async function DashboardPage() {
           <Card className="lg:col-span-2 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
             <CardContent className="p-5">
               <h3 className="text-sm font-semibold text-gray-500 mb-4">Chantiers actifs · avancement</h3>
-              {d.chantiersActifs.length === 0 ? (
-                <p className="text-sm text-gray-400 py-6 text-center">Aucun chantier actif — <Link href="/chantiers/nouveau" className="text-primary hover:underline">créez-en un</Link>.</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {d.chantiersActifs.map(c => {
-                    const barColor = c.progress >= 80 ? '#4C6F18' : c.progress >= 40 ? '#E0674C' : '#C77D0E'
-                    return (
-                      <Link key={c.id} href={`/chantiers/${c.id}`} className="block hover:bg-black/[0.03] rounded-lg px-2 -mx-2 py-2 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <span className="grid place-items-center w-8 h-8 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><HardHat className="w-4 h-4" /></span>
-                          <span className="text-sm font-medium text-gray-700 flex-1 min-w-0 truncate">{c.title}</span>
-                          {c.retardJours > 0 && (
-                            <span className="hidden sm:inline-flex items-center gap-1 text-[11px] font-medium text-[#C0392B] flex-shrink-0">
-                              <AlertTriangle className="w-3 h-3" /> {c.retardJours}j
-                            </span>
-                          )}
-                          <Badge className={`${projectStatusColors[c.status as ProjectStatus] || 'bg-gray-100 text-gray-700'} border-0 text-xs flex-shrink-0`}>
-                            {projectStatusLabels[c.status as ProjectStatus] || c.status}
-                          </Badge>
-                        </div>
-                        <div className="flex items-center gap-2.5 mt-2 pl-11">
-                          <div className="flex-1 h-1.5 rounded-full bg-black/[0.07] overflow-hidden">
-                            <div className="h-full rounded-full" style={{ width: `${c.progress}%`, backgroundColor: barColor }} />
-                          </div>
-                          <span className="text-[11px] font-semibold text-marine tabular-nums w-8 text-right flex-shrink-0">{c.progress}%</span>
-                          <span className={`hidden md:inline-flex items-center gap-1 text-[11px] font-medium flex-shrink-0 w-[92px] ${c.sansEquipe ? 'text-[#C77D0E]' : 'text-[#4C6F18]'}`}>
-                            {c.sansEquipe ? <><AlertTriangle className="w-3 h-3" /> Sans équipe</> : <><CheckCircle2 className="w-3 h-3" /> Équipe OK</>}
-                          </span>
-                        </div>
-                      </Link>
-                    )
-                  })}
-                </div>
-              )}
+              <ChantiersActifsList items={d.chantiersActifs} />
             </CardContent>
           </Card>
         </div>

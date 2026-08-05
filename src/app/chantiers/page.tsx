@@ -7,7 +7,7 @@ import StatCard from '@/components/charts/StatCard'
 import { type ChantierCard } from './ChantiersList'
 import ChantiersKanban from './ChantiersKanban'
 import { chantierCol, type ChantierCardData } from './kanban-config'
-import { clientDisplayName } from '@/lib/chantiers'
+import { clientDisplayName, timeProgress } from '@/lib/chantiers'
 
 const num = (v: unknown) => Number(v) || 0
 
@@ -105,7 +105,7 @@ export default async function ChantiersPage() {
         margePos: (c.marge ?? 0) >= 0,
         enRetard: c.enRetard,
         equipeCount: c.equipeCount,
-        progress: Number(c.progress) || 0,
+        progress: timeProgress(c.start_date, c.end_date) ?? 0,
         cta: ctaForCol(chantierCol(c.status)),
       }))} />
     </div>

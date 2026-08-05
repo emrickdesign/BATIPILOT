@@ -52,6 +52,26 @@ export const projectStatusOrder: ProjectStatus[] = [
   'a_planifier', 'planifie', 'en_cours', 'en_pause', 'termine', 'a_facturer', 'facture', 'paye', 'archive',
 ]
 
+// Avancement TEMPOREL d'un chantier : part du temps écoulé entre début et fin prévus.
+// Renvoie null si une date manque (calcul impossible). Avant le début = 0 %, après la fin = 100 %.
+export function timeProgress(start?: string | null, end?: string | null, now: Date = new Date()): number | null {
+  if (!start || !end) return null
+  const s = new Date(start).getTime(), e = new Date(end).getTime()
+  if (Number.isNaN(s) || Number.isNaN(e)) return null
+  const t = now.getTime()
+  if (e <= s) return t >= e ? 100 : 0
+  return Math.max(0, Math.min(100, Math.round(((t - s) / (e - s)) * 100)))
+}
+
+// Statuts « clôturés » : le chantier est déjà validé/terminé, plus rien à valider.
+export const CLOSED_STATUSES: ProjectStatus[] = ['termine', 'a_facturer', 'facture', 'paye', 'archive']
+
+// Un chantier est « à valider » quand sa date de fin prévue est atteinte/dépassée
+// alors qu'il n'est pas encore clôturé : l'artisan doit confirmer « terminé » ou replanifier.
+export function isAValider(status: ProjectStatus, end?: string | null, today: string = new Date().toISOString().split('T')[0]): boolean {
+  return !!end && end <= today && !CLOSED_STATUSES.includes(status)
+}
+
 // Types de chantier (issus du document, project_type est du texte libre en base)
 export const projectTypeOptions: string[] = [
   'Rénovation complète', 'Rénovation appartement', 'Rénovation maison',

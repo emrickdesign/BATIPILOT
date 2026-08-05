@@ -57,13 +57,18 @@ export default function ChantierForm({ project }: { project?: Project }) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
 
+    const startDate = (data.get('start_date') as string) || ''
+    const endDate = (data.get('end_date') as string) || ''
+    if (!startDate || !endDate) { toast.error('Renseigne les dates de début et de fin prévues.'); setLoading(false); return }
+    if (endDate < startDate) { toast.error('La date de fin doit être après la date de début.'); setLoading(false); return }
+
     const payload = {
       client_id: clientId || null,
       title: data.get('title') as string,
       project_type: (data.get('project_type') as string) || null,
       address: (data.get('address') as string) || null,
-      start_date: (data.get('start_date') as string) || null,
-      end_date: (data.get('end_date') as string) || null,
+      start_date: startDate,
+      end_date: endDate,
       status,
       is_outdoor: isOutdoor,
       description: (data.get('description') as string) || null,
@@ -140,14 +145,15 @@ export default function ChantierForm({ project }: { project?: Project }) {
               placeholder="12 rue de la Paix, 75001 Paris" />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="start_date">Début prévu</Label>
-            <Input id="start_date" name="start_date" type="date" defaultValue={project?.start_date || ''} className="w-full sm:w-[150px]" />
+            <Label htmlFor="start_date">Début prévu *</Label>
+            <Input id="start_date" name="start_date" type="date" required defaultValue={project?.start_date || ''} className="w-full sm:w-[150px]" />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="end_date">Fin prévue</Label>
-            <Input id="end_date" name="end_date" type="date" defaultValue={project?.end_date || ''} className="w-full sm:w-[150px]" />
+            <Label htmlFor="end_date">Fin prévue *</Label>
+            <Input id="end_date" name="end_date" type="date" required defaultValue={project?.end_date || ''} className="w-full sm:w-[150px]" />
           </div>
         </div>
+        <p className="mt-2 text-xs text-gray-400">Ces dates pilotent l&apos;avancement automatique du chantier et la détection des retards.</p>
         <button type="button" onClick={() => setIsOutdoor(v => !v)}
           className={`mt-3 flex items-start gap-3 w-full text-left rounded-xl border p-3 transition-colors ${isOutdoor ? 'border-primary/40 bg-primary/[0.04]' : 'border-gray-200 hover:border-gray-300'}`}>
           <span className={`mt-0.5 grid place-items-center w-5 h-5 rounded-md border-2 flex-shrink-0 transition-colors ${isOutdoor ? 'bg-primary border-primary text-white' : 'border-gray-300'}`}>
