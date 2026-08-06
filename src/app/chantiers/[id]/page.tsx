@@ -15,6 +15,7 @@ import StatusSelect from '../StatusSelect'
 import MateriauxSection, { type MaterialRow } from './MateriauxSection'
 import AchatsSection, { type AchatDoc } from './AchatsSection'
 import AvancementControl from './AvancementControl'
+import NotesSection, { type NoteRow } from './NotesSection'
 import ReceptionSection, { type Reception } from './ReceptionSection'
 import { buildNeeds, type QuoteLineLite } from '@/lib/materiaux'
 
@@ -71,6 +72,10 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     const { data: signed } = await supabase.storage.from('documents').createSignedUrls(photoPaths, 3600)
     photoUrls = (signed || []).map(s => s.signedUrl).filter(Boolean) as string[]
   }
+
+  const { data: notes } = await supabase.from('notes')
+    .select('id, body, author_name, author_employee_id, created_at')
+    .eq('project_id', id).eq('user_id', user.id).order('created_at', { ascending: false })
 
   // Réception de chantier (PV) + éventuelle demande de signature associée.
   const reception = (await supabase.from('project_receptions').select('*').eq('project_id', id).order('created_at', { ascending: false }).limit(1).maybeSingle()).data
@@ -424,6 +429,9 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
 
       {/* Achats & fournisseurs : comparatif devis + rapprochement Devis↔BL↔Facture */}
       <AchatsSection projectId={id} docs={achatDocs} />
+
+      {/* Notes du chantier (admin + salariés) */}
+      <NotesSection projectId={id} ownerId={user.id} authorName={user.email?.split('@')[0] || 'Admin'} initial={(notes || []) as NoteRow[]} />
 
       {/* Plans liés */}
       {!!plans?.length && (

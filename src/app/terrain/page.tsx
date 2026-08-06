@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import {
-  Sun, HardHat, MapPin, Navigation, Camera, ReceiptText, Clock, User, Users2, LogIn, ArrowRight, ChevronLeft, MessageSquare, Building2, Mic,
+  Sun, HardHat, MapPin, Navigation, Camera, ReceiptText, Clock, User, Users2, LogIn, ArrowRight, ChevronLeft, MessageSquare, Building2, StickyNote,
 } from 'lucide-react'
 import { employeeInitials } from '@/lib/equipe'
 import TerrainBlScanner from './TerrainBlScanner'
@@ -63,13 +63,6 @@ export default async function TerrainPage({ searchParams }: { searchParams: Prom
     supabase.from('time_entries').select('hours, date').eq('user_id', user.id).eq('employee_id', me.id).gte('date', mondayStr),
     supabase.from('projects').select('id, title, address, notes').eq('user_id', user.id),
   ])
-
-  const { count: unreadReunions } = await supabase
-    .from('notifications')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('employee_id', me.id)
-    .is('read_at', null)
 
   const projById = new Map((projects || []).map(p => [p.id, p]))
   const empName = new Map(emps.map(e => [e.id, e.full_name]))
@@ -153,20 +146,17 @@ export default async function TerrainPage({ searchParams }: { searchParams: Prom
           defaultProjectId={todayProjectIds.length === 1 ? (todayProjectIds[0] as string) : undefined}
         />
 
-        {/* Mes réunions */}
+        {/* Notes chantier */}
         <Link
-          href={`/terrain/reunions?emp=${me.id}`}
+          href={`/terrain/notes?emp=${me.id}`}
           className="flex items-center gap-3 rounded-2xl border border-orange-100 bg-orange-50/60 p-4 transition hover:bg-orange-50"
         >
           <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-orange-600 text-white">
-            <Mic className="h-5 w-5" />
-            {unreadReunions ? (
-              <span className="absolute -right-1 -top-1 grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ring-2 ring-white">{unreadReunions > 9 ? '9+' : unreadReunions}</span>
-            ) : null}
+            <StickyNote className="h-5 w-5" />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block font-semibold text-marine">Mes réunions</span>
-            <span className="block text-xs text-gray-500">{unreadReunions ? `${unreadReunions} nouvelle${unreadReunions > 1 ? 's' : ''} notification${unreadReunions > 1 ? 's' : ''}` : 'Comptes-rendus et mes actions à faire'}</span>
+            <span className="block font-semibold text-marine">Notes chantier</span>
+            <span className="block text-xs text-gray-500">Consignes et notes du chantier — ajoutez les vôtres</span>
           </span>
           <ArrowRight className="h-4 w-4 text-orange-400" />
         </Link>

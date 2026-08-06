@@ -1,5 +1,5 @@
 import AppLayout from '@/components/layout/AppLayout'
 
-export default function ReunionsLayout({ children }: { children: React.ReactNode }) {
+export default function NotesLayout({ children }: { children: React.ReactNode }) {
   return <AppLayout>{children}</AppLayout>
 }
