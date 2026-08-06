@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { ArrowLeft, Camera } from 'lucide-react'
 import { clientDisplayName } from '@/lib/chantiers'
+import ClientCombobox from '@/components/ClientCombobox'
 
 type ClientOption = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null; site_address: string | null; billing_address: string | null }
 const clientAddress = (c?: ClientOption | null) => (c ? (c.site_address || c.billing_address || '') : '')
@@ -66,16 +67,16 @@ function NouvelleVisiteForm() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="client">Client / prospect (optionnel)</Label>
-            <select id="client" value={clientId} onChange={e => {
-                const id = e.target.value
+            <ClientCombobox
+              options={clients.map(c => ({ id: c.id, label: clientDisplayName(c) }))}
+              value={clientId}
+              onChange={id => {
                 setClientId(id)
                 const addr = clientAddress(clients.find(c => c.id === id))
                 if (id && addr && !address.trim()) setAddress(addr)
               }}
-              className="w-full h-11 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-              <option value="">— Aucun pour l&apos;instant —</option>
-              {clients.map(c => <option key={c.id} value={c.id}>{clientDisplayName(c)}</option>)}
-            </select>
+              placeholder="Rechercher un client / prospect…"
+            />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="address">Adresse (optionnel)</Label>

@@ -57,7 +57,7 @@ export default async function VisitesPage() {
               ) : (
                 <span className="grid place-items-center w-28 sm:w-32 flex-shrink-0 bg-[#FCE7DE] text-[#C14E33] self-stretch"><Camera className="w-7 h-7" /></span>
               )}
-              <div className="p-3 pr-9 min-w-0 flex-1 flex flex-col justify-center gap-1">
+              <div className="p-3 pt-9 min-w-0 flex-1 flex flex-col justify-center gap-1">
                 <p className="text-sm font-semibold text-marine truncate">{v.title}</p>
                 <p className="text-xs text-gray-400 truncate">
                   {new Date(v.created_at).toLocaleDateString('fr-FR')}{cliName ? ` · ${cliName}` : ''}

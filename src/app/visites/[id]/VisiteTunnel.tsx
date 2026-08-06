@@ -12,6 +12,7 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import DictationButton from '@/components/DictationButton'
 import CameraCapture from '@/components/CameraCapture'
+import ClientCombobox from '@/components/ClientCombobox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ArrowLeft, Camera, Loader2, Trash2, Sparkles, FileText, ImagePlus, HardHat, CheckCircle2 } from 'lucide-react'
 import { clientDisplayName } from '@/lib/chantiers'
@@ -162,17 +163,16 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs text-gray-500">Client / prospect</Label>
-              <select value={clientId} onChange={e => {
-                  const id = e.target.value
+              <ClientCombobox
+                options={clients.map(c => ({ id: c.id, label: clientDisplayName(c) }))}
+                value={clientId}
+                onChange={id => {
                   setClientId(id); patch({ client_id: id || null })
-                  // Pré-remplit l'adresse depuis la fiche client si le champ est vide
                   const addr = clientAddress(clients.find(c => c.id === id))
                   if (id && addr && !address.trim()) { setAddress(addr); patch({ address: addr }) }
                 }}
-                className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-                <option value="">— Aucun —</option>
-                {clients.map(c => <option key={c.id} value={c.id}>{clientDisplayName(c)}</option>)}
-              </select>
+                placeholder="Rechercher un client / prospect…"
+              />
             </div>
             <div className="space-y-1">
               <Label className="text-xs text-gray-500">Adresse</Label>
