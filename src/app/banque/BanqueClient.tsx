@@ -62,15 +62,13 @@ export default function BanqueClient({ transactions, openInvoices }: { transacti
   async function reconcile(tx: TxItem) {
     if (!tx.suggestion) return
     setBusyId(tx.id)
-    const supabase = createClient()
-    const [a, b] = await Promise.all([
-      supabase.from('invoices').update({ status: 'payee' }).eq('id', tx.suggestion.invoiceId),
-      supabase.from('bank_transactions').update({
-        status: 'rapproche', matched_invoice_id: tx.suggestion.invoiceId, matched_client_id: tx.suggestion.clientId,
-      }).eq('id', tx.id),
-    ])
-    if (a.error || b.error) toast.error('Erreur lors du rapprochement')
-    else { toast.success('Paiement rapproché, facture marquée payée'); router.refresh() }
+    // Passe par l'API : met à jour la facture (paiement partiel ou soldé) + apprend l'IBAN du payeur.
+    const res = await fetch('/api/bank/reconcile', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ txId: tx.id, invoiceId: tx.suggestion.invoiceId, clientId: tx.suggestion.clientId }),
+    })
+    if (!res.ok) toast.error('Erreur lors du rapprochement')
+    else { toast.success('Paiement rapproché'); router.refresh() }
     setBusyId(null)
   }
 

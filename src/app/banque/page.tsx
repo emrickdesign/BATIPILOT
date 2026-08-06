@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import { ArrowDownToLine, Wallet, Link2 } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowDownToLine, Wallet, Link2, Landmark } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
 import StatCard from '@/components/charts/StatCard'
@@ -83,13 +84,27 @@ export default async function BanquePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   const d = await getData(user.id)
+  const { data: bankConn } = await supabase.from('bank_connections')
+    .select('id').eq('user_id', user.id).eq('status', 'linked').limit(1).maybeSingle()
+  const bankConnected = !!bankConn
 
   return (
     <div className="space-y-6">
       <div className="animate-fade-up">
         <h1 className="text-2xl md:text-[28px] font-heading font-bold text-marine">Paiements</h1>
-        <p className="text-gray-500 mt-1 text-sm">Le client a-t-il payé ? Importe ton relevé, rapproche les virements de tes factures, ou marque un paiement à la main.</p>
+        <p className="text-gray-500 mt-1 text-sm">Le client a-t-il payé ? Connecte ta banque pour un suivi 100% automatique, ou importe ton relevé à la main.</p>
       </div>
+
+      {/* Connexion bancaire automatique — rapprochement sans rien saisir */}
+      <Link href="/parametres/banque" className="block animate-fade-up">
+        <div className={`rounded-xl border p-4 flex items-center gap-3 transition-colors ${bankConnected ? 'border-emerald-200 bg-emerald-50 hover:border-emerald-300' : 'border-[#CFDDF6] bg-[#EAF1FC] hover:border-[#1F5FAE]/40'}`}>
+          <span className={`grid place-items-center w-10 h-10 rounded-lg flex-shrink-0 ${bankConnected ? 'bg-emerald-100 text-emerald-600' : 'bg-white text-[#1F5FAE]'}`}><Landmark className="w-5 h-5" /></span>
+          <div className="min-w-0 flex-1">
+            <p className={`font-semibold ${bankConnected ? 'text-emerald-800' : 'text-[#1F5FAE]'}`}>{bankConnected ? 'Banque connectée — suivi automatique actif' : 'Connecter ma banque (recommandé)'}</p>
+            <p className="text-xs text-gray-500 mt-0.5">{bankConnected ? 'Les virements reçus se rapprochent tout seuls de tes factures.' : 'Les virements reçus seront importés et rapprochés automatiquement, sans rien saisir.'}</p>
+          </div>
+        </div>
+      </Link>
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up">
         <StatCard label="Reste à encaisser" value={formatCurrency(d.resteAEncaisser)} icon={Wallet} tone="amber" note="factures ouvertes" />
         <StatCard label="Encaissé ce mois" value={formatCurrency(d.montantPayeMois)} icon={ArrowDownToLine} tone="green" note={`${d.nbPayeesMois} facture${d.nbPayeesMois > 1 ? 's' : ''}`} />

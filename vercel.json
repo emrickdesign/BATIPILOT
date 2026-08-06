@@ -7,6 +7,10 @@
     {
       "path": "/api/cron/rappels-actions",
       "schedule": "30 6 * * *"
+    },
+    {
+      "path": "/api/cron/bank-sync",
+      "schedule": "0 */6 * * *"
     }
   ]
 }

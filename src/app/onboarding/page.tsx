@@ -365,6 +365,10 @@ export default function OnboardingPage() {
                   desc="Vous pourrez créer votre base à tout moment depuis l’onglet Prix."
                 />
               </div>
+              <div className="rounded-xl border border-[#CFDDF6] bg-[#EAF1FC] p-3 text-sm text-[#1F5FAE]">
+                💳 Astuce : après l’installation, connectez votre banque dans <strong>Réglages → Connexion bancaire</strong>.
+                Les virements reçus seront rapprochés automatiquement de vos factures — aucun pointage à la main.
+              </div>
             </div>
           )}
         </div>

@@ -24,7 +24,7 @@ const groups: Group[] = [
     title: 'Connexions',
     items: [
       { href: '/parametres/gmail', icon: Mail, title: 'Email (Gmail)', desc: 'Connectez ou gérez votre compte Gmail' },
-      { href: '/banque', icon: Landmark, title: 'Banque', desc: 'Import de relevé et rapprochement des paiements' },
+      { href: '/parametres/banque', icon: Landmark, title: 'Connexion bancaire', desc: 'Connectez votre compte : les virements reçus sont rapprochés automatiquement' },
       { href: '/comptable', icon: Calculator, title: 'Comptable', desc: 'Exports mensuels à transmettre à votre comptable' },
       { icon: Truck, title: 'Traceurs véhicules', desc: 'Connexion d\'un boîtier GPS à la flotte', soon: true },
     ],
