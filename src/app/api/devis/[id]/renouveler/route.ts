@@ -24,7 +24,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!user) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
     const body = await req.json().catch(() => ({}))
-    const channel: 'email' | 'whatsapp' = body?.channel === 'whatsapp' ? 'whatsapp' : 'email'
+    // draft = duplique le devis sans l'envoyer (pour le modifier avant envoi)
+    const channel: 'email' | 'whatsapp' | 'draft' = body?.channel === 'whatsapp' ? 'whatsapp' : body?.channel === 'draft' ? 'draft' : 'email'
 
     const [{ data: src }, { data: company }] = await Promise.all([
       supabase.from('quotes').select('*, clients(*), quote_lines(*)').eq('id', id).eq('user_id', user.id).single(),
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       quote_number: quoteNumber,
       title: src.title,
       description: src.description,
-      status: channel === 'email' ? 'envoye' : 'pret',
+      status: channel === 'email' ? 'envoye' : channel === 'whatsapp' ? 'pret' : 'brouillon',
       valid_until: validUntil.toISOString().split('T')[0],
       subtotal_ht: src.subtotal_ht,
       total_vat: src.total_vat,
@@ -82,6 +83,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         is_option: l.is_option || false,
       })))
     }
+
+    // Mode brouillon : on duplique seulement, l'artisan modifiera puis enverra lui-même.
+    if (channel === 'draft') return NextResponse.json({ success: true, newId: nq.id })
 
     // Lien de signature du nouveau devis
     const { data: sig } = await supabase.from('document_signatures')

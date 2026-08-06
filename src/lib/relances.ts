@@ -7,6 +7,13 @@ const DAY = 86_400_000
 
 export const RELANCE_FRACTIONS = [0.5, 0.8]
 
+/** Jours restants avant la fin de validité (négatif si expiré). null si inconnu. */
+export function daysUntilExpiry(validUntil?: string | null, now: Date = new Date()): number | null {
+  if (!validUntil) return null
+  const today = new Date(now.toISOString().split('T')[0]).getTime()
+  return Math.round((new Date(validUntil).getTime() - today) / DAY)
+}
+
 /** Nombre de jours de validité (issue_date → valid_until). null si inconnu / invalide. */
 export function validityWindowDays(issueDate?: string | null, validUntil?: string | null): number | null {
   if (!issueDate || !validUntil) return null

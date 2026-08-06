@@ -66,7 +66,7 @@ export default function ChantiersKanban({ initialItems }: { initialItems: Chanti
         renderCard={(c) => {
           const dot = dotOf(c.col)
           return (
-            <Card className="border border-gray-200/70 shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing bg-white">
+            <Card className="shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing border" style={{ backgroundColor: `${dot}0D`, borderColor: `${dot}33` }}>
               <CardContent className="p-3.5">
                 {c.enRetard && <span className="inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-[#FBE0DA] text-[#C0392B] mb-1">En retard</span>}
                 <Link href={`/chantiers/${c.id}`} onClick={e => e.stopPropagation()} className="block font-semibold text-[15px] text-gray-900 hover:text-primary leading-snug truncate">
@@ -89,8 +89,8 @@ export default function ChantiersKanban({ initialItems }: { initialItems: Chanti
                   </div>
                 )}
                 <Link href={`/chantiers/${c.id}`} onClick={e => e.stopPropagation()}
-                  className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight transition-opacity hover:opacity-85"
-                  style={{ backgroundColor: `${dot}18`, color: dot }}>
+                  className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight border bg-white/70 hover:bg-white transition-colors"
+                  style={{ borderColor: dot, color: dot }}>
                   <span>{c.cta}</span><ArrowRight className="w-3.5 h-3.5 flex-shrink-0" />
                 </Link>
               </CardContent>

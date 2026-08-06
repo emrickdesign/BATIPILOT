@@ -30,4 +30,7 @@ export type DevisCardData = {
   cta: string
   expired: boolean
   clientPhone: string | null
+  clientEmail: string | null
+  issueDate: string | null
+  validUntil: string | null
 }

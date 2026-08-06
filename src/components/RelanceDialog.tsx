@@ -15,15 +15,19 @@ type Props = {
   issueDate: string | null
   validUntil: string | null
   dot: string
+  /** Jours restants avant la fin de validité (affiché au-dessus du bouton). */
+  daysLeft?: number | null
 }
 
-export default function RelanceProspectButton({ quoteId, clientName, phone, email, issueDate, validUntil, dot }: Props) {
+/** Bouton "Relancer le client" + popup : choix email/WhatsApp, message adapté à la validité. */
+export default function RelanceDialog({ quoteId, clientName, phone, email, issueDate, validUntil, dot, daysLeft }: Props) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState<null | 'email' | 'whatsapp'>(null)
 
   const line = relanceCopy(issueDate, validUntil)
   const preview = `Bonjour ${clientName}, ${line} Merci de le signer pour valider votre projet.`
+  const urgent = daysLeft != null && daysLeft <= 3
 
   async function relance(channel: 'email' | 'whatsapp') {
     setBusy(channel)
@@ -45,11 +49,17 @@ export default function RelanceProspectButton({ quoteId, clientName, phone, emai
   }
 
   return (
-    <>
+    <div className="mt-3" onClick={e => e.stopPropagation()}>
+      {daysLeft != null && (
+        <p className={`text-[11px] font-semibold mb-1.5 flex items-center gap-1.5 ${urgent ? 'text-[#C0392B]' : 'text-gray-500'}`}>
+          <Send className="w-3 h-3 flex-shrink-0" />
+          Relance {daysLeft > 0 ? `— encore ${daysLeft} j de validité` : "— dernier jour de validité"}
+        </p>
+      )}
       <button
-        onClick={e => { e.stopPropagation(); setOpen(true) }}
-        className="mt-3 w-full flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold leading-tight transition-opacity hover:opacity-85"
-        style={{ backgroundColor: `${dot}18`, color: dot }}
+        onClick={() => setOpen(true)}
+        className="w-full flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold leading-tight border transition-colors hover:bg-black/[0.02]"
+        style={{ borderColor: dot, color: dot }}
       >
         <Send className="w-3.5 h-3.5 flex-shrink-0" /><span>Relancer le client</span>
       </button>
@@ -72,6 +82,6 @@ export default function RelanceProspectButton({ quoteId, clientName, phone, emai
           {!email && <p className="text-[11px] text-gray-400">Pas d&apos;email pour ce client — WhatsApp uniquement.</p>}
         </DialogContent>
       </Dialog>
-    </>
+    </div>
   )
 }

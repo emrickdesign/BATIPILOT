@@ -11,6 +11,8 @@ import { Search, HardHat, ArrowRight } from 'lucide-react'
 import DndKanban from '@/components/kanban/DndKanban'
 import { DEVIS_COLUMNS, type DevisCardData } from './kanban-config'
 import RenewButton from './RenewButton'
+import RelanceDialog from '@/components/RelanceDialog'
+import { daysUntilExpiry } from '@/lib/relances'
 
 const dotOf = (col: string) => DEVIS_COLUMNS.find(c => c.key === col)?.dot || '#94918A'
 
@@ -72,7 +74,8 @@ export default function DevisKanban({ initialItems }: { initialItems: DevisCardD
         renderCard={(d) => {
           const dot = dotOf(d.col)
           return (
-            <Card className={`shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing ${d.expired ? 'border border-[#E8B4AA] bg-[#FDF3F1]' : 'border border-gray-200/70 bg-white'}`}>
+            <Card className="shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing border"
+              style={d.expired ? { backgroundColor: '#FDF3F1', borderColor: '#E8B4AA' } : { backgroundColor: `${dot}0D`, borderColor: `${dot}33` }}>
               <CardContent className="p-3.5">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[11px] text-gray-400">{d.number}</span>
@@ -86,10 +89,13 @@ export default function DevisKanban({ initialItems }: { initialItems: DevisCardD
                 <p className="text-[11px] text-gray-400 mt-1">{d.dateFmt}</p>
                 {d.expired ? (
                   <RenewButton quoteId={d.id} clientPhone={d.clientPhone} />
+                ) : d.col === 'envoye' ? (
+                  <RelanceDialog quoteId={d.id} clientName={d.clientName} phone={d.clientPhone} email={d.clientEmail}
+                    issueDate={d.issueDate} validUntil={d.validUntil} dot={dot} daysLeft={daysUntilExpiry(d.validUntil)} />
                 ) : d.cta && d.cta !== '—' && d.cta !== 'Facturé' && (
                   <Link href={`/devis/${d.id}`} onClick={e => e.stopPropagation()}
-                    className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight transition-opacity hover:opacity-85"
-                    style={{ backgroundColor: `${dot}18`, color: dot }}>
+                    className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight border bg-white/70 hover:bg-white transition-colors"
+                    style={{ borderColor: dot, color: dot }}>
                     <span>{d.cta}</span><ArrowRight className="w-3.5 h-3.5 flex-shrink-0" />
                   </Link>
                 )}

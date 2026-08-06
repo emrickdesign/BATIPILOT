@@ -90,7 +90,7 @@ export default function ClientsKanban({ initialItems }: { initialItems: ClientCa
         const dot = dotOf(c.col)
         const cta = ctaFor(c)
         return (
-          <Card className="border border-gray-200/70 shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing bg-white">
+          <Card className="shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing border" style={{ backgroundColor: `${dot}0D`, borderColor: `${dot}33` }}>
             <CardContent className="p-3.5">
               <Link href={`/clients/${c.id}`} onClick={e => e.stopPropagation()} className="block font-semibold text-[15px] text-gray-900 hover:text-primary truncate leading-snug">
                 {c.name}
@@ -108,8 +108,8 @@ export default function ClientsKanban({ initialItems }: { initialItems: ClientCa
                 href={cta.href}
                 onClick={e => e.stopPropagation()}
                 {...(cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight transition-opacity hover:opacity-85"
-                style={{ backgroundColor: `${dot}18`, color: dot }}
+                className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight border bg-white/70 hover:bg-white transition-colors"
+                style={{ borderColor: dot, color: dot }}
               >
                 <cta.Icon className="w-3.5 h-3.5 flex-shrink-0" /><span>{cta.label}</span>
               </a>

@@ -11,7 +11,8 @@ import { formatCurrency } from '@/lib/utils'
 import { isProspect } from '@/lib/clients'
 import DndKanban from '@/components/kanban/DndKanban'
 import { PROSPECT_COLUMNS, type ProspectCardData } from './kanban-config'
-import RelanceProspectButton from './RelanceProspectButton'
+import RelanceDialog from '@/components/RelanceDialog'
+import { daysUntilExpiry } from '@/lib/relances'
 import type { ClientStatus } from '@/types'
 
 const dotOf = (col: string) => PROSPECT_COLUMNS.find(c => c.key === col)?.dot || '#94918A'
@@ -91,7 +92,7 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
         const dot = dotOf(p.col)
         const cta = ctaFor(p)
         return (
-          <Card className="border border-gray-200/70 shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing bg-white">
+          <Card className="shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing border" style={{ backgroundColor: `${dot}0D`, borderColor: `${dot}33` }}>
             <CardContent className="p-3.5">
               <Link href={`/clients/${p.id}`} onClick={e => e.stopPropagation()} className="block font-semibold text-[15px] text-gray-900 hover:text-primary truncate leading-snug">
                 {p.name}
@@ -110,17 +111,18 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
               )}
               <p className="text-[11px] text-gray-400 mt-1">{new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
               {p.col === 'devis_envoye' && p.relanceQuote ? (
-                <RelanceProspectButton
+                <RelanceDialog
                   quoteId={p.relanceQuote.id} clientName={p.name} phone={p.phone} email={p.email}
                   issueDate={p.relanceQuote.issueDate} validUntil={p.relanceQuote.validUntil} dot={dot}
+                  daysLeft={daysUntilExpiry(p.relanceQuote.validUntil)}
                 />
               ) : (
                 <a
                   href={cta.href}
                   onClick={e => e.stopPropagation()}
                   {...(cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                  className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight transition-opacity hover:opacity-85"
-                  style={{ backgroundColor: `${dot}18`, color: dot }}
+                  className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight border bg-white/70 hover:bg-white transition-colors"
+                  style={{ borderColor: dot, color: dot }}
                 >
                   <cta.Icon className="w-3.5 h-3.5 flex-shrink-0" /><span>{cta.label}</span>
                 </a>
