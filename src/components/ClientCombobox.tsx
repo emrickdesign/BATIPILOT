@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Search, X, ChevronDown } from 'lucide-react'
 
-export type ComboOption = { id: string; label: string; sub?: string | null }
+export type ComboOption = { id: string; label: string; sub?: string | null; group?: string }
 
 /** Sélecteur avec recherche : on tape les premières lettres → propositions filtrées.
  *  Bouton "Voir toute la liste" si aucun résultat. */
@@ -79,12 +79,18 @@ export default function ClientCombobox({
               Aucun résultat.
               {!showAll && <button type="button" onClick={() => setShowAll(true)} className="ml-1 text-primary font-medium hover:underline">Voir toute la liste</button>}
             </div>
-          ) : matches.map(o => (
-            <button key={o.id} type="button" onClick={() => pick(o)}
-              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${o.id === value ? 'bg-accent text-primary font-medium' : 'text-gray-800'}`}>
-              {o.label}{o.sub ? <span className="text-gray-400 text-xs ml-1.5">{o.sub}</span> : null}
-            </button>
-          ))}
+          ) : matches.map((o, i) => {
+            const showHeader = o.group && (i === 0 || matches[i - 1].group !== o.group)
+            return (
+              <div key={o.id}>
+                {showHeader && <p className="px-3 pt-2 pb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{o.group} :</p>}
+                <button type="button" onClick={() => pick(o)}
+                  className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-50 ${o.id === value ? 'bg-accent text-primary font-medium' : 'text-gray-800'}`}>
+                  {o.label}{o.sub ? <span className="text-gray-400 text-xs ml-1.5">{o.sub}</span> : null}
+                </button>
+              </div>
+            )
+          })}
         </div>
       )}
     </div>

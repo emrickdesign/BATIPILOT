@@ -15,6 +15,8 @@ import { ArrowLeft, Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp, 
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import DictationButton from '@/components/DictationButton'
+import ClientCombobox from '@/components/ClientCombobox'
+import { isProspect } from '@/lib/clients'
 import type { Client, PriceItem, QuoteLine } from '@/types'
 
 type LineItem = Omit<QuoteLine, 'id' | 'quote_id' | 'created_at'> & { tempId: string }
@@ -307,25 +309,24 @@ function DevisForm() {
       </div>
       <FormPageTitle icon={Receipt} color={entityColors.devis} title="Nouveau devis" />
 
-      {/* Client */}
-      <FormSection icon={User} color={entityColors.devis} title="Client *">
+      {/* Client ou prospect */}
+      <FormSection icon={User} color={entityColors.devis} title="Client ou prospect *">
         <div className="space-y-3">
-          <select
+          <ClientCombobox
+            options={clients
+              .map(c => ({
+                id: c.id,
+                label: (c.type === 'professionnel' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`.trim()) || 'Sans nom',
+                group: isProspect(c.status) ? 'Prospect' : 'Client',
+              }))
+              .sort((a, b) => (a.group === b.group ? a.label.localeCompare(b.label) : a.group === 'Prospect' ? -1 : 1))}
             value={selectedClientId}
-            onChange={e => setSelectedClientId(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white"
-          >
-            <option value="">Sélectionner un client...</option>
-            {clients.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.type === 'professionnel'
-                  ? c.company_name
-                  : `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Sans nom'}
-              </option>
-            ))}
-          </select>
+            onChange={setSelectedClientId}
+            placeholder="Rechercher un client ou prospect…"
+            allowNone={false}
+          />
           <Link href="/clients/nouveau" className="text-sm text-blue-600 hover:underline">
-            + Créer un nouveau client
+            + Créer un nouveau client / prospect
           </Link>
         </div>
       </FormSection>
@@ -340,22 +341,24 @@ function DevisForm() {
             </div>
           ) : (
             <div className="space-y-1">
-              <Label>Chantier (optionnel)</Label>
+              <Label>Chantier</Label>
               <select
                 value={selectedProjectId}
                 onChange={e => setSelectedProjectId(e.target.value)}
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white"
               >
-                <option value="">Aucun chantier rattaché</option>
+                <option value="">— Nouveau chantier —</option>
                 {projects
                   .filter(p => !selectedClientId || p.client_id === selectedClientId)
                   .map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
               </select>
+              <p className="text-[11px] text-gray-400">Rattachez un chantier existant, ou laissez « Nouveau chantier » (créé à l&apos;acceptation). Repère interne, non affiché sur le devis.</p>
             </div>
           )}
           <div className="space-y-1">
             <Label>Objet du devis</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Rénovation salle de bain" />
+            <p className="text-[11px] text-gray-400">Affiché sur le devis, en tête.</p>
           </div>
           <div className="space-y-1">
             <Label>Adresse du chantier</Label>
