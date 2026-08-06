@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  ArrowLeft, Phone, Mail, MapPin, HardHat, FolderOpen, Edit, Hash,
+  ArrowLeft, Phone, Mail, MapPin, HardHat, FolderOpen, Edit, Hash, CalendarDays,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { projectStatusLabels, projectStatusColors } from '@/lib/chantiers'
@@ -13,6 +13,22 @@ import { clientDisplayName, clientStatusLabels, clientStatusColors } from '@/lib
 import type { ProjectStatus, ClientStatus } from '@/types'
 
 const num = (v: unknown) => Number(v) || 0
+
+function cityOf(addr?: string | null): string {
+  if (!addr) return ''
+  const m = addr.match(/\b\d{5}\s+([A-Za-zÀ-ÿ'’\- ]+)/)
+  if (m) return m[1].trim().split(/[\n,]/)[0].trim()
+  const parts = addr.split(',').map(s => s.trim()).filter(Boolean)
+  return parts.length ? parts[parts.length - 1] : ''
+}
+
+function periode(start?: string | null, end?: string | null): string {
+  const f = (d: string) => new Date(d).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: '2-digit' })
+  if (start && end) return `${f(start)} → ${f(end)}`
+  if (start) return `dès ${f(start)}`
+  if (end) return `jusqu'au ${f(end)}`
+  return ''
+}
 
 export default async function ClientPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -25,7 +41,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   if (!client) return notFound()
 
   const [{ data: projects }, { data: quotes }, { data: invoices }, { data: documents }] = await Promise.all([
-    supabase.from('projects').select('id,title,status,project_type').eq('client_id', id).neq('status', 'archive').order('created_at', { ascending: false }),
+    supabase.from('projects').select('id,title,status,project_type,address,start_date,end_date').eq('client_id', id).neq('status', 'archive').order('created_at', { ascending: false }),
     supabase.from('quotes').select('id,quote_number,status,total_ttc,issue_date').eq('client_id', id).order('created_at', { ascending: false }),
     supabase.from('invoices').select('id,invoice_number,status,total_ttc,amount_due,issue_date').eq('client_id', id).order('created_at', { ascending: false }),
     supabase.from('documents').select('id,name,category').eq('client_id', id).order('created_at', { ascending: false }),
@@ -117,15 +133,42 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </CardHeader>
         <CardContent className="px-4 pb-4">
           {!projects?.length ? <p className="text-sm text-gray-400 py-2">Aucun chantier</p> : (
-            <div className="space-y-2">
-              {projects.map(pr => (
-                <Link key={pr.id} href={`/chantiers/${pr.id}`}>
-                  <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <div className="flex items-center gap-2 min-w-0"><HardHat className="w-4 h-4 text-gray-400 flex-shrink-0" /><span className="text-sm text-gray-700 truncate">{pr.title}</span></div>
-                    <Badge className={`${projectStatusColors[pr.status as ProjectStatus] || 'bg-gray-100 text-gray-700'} border-0 text-xs flex-shrink-0`}>{projectStatusLabels[pr.status as ProjectStatus] || pr.status}</Badge>
-                  </div>
-                </Link>
-              ))}
+            <div className="grid sm:grid-cols-2 gap-3">
+              {projects.map(pr => {
+                const ville = cityOf(pr.address)
+                const dates = periode(pr.start_date, pr.end_date)
+                return (
+                  <Link key={pr.id} href={`/chantiers/${pr.id}`} className="group">
+                    <div className="h-full rounded-xl border border-gray-200 bg-white p-3.5 shadow-sm transition-all group-hover:border-primary/40 group-hover:shadow-md">
+                      <div className="flex items-start gap-2.5">
+                        <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#FFF1E9] text-[#E8571E] flex-shrink-0">
+                          <HardHat className="w-4.5 h-4.5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-gray-800 truncate leading-tight">{pr.title}</p>
+                          <Badge className={`${projectStatusColors[pr.status as ProjectStatus] || 'bg-gray-100 text-gray-700'} border-0 text-[11px] mt-1`}>
+                            {projectStatusLabels[pr.status as ProjectStatus] || pr.status}
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="mt-3 space-y-1.5 text-xs text-gray-500">
+                        {pr.project_type && (
+                          <div className="flex items-center gap-1.5"><HardHat className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /><span className="truncate">{pr.project_type}</span></div>
+                        )}
+                        {ville && (
+                          <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /><span className="truncate">{ville}</span></div>
+                        )}
+                        {dates && (
+                          <div className="flex items-center gap-1.5"><CalendarDays className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" /><span className="truncate">{dates}</span></div>
+                        )}
+                        {!pr.project_type && !ville && !dates && (
+                          <span className="text-gray-300">Détails à compléter</span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
           )}
         </CardContent>
@@ -140,7 +183,7 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           {!quotes?.length ? <p className="text-sm text-gray-400 py-2">Aucun devis</p> : (
             <div className="space-y-2">
               {quotes.map(q => (
-                <Link key={q.id} href={`/devis/${q.id}`}>
+                <Link key={q.id} href={`/devis/${q.id}?from=${encodeURIComponent(`/clients/${id}`)}`}>
                   <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
                     <div><span className="font-mono text-xs text-gray-400">{q.quote_number}</span><span className="ml-2 text-sm text-gray-700">{formatDate(q.issue_date)}</span></div>
                     <span className="text-sm font-semibold">{formatCurrency(q.total_ttc)}</span>

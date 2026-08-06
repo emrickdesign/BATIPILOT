@@ -23,8 +23,15 @@ const unitLabels: Record<string, string> = {
   m2: 'm²', ml: 'ml', u: 'unité', forfait: 'forfait', h: 'heure', j: 'jour', piece: 'pièce'
 }
 
-export default async function DevisDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DevisDetailPage({ params, searchParams }: {
+  params: Promise<{ id: string }>
+  searchParams: Promise<{ from?: string }>
+}) {
   const { id } = await params
+  const { from } = await searchParams
+  // Retour contextuel : revient là d'où on vient (ex. fiche client) si chemin interne, sinon liste devis.
+  const backHref = from && from.startsWith('/') && !from.startsWith('//') ? from : '/devis'
+  const backLabel = backHref.startsWith('/clients/') ? 'Retour à la fiche' : 'Retour'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
@@ -64,9 +71,9 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
     <div className="space-y-4 max-w-3xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/devis">
+          <Link href={backHref}>
             <Button variant="ghost" size="sm" className="gap-1">
-              <ArrowLeft className="w-4 h-4" /> Retour
+              <ArrowLeft className="w-4 h-4" /> {backLabel}
             </Button>
           </Link>
           <div>

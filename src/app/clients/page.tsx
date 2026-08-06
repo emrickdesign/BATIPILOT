@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
 import StatCard from '@/components/charts/StatCard'
 import ClientsKanban from './ClientsKanban'
+import ClientSearch, { type SearchClient } from './ClientSearch'
 import { CLIENT_COLUMNS, type ClientCard } from './kanban-config'
 import type { Client, ClientStatus } from '@/types'
 
@@ -76,6 +77,13 @@ export default async function ClientsPage() {
     if (isOpen(i.status)) resteAEncaisser.set(i.client_id, (resteAEncaisser.get(i.client_id) || 0) + (num(i.amount_due) || num(i.total_ttc)))
   }
 
+  const searchClients: SearchClient[] = list.map(c => ({
+    id: c.id,
+    name: clientDisplayName(c),
+    ville: cityOf(c.billing_address || c.site_address),
+    isPro: c.type === 'professionnel',
+  }))
+
   const caTotal = [...totalFacture.values()].reduce((s, v) => s + v, 0)
   const resteTotal = [...resteAEncaisser.values()].reduce((s, v) => s + v, 0)
   const chantiersTotal = [...nbChantiers.values()].reduce((s, v) => s + v, 0)
@@ -117,6 +125,8 @@ export default async function ClientsPage() {
           <Button className="h-10 gap-2 shadow-sm"><Plus className="w-4 h-4" /> Ajouter un client</Button>
         </Link>
       </div>
+
+      {list.length > 0 && <ClientSearch clients={searchClients} />}
 
       {list.length > 0 && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
