@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { syncUserBank } from '@/lib/bank/sync'
-import { gocardlessConfigured } from '@/lib/bank/gocardless'
+import { bankConfigured } from '@/lib/bank/bridge'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const auth = req.headers.get('authorization')
     if (auth !== `Bearer ${secret}`) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   }
-  if (!gocardlessConfigured()) return NextResponse.json({ ok: true, skipped: 'not_configured' })
+  if (!bankConfigured()) return NextResponse.json({ ok: true, skipped: 'not_configured' })
 
   const supabase = createServiceClient()
   const { data: conns } = await supabase.from('bank_connections')

@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getRequisition, getAccountMeta } from '@/lib/bank/gocardless'
+import { getUserToken, listAccounts } from '@/lib/bank/bridge'
 
 export const dynamic = 'force-dynamic'
 
-// Retour après consentement bancaire : GoCardless redirige ici avec ?ref=<reference>.
-// On finalise la connexion : récupère les comptes liés + leur IBAN.
+// Retour du tunnel Bridge : on récupère les comptes connectés + leur IBAN et on
+// marque la connexion comme active. L'utilisateur est identifié par sa session.
 export async function GET(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -13,34 +13,38 @@ export async function GET(req: NextRequest) {
   const fail = (reason: string) => NextResponse.redirect(`${base}/parametres/banque?error=${reason}`)
 
   if (!user) return NextResponse.redirect(`${base}/login`)
-  const reference = req.nextUrl.searchParams.get('ref')
-  if (!reference) return fail('no_ref')
-
-  const { data: conn } = await supabase.from('bank_connections')
-    .select('id, requisition_id, user_id').eq('reference', reference).eq('user_id', user.id).maybeSingle()
-  if (!conn?.requisition_id) return fail('unknown')
 
   try {
-    const req2 = await getRequisition(conn.requisition_id)
-    if (!req2.accounts?.length) return fail('no_account')
+    const token = await getUserToken(user.id)
+    const accounts = await listAccounts(token)
+    if (!accounts.length) return fail('no_account')
 
-    for (const accId of req2.accounts) {
-      let iban: string | null = null, currency: string | null = null
-      try { const meta = await getAccountMeta(accId); iban = meta.iban || null; currency = meta.currency || null } catch { /* méta optionnelle */ }
+    // Récupère l'id de connexion en attente (pour rattacher les comptes).
+    const { data: pend } = await supabase.from('bank_connections')
+      .select('id').eq('user_id', user.id).eq('status', 'pending')
+      .order('created_at', { ascending: false }).limit(1).maybeSingle()
+
+    for (const a of accounts) {
       await supabase.from('bank_accounts').upsert({
         user_id: user.id,
-        connection_id: conn.id,
-        account_id: accId,
-        iban,
-        currency,
+        connection_id: pend?.id || null,
+        account_id: String(a.id),
+        iban: a.iban || null,
+        name: a.name || null,
+        currency: a.currency_code || null,
       }, { onConflict: 'account_id' })
     }
 
-    // Consentement DSP2 valable ~180 jours → date de re-vérification.
     const expires = new Date(Date.now() + 180 * 86400000).toISOString()
-    await supabase.from('bank_connections').update({
-      status: 'linked', linked_at: new Date().toISOString(), expires_at: expires,
-    }).eq('id', conn.id).eq('user_id', user.id)
+    if (pend) {
+      await supabase.from('bank_connections').update({ status: 'linked', linked_at: new Date().toISOString(), expires_at: expires })
+        .eq('id', pend.id).eq('user_id', user.id)
+    } else {
+      await supabase.from('bank_connections').insert({
+        user_id: user.id, provider: 'bridge', reference: `${user.id}.${Date.now()}`,
+        status: 'linked', linked_at: new Date().toISOString(), expires_at: expires,
+      })
+    }
 
     return NextResponse.redirect(`${base}/parametres/banque?connected=1`)
   } catch (e) {
