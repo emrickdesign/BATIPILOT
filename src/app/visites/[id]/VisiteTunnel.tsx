@@ -12,18 +12,17 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import DictationButton from '@/components/DictationButton'
 import CameraCapture from '@/components/CameraCapture'
-import { ArrowLeft, Camera, Loader2, Trash2, Sparkles, AlertTriangle, HelpCircle, FileText, ImagePlus } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
-import { fmtUnit } from '@/lib/materiaux'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ArrowLeft, Camera, Loader2, Trash2, Sparkles, FileText, ImagePlus, HardHat, CheckCircle2 } from 'lucide-react'
 import { clientDisplayName } from '@/lib/chantiers'
-import type { VisitResult } from '@/lib/visites'
 
 export type VisitPhoto = { id: string; url: string; caption: string | null; storage_path: string }
 type ClientOption = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null }
 type Visit = {
   id: string; title: string; address: string | null; transcript: string | null; notes: string | null
-  status: string; client_id: string | null; ai_result: VisitResult | null
+  status: string; client_id: string | null
 }
+type ProjectOption = { id: string; title: string }
 
 export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: { visit: Visit; photos: VisitPhoto[]; clients: ClientOption[] }) {
   const router = useRouter()
@@ -33,8 +32,12 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
   const [notes, setNotes] = useState(visit.transcript || '')
   const [photos, setPhotos] = useState<VisitPhoto[]>(initialPhotos)
   const [uploading, setUploading] = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
-  const [result, setResult] = useState<VisitResult | null>(visit.ai_result)
+  const [summarizing, setSummarizing] = useState(false)
+  // Validation → rattachement à un chantier
+  const [validateOpen, setValidateOpen] = useState(false)
+  const [projects, setProjects] = useState<ProjectOption[]>([])
+  const [projId, setProjId] = useState('')
+  const [validating, setValidating] = useState(false)
   const photoRef = useRef<HTMLInputElement>(null)
 
   async function patch(fields: Record<string, unknown>) {
@@ -74,24 +77,68 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
     await createClient().from('site_visit_photos').update({ caption: caption || null }).eq('id', p.id)
   }
 
-  async function analyze() {
-    if (photos.length === 0 && !notes.trim()) { toast.error('Ajoutez au moins une photo ou une note'); return }
-    setAnalyzing(true)
-    // On s'assure que les notes en cours sont bien enregistrées avant l'analyse.
-    await patch({ transcript: notes.trim() || null })
+  // Résumé : reformule la note (plus claire/concise) sans rien ajouter ni retirer.
+  async function resume() {
+    if (!notes.trim()) { toast.error('Écrivez ou dictez une note d\'abord'); return }
+    setSummarizing(true)
     try {
-      const res = await fetch('/api/visites/analyser', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ visitId: visit.id }),
+      const res = await fetch('/api/visites/resume', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: notes }),
       })
       const json = await res.json()
-      if (!res.ok) { toast.error(json.error || 'Analyse impossible'); return }
-      setResult(json.data as VisitResult)
-      toast.success('Visite analysée ✨')
-      router.refresh()
-    } catch { toast.error('Analyse impossible') } finally { setAnalyzing(false) }
+      if (!res.ok) { toast.error(json.error || 'Résumé impossible'); return }
+      setNotes(json.summary)
+      await patch({ transcript: String(json.summary).trim() || null })
+      toast.success('Note clarifiée ✨')
+    } catch { toast.error('Résumé impossible') } finally { setSummarizing(false) }
   }
 
-  const devisHref = `/devis/nouveau${clientId ? `?client=${clientId}` : ''}`
+  // Ouvre la validation : charge les chantiers (du client si lié, sinon tous).
+  async function openValidate() {
+    setValidateOpen(true)
+    const supabase = createClient()
+    let q = supabase.from('projects').select('id, title').eq('user_id', (await supabase.auth.getUser()).data.user?.id || '').neq('status', 'archive').order('created_at', { ascending: false })
+    if (clientId) q = q.eq('client_id', clientId)
+    const { data } = await q
+    setProjects((data as ProjectOption[]) || [])
+    if (data && data.length === 1) setProjId(data[0].id)
+  }
+
+  // Valide la visite : rattache les photos à l'album du chantier + la note aux notes du chantier.
+  async function validate() {
+    if (!projId) { toast.error('Choisissez le chantier'); return }
+    setValidating(true)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setValidating(false); return }
+
+    // Photos → documents du chantier (apparaissent dans l'album)
+    if (photos.length) {
+      const rows = photos.map(p => ({
+        user_id: user.id, project_id: projId, client_id: clientId || null,
+        name: p.caption || `Photo visite — ${title}`, category: 'photo',
+        storage_path: p.storage_path, file_type: 'image/jpeg',
+      }))
+      const { error } = await supabase.from('documents').insert(rows)
+      if (error) { toast.error('Erreur rattachement des photos'); setValidating(false); return }
+    }
+
+    // Note → notes du chantier
+    const noteText = notes.trim()
+    if (noteText) {
+      await supabase.from('notes').insert({
+        user_id: user.id, project_id: projId, author_employee_id: null,
+        author_name: `Visite — ${title}`, body: noteText,
+      })
+    }
+
+    await patch({ status: 'valide' })
+    setValidating(false)
+    setValidateOpen(false)
+    toast.success('Visite validée — photos et note ajoutées au chantier ✅')
+    router.push(`/chantiers/${projId}`)
+  }
+
   const linkedClient = clients.find(c => c.id === clientId)
 
   return (
@@ -164,7 +211,12 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
       <Card className="border-0 shadow-[var(--shadow-sm)]">
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /> Notes de visite</CardTitle>
-          <DictationButton value={notes} onChange={setNotes} size="sm" title="Dicter vos observations" />
+          <div className="flex items-center gap-1.5">
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={resume} disabled={summarizing || !notes.trim()} title="Clarifier la note (sans rien changer au fond)">
+              {summarizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Résumé
+            </Button>
+            <DictationButton value={notes} onChange={setNotes} size="sm" title="Dicter vos observations" />
+          </div>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           <Textarea value={notes} onChange={e => setNotes(e.target.value)} onBlur={() => patch({ transcript: notes.trim() || null })}
@@ -173,78 +225,32 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
         </CardContent>
       </Card>
 
-      {/* Analyse */}
-      <Button onClick={analyze} disabled={analyzing} className="w-full h-12 text-base gap-2">
-        {analyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-        {analyzing ? 'Analyse en cours…' : result ? 'Relancer l\'analyse' : 'Analyser la visite'}
+      {/* Validation → rattache photos + note au chantier */}
+      <Button onClick={openValidate} className="w-full h-12 text-base gap-2">
+        <CheckCircle2 className="w-5 h-5" /> Valider la visite
       </Button>
+      <p className="text-xs text-gray-400 text-center -mt-2">Les photos et la note seront ajoutées au chantier choisi.</p>
 
-      {result && (
-        <Card className="border-0 shadow-[var(--shadow-sm)] ring-1 ring-primary/10">
-          <div className="bg-gradient-to-r from-accent/40 to-transparent px-4 py-2.5 border-b border-gray-100 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-primary" />
-            <h3 className="text-sm font-semibold text-marine">Analyse de la visite</h3>
+      <Dialog open={validateOpen} onOpenChange={setValidateOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Valider la visite</DialogTitle></DialogHeader>
+          <p className="text-sm text-gray-500 -mt-1">À quel chantier rattacher les {photos.length} photo{photos.length > 1 ? 's' : ''} et la note ?</p>
+          <div className="space-y-1.5">
+            <Label className="text-xs text-gray-500 flex items-center gap-1.5"><HardHat className="w-3.5 h-3.5" /> Chantier</Label>
+            <select value={projId} onChange={e => setProjId(e.target.value)}
+              className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+              <option value="">— Choisir un chantier —</option>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+            {projects.length === 0 && (
+              <p className="text-xs text-[#C77D0E]">Aucun chantier{linkedClient ? ` pour ${clientDisplayName(linkedClient)}` : ''}. <Link href="/chantiers/nouveau" className="underline">Créez-en un</Link>.</p>
+            )}
           </div>
-          <CardContent className="p-4 space-y-4">
-            {result.resume && <p className="text-sm text-gray-700">{result.resume}</p>}
-
-            {result.observations.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Observations</p>
-                <ul className="space-y-1">
-                  {result.observations.map((o, i) => (
-                    <li key={i} className="text-sm text-gray-700"><span className="font-medium text-marine">{o.element}</span>{o.detail ? ` — ${o.detail}` : ''}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {result.travaux_suggeres.length > 0 && (
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Postes suggérés (pré-chiffrage)</p>
-                <div className="rounded-lg border border-gray-100 overflow-hidden">
-                  {result.travaux_suggeres.map((l, i) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-2 text-sm border-b border-gray-50 last:border-0">
-                      <div className="min-w-0 flex-1">
-                        <p className="text-gray-800 truncate">{l.designation}</p>
-                        <p className="text-[11px] text-gray-400">{l.categorie} · {l.quantite} {fmtUnit(l.unite)}{l.source_prix === 'estime' && ' · prix estimé'}</p>
-                      </div>
-                      <span className="font-semibold text-marine tabular-nums flex-shrink-0">{formatCurrency(l.quantite * l.prix_unitaire_ht)}</span>
-                    </div>
-                  ))}
-                  <div className="flex items-center justify-between px-3 py-2 bg-gray-50 text-sm font-semibold">
-                    <span className="text-gray-500">Estimation totale HT</span>
-                    <span className="text-marine tabular-nums">{formatCurrency(result.total_ht)}</span>
-                  </div>
-                </div>
-                <p className="text-[11px] text-gray-400 mt-1.5">Estimation de repérage — à affiner dans le devis.</p>
-              </div>
-            )}
-
-            {result.points_attention.length > 0 && (
-              <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
-                <p className="text-xs font-semibold text-amber-700 mb-1.5 flex items-center gap-1.5"><AlertTriangle className="w-3.5 h-3.5" /> Points d&apos;attention</p>
-                <ul className="space-y-1">
-                  {result.points_attention.map((p, i) => <li key={i} className="text-sm text-amber-900">{p}</li>)}
-                </ul>
-              </div>
-            )}
-
-            {result.questions_client.length > 0 && (
-              <div className="rounded-lg bg-sky-50 border border-sky-100 p-3">
-                <p className="text-xs font-semibold text-sky-700 mb-1.5 flex items-center gap-1.5"><HelpCircle className="w-3.5 h-3.5" /> À demander au client</p>
-                <ul className="space-y-1">
-                  {result.questions_client.map((q, i) => <li key={i} className="text-sm text-sky-900">{q}</li>)}
-                </ul>
-              </div>
-            )}
-
-            <Link href={devisHref} className="block">
-              <Button className="w-full h-11 gap-2"><FileText className="w-4 h-4" /> Créer le devis{linkedClient ? ` pour ${clientDisplayName(linkedClient)}` : ''}</Button>
-            </Link>
-          </CardContent>
-        </Card>
-      )}
+          <Button onClick={validate} disabled={validating || !projId} className="w-full h-11 gap-2 mt-1">
+            {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Valider et rattacher
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

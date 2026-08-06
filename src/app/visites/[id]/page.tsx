@@ -1,6 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import type { VisitResult } from '@/lib/visites'
 import VisiteTunnel, { type VisitPhoto } from './VisiteTunnel'
 
 export default async function VisitePage({ params }: { params: Promise<{ id: string }> }) {
@@ -10,7 +9,7 @@ export default async function VisitePage({ params }: { params: Promise<{ id: str
   if (!user) return null
 
   const { data: visit } = await supabase.from('site_visits')
-    .select('id, title, address, transcript, notes, ai_result, status, client_id, analyzed_at')
+    .select('id, title, address, transcript, notes, status, client_id')
     .eq('id', id).eq('user_id', user.id).single()
   if (!visit) return notFound()
 
@@ -29,7 +28,7 @@ export default async function VisitePage({ params }: { params: Promise<{ id: str
       visit={{
         id: visit.id, title: visit.title, address: visit.address,
         transcript: visit.transcript, notes: visit.notes, status: visit.status,
-        client_id: visit.client_id, ai_result: (visit.ai_result as VisitResult | null),
+        client_id: visit.client_id,
       }}
       photos={withUrls}
       clients={(clients as { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null }[]) || []}
