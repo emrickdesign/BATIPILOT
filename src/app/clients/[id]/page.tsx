@@ -80,18 +80,18 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
       {/* Résumé financier */}
       <div className="grid grid-cols-3 gap-3">
-        <Card className="border border-gray-200/80"><CardContent className="p-4">
-          <div className="text-[11px] text-gray-400">Total facturé</div>
-          <div className="text-xl font-bold text-marine tabular-nums mt-1">{formatCurrency(totalFacture)}</div>
+        <Card className="border border-[#CFDDF6] bg-[#EAF1FC]"><CardContent className="p-4">
+          <div className="text-[11px] font-medium text-[#3E5C8A]">Total facturé</div>
+          <div className="text-xl font-bold text-[#1F5FAE] tabular-nums mt-1">{formatCurrency(totalFacture)}</div>
         </CardContent></Card>
-        <Card className="border border-gray-200/80"><CardContent className="p-4">
-          <div className="text-[11px] text-gray-400">Encaissé</div>
-          <div className="text-xl font-bold text-emerald-600 tabular-nums mt-1">{formatCurrency(encaisse)}</div>
+        <Card className="border border-[#DDE9C9] bg-[#EEF6E4]"><CardContent className="p-4">
+          <div className="text-[11px] font-medium text-[#4C6F35]">Encaissé</div>
+          <div className="text-xl font-bold text-[#3F7A2E] tabular-nums mt-1">{formatCurrency(encaisse)}</div>
         </CardContent></Card>
         <Link href="/banque">
-          <Card className="border border-gray-200/80 card-interactive h-full"><CardContent className="p-4">
-            <div className="text-[11px] text-gray-400">Reste à encaisser</div>
-            <div className={`text-xl font-bold tabular-nums mt-1 ${reste > 0 ? 'text-amber-600' : 'text-gray-400'}`}>{formatCurrency(reste)}</div>
+          <Card className="border border-[#F0E1C0] bg-[#FBF1D8] card-interactive h-full"><CardContent className="p-4">
+            <div className="text-[11px] font-medium text-[#8A6D2E]">Reste à encaisser</div>
+            <div className={`text-xl font-bold tabular-nums mt-1 ${reste > 0 ? 'text-[#8A5A08]' : 'text-gray-400'}`}>{formatCurrency(reste)}</div>
           </CardContent></Card>
         </Link>
       </div>
