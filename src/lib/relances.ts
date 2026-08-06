@@ -26,6 +26,27 @@ export function relanceThresholds(issueDate?: string | null, validUntil?: string
  * Non relancé si expiré (validité dépassée → renouvellement, pas relance).
  * `reminded_at` sert d'indicateur de palier (0 si jamais relancé, 1 sinon).
  */
+/**
+ * Phrase de relance personnalisée selon où l'on en est de la validité :
+ * fin proche (≤3 j) → « la fin approche », mi-parcours → « à mi-chemin », sinon rappel simple.
+ */
+export function relanceCopy(issueDate?: string | null, validUntil?: string | null, now: Date = new Date()): string {
+  if (!validUntil) return 'Je me permets de revenir vers vous concernant votre devis.'
+  const today = new Date(now.toISOString().split('T')[0]).getTime()
+  const end = new Date(validUntil).getTime()
+  const dateFr = new Date(validUntil).toLocaleDateString('fr-FR')
+  const daysLeft = Math.round((end - today) / DAY)
+  if (daysLeft < 0) return `Votre devis a expiré le ${dateFr}.`
+  if (daysLeft === 0) return `La validité de votre devis se termine aujourd'hui (${dateFr}).`
+  if (daysLeft <= 3) return `La fin de validité de votre devis approche : il reste ${daysLeft} jour${daysLeft > 1 ? 's' : ''}, jusqu'au ${dateFr}.`
+  const w = validityWindowDays(issueDate, validUntil)
+  if (w && issueDate) {
+    const elapsed = Math.round((today - new Date(issueDate).getTime()) / DAY)
+    if (elapsed >= w * 0.5) return `Nous sommes à mi-parcours de la période de validité de votre devis (valable jusqu'au ${dateFr}).`
+  }
+  return `Petit rappel : votre devis reste valable jusqu'au ${dateFr}.`
+}
+
 export function isRelanceDue(
   q: { status?: string; issue_date?: string | null; valid_until?: string | null; reminded_at?: string | null },
   now: Date = new Date(),

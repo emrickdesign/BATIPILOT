@@ -21,6 +21,8 @@ export type ProspectCardData = {
   phone: string | null
   email: string | null
   waHref: string | null
-  pot: number
+  quoteTotal: number
+  quoteCount: number
+  relanceQuote: { id: string; number: string; issueDate: string | null; validUntil: string | null } | null
   createdAt: string
 }

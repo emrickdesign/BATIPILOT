@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/utils'
 import { isProspect } from '@/lib/clients'
 import DndKanban from '@/components/kanban/DndKanban'
 import { PROSPECT_COLUMNS, type ProspectCardData } from './kanban-config'
+import RelanceProspectButton from './RelanceProspectButton'
 import type { ClientStatus } from '@/types'
 
 const dotOf = (col: string) => PROSPECT_COLUMNS.find(c => c.key === col)?.dot || '#94918A'
@@ -98,21 +99,31 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
                 {p.phone && <a href={`tel:${p.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 truncate hover:text-primary"><Phone className="w-3 h-3 flex-shrink-0 text-gray-400" />{p.phone}</a>}
                 {p.email && <a href={`mailto:${p.email}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 truncate hover:text-primary"><Mail className="w-3 h-3 flex-shrink-0 text-gray-400" />{p.email}</a>}
               </div>
-              {p.pot > 0 && (
-                <p className="font-bold text-[17px] text-gray-900 tabular-nums mt-1.5 leading-none">
-                  {formatCurrency(p.pot)} <span className="text-[11px] font-normal text-gray-400">potentiel</span>
+              {p.quoteTotal > 0 && (
+                <p className="font-bold text-[17px] text-gray-900 tabular-nums mt-1.5 leading-none flex items-center gap-1.5">
+                  {formatCurrency(p.quoteTotal)}
+                  {p.quoteCount > 1
+                    ? <span className="text-[10px] font-bold text-primary bg-accent rounded-full px-1.5 py-0.5">{p.quoteCount} devis</span>
+                    : <span className="text-[11px] font-normal text-gray-400">devis</span>}
                 </p>
               )}
               <p className="text-[11px] text-gray-400 mt-1">{new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
-              <a
-                href={cta.href}
-                onClick={e => e.stopPropagation()}
-                {...(cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight transition-opacity hover:opacity-85"
-                style={{ backgroundColor: `${dot}18`, color: dot }}
-              >
-                <cta.Icon className="w-3.5 h-3.5 flex-shrink-0" /><span>{cta.label}</span>
-              </a>
+              {p.col === 'devis_envoye' && p.relanceQuote ? (
+                <RelanceProspectButton
+                  quoteId={p.relanceQuote.id} clientName={p.name} phone={p.phone} email={p.email}
+                  issueDate={p.relanceQuote.issueDate} validUntil={p.relanceQuote.validUntil} dot={dot}
+                />
+              ) : (
+                <a
+                  href={cta.href}
+                  onClick={e => e.stopPropagation()}
+                  {...(cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
+                  className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight transition-opacity hover:opacity-85"
+                  style={{ backgroundColor: `${dot}18`, color: dot }}
+                >
+                  <cta.Icon className="w-3.5 h-3.5 flex-shrink-0" /><span>{cta.label}</span>
+                </a>
+              )}
             </CardContent>
           </Card>
         )

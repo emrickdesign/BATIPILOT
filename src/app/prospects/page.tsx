@@ -28,16 +28,26 @@ export default async function ProspectsPage() {
 
   const [{ data: prospects }, { data: quotes }] = await Promise.all([
     supabase.from('clients').select('*').eq('user_id', user.id).in('status', BOARD_STATUSES).order('created_at', { ascending: false }),
-    supabase.from('quotes').select('client_id, total_ttc, status').eq('user_id', user.id),
+    supabase.from('quotes').select('id, client_id, quote_number, total_ttc, status, issue_date, valid_until').eq('user_id', user.id),
   ])
 
   const list = (prospects as Client[]) || []
 
-  // Montant potentiel par prospect = somme de ses devis non refusés
-  const potById = new Map<string, number>()
+  // Montant + nombre de devis par client (total de TOUS ses devis), et le devis « envoyé »
+  // le plus récent → cible de la relance depuis la carte.
+  const quoteAgg = new Map<string, { total: number; count: number }>()
+  const primaryQuote = new Map<string, { id: string; number: string; issueDate: string | null; validUntil: string | null }>()
   for (const q of quotes || []) {
-    if (!q.client_id || q.status === 'refuse') continue
-    potById.set(q.client_id, (potById.get(q.client_id) || 0) + num(q.total_ttc))
+    if (!q.client_id) continue
+    const a = quoteAgg.get(q.client_id) || { total: 0, count: 0 }
+    a.total += num(q.total_ttc); a.count += 1
+    quoteAgg.set(q.client_id, a)
+    if (q.status === 'envoye') {
+      const cur = primaryQuote.get(q.client_id)
+      if (!cur || (q.issue_date || '') > (cur.issueDate || '')) {
+        primaryQuote.set(q.client_id, { id: q.id, number: q.quote_number, issueDate: q.issue_date, validUntil: q.valid_until })
+      }
+    }
   }
 
   const inColumn = (p: Client, c: typeof PROSPECT_COLUMNS[number]) => p.status === c.key || (c.extra?.includes(p.status) ?? false)
@@ -58,7 +68,9 @@ export default async function ProspectsPage() {
       phone: p.phone ?? null,
       email: p.email ?? null,
       waHref: waLink(p.phone),
-      pot: potById.get(p.id) || 0,
+      quoteTotal: quoteAgg.get(p.id)?.total || 0,
+      quoteCount: quoteAgg.get(p.id)?.count || 0,
+      relanceQuote: primaryQuote.get(p.id) || null,
       createdAt: p.created_at,
     }]
   })
