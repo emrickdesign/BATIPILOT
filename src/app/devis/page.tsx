@@ -57,7 +57,7 @@ export default async function DevisPage() {
   if (!user) return null
 
   const [{ data: quotes }, { data: projects }] = await Promise.all([
-    supabase.from('quotes').select('*, clients(first_name, last_name, company_name, type)').eq('user_id', user.id).order('created_at', { ascending: false }),
+    supabase.from('quotes').select('*, clients(first_name, last_name, company_name, type, phone)').eq('user_id', user.id).order('created_at', { ascending: false }),
     supabase.from('projects').select('id, title').eq('user_id', user.id),
   ])
 
@@ -110,6 +110,8 @@ export default async function DevisPage() {
             dateFmt: formatDate(quote.issue_date),
             badge: badgeFor(disp),
             cta: nextAction(quote),
+            expired: disp === 'expire',
+            clientPhone: (quote.clients as { phone?: string | null } | null)?.phone || null,
           }
         })} />
       )}

@@ -28,4 +28,6 @@ export type DevisCardData = {
   dateFmt: string
   badge: { label: string; cls: string } | null
   cta: string
+  expired: boolean
+  clientPhone: string | null
 }
