@@ -2,8 +2,9 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Plus, MapPin, Camera, ChevronRight } from 'lucide-react'
+import { Plus, Camera } from 'lucide-react'
 import { visitStatusLabels } from '@/lib/visites'
+import ArchiveVisitButton from './ArchiveVisitButton'
 
 type VisitRow = {
   id: string; title: string; address: string | null; status: string; created_at: string
@@ -40,35 +41,35 @@ export default async function VisitesPage() {
   const active = list.filter(v => v.status !== 'archive')
   const archived = list.filter(v => v.status === 'archive')
 
-  const renderCard = (v: VisitRow) => {
+  const renderCard = (v: VisitRow, archivable = false) => {
     const cli = v.clients
     const cliName = cli ? (cli.company_name || [cli.first_name, cli.last_name].filter(Boolean).join(' ')) : null
     const thumb = thumbOf(v.id)
     return (
-      <Link key={v.id} href={`/visites/${v.id}`}>
-        <Card className="border-0 shadow-[var(--shadow-sm)] card-interactive">
-          <CardContent className="p-4 flex items-center gap-3">
-            {thumb ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={thumb} alt="" className="w-11 h-11 rounded-xl object-cover flex-shrink-0 border border-gray-200" />
-            ) : (
-              <span className="grid place-items-center w-11 h-11 rounded-xl flex-shrink-0 bg-[#FCE7DE] text-[#C14E33]"><Camera className="w-5 h-5" /></span>
-            )}
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-marine truncate">{v.title}</p>
-              <p className="text-xs text-gray-400 truncate flex items-center gap-2">
-                <span>{new Date(v.created_at).toLocaleDateString('fr-FR')}</span>
-                {cliName && <>· {cliName}</>}
-                {v.address && <span className="inline-flex items-center gap-0.5"><MapPin className="w-3 h-3" /> {v.address}</span>}
-              </p>
-            </div>
-            <span className={`text-xs font-medium px-2 py-1 rounded-full flex-shrink-0 ${v.status === 'valide' ? 'bg-[#F1F6E9] text-[#3F7A2E]' : 'bg-gray-100 text-gray-500'}`}>
-              {visitStatusLabels[v.status] || v.status}
-            </span>
-            <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />
-          </CardContent>
-        </Card>
-      </Link>
+      <div key={v.id} className="relative">
+        {archivable && <ArchiveVisitButton visitId={v.id} />}
+        <Link href={`/visites/${v.id}`}>
+          <Card className="border-0 shadow-[var(--shadow-sm)] card-interactive overflow-hidden">
+            <CardContent className="p-0 flex items-stretch min-h-[104px]">
+              {thumb ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={thumb} alt="" className="w-28 sm:w-32 object-cover self-stretch flex-shrink-0" />
+              ) : (
+                <span className="grid place-items-center w-28 sm:w-32 flex-shrink-0 bg-[#FCE7DE] text-[#C14E33] self-stretch"><Camera className="w-7 h-7" /></span>
+              )}
+              <div className="p-3 pr-9 min-w-0 flex-1 flex flex-col justify-center gap-1">
+                <p className="text-sm font-semibold text-marine truncate">{v.title}</p>
+                <p className="text-xs text-gray-400 truncate">
+                  {new Date(v.created_at).toLocaleDateString('fr-FR')}{cliName ? ` · ${cliName}` : ''}
+                </p>
+                <span className={`w-fit text-[11px] font-medium px-2 py-0.5 rounded-full ${v.status === 'valide' ? 'bg-[#F1F6E9] text-[#3F7A2E]' : 'bg-gray-100 text-gray-500'}`}>
+                  {visitStatusLabels[v.status] || v.status}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
+      </div>
     )
   }
 
@@ -92,12 +93,14 @@ export default async function VisitesPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3">
-          {active.map(renderCard)}
+        <div className="space-y-3">
+          <div className="grid sm:grid-cols-2 gap-3">
+            {active.map(v => renderCard(v, true))}
+          </div>
           {archived.length > 0 && (
             <details className="mt-2">
               <summary className="text-sm font-medium text-gray-500 cursor-pointer hover:text-gray-700 select-none">Visites archivées ({archived.length})</summary>
-              <div className="grid gap-3 mt-3 opacity-70">{archived.map(renderCard)}</div>
+              <div className="grid sm:grid-cols-2 gap-3 mt-3 opacity-70">{archived.map(v => renderCard(v))}</div>
             </details>
           )}
         </div>
