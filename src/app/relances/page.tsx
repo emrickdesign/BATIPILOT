@@ -8,11 +8,11 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
+import { isRelanceDue } from '@/lib/relances'
 import RelanceButton from './RelanceButton'
 
 const num = (v: unknown) => Number(v) || 0
 const DAY = 86_400_000
-const SEUIL_RELANCE = 7 // devis envoyé → à relancer (doc §9.3)
 const CLOSED = ['termine', 'a_facturer', 'facture', 'paye']
 
 function daysSince(d?: string | null): number {
@@ -49,7 +49,7 @@ async function getData(userId: string) {
   const clientCols = 'type, first_name, last_name, company_name, phone, email'
   const [quotesRes, invoicesRes, projectsRes] = await Promise.all([
     supabase.from('quotes')
-      .select(`id, quote_number, status, total_ttc, issue_date, reminded_at, clients(${clientCols})`)
+      .select(`id, quote_number, status, total_ttc, issue_date, valid_until, reminded_at, clients(${clientCols})`)
       .eq('user_id', userId).eq('status', 'envoye'),
     supabase.from('invoices')
       .select(`id, invoice_number, status, total_ttc, amount_due, due_date, clients(${clientCols})`)
@@ -64,7 +64,7 @@ async function getData(userId: string) {
   const projects = projectsRes.data || []
 
   const aRelancer = quotes
-    .filter(q => daysSince(q.issue_date) >= SEUIL_RELANCE && (!q.reminded_at || daysSince(q.reminded_at) >= SEUIL_RELANCE))
+    .filter(q => isRelanceDue(q))
     .sort((a, b) => new Date(a.issue_date).getTime() - new Date(b.issue_date).getTime())
 
   const aEncaisser = invoices

@@ -262,6 +262,10 @@ function DevisForm() {
 
     if (error || !quote) { toast.error('Erreur création devis'); setSaving(false); return }
 
+    // La durée saisie devient le défaut de l'utilisateur (pré-rempli sur les prochains devis).
+    const vd = parseInt(validDays || '30') || 30
+    await supabase.from('companies').update({ quote_validity_days: vd }).eq('user_id', user.id)
+
     await supabase.from('quote_lines').insert(
       lines.map((l, i) => ({
         quote_id: quote.id,

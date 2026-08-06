@@ -1,12 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { isRelanceDue } from '@/lib/relances'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Clock, ReceiptText, Camera, BellRing, Landmark, HardHat, Sun, ArrowRight, CheckCircle2, type LucideIcon,
 } from 'lucide-react'
 
-const DAY = 86_400_000
-const daysSince = (d?: string | null) => (d ? Math.floor((Date.now() - new Date(d).getTime()) / DAY) : 0)
 const num = (v: unknown) => Number(v) || 0
 const CLOSED = ['termine', 'facture', 'paye', 'archive']
 
@@ -22,7 +21,7 @@ async function getData(userId: string) {
     supabase.from('time_entries').select('employee_id, hours').eq('user_id', userId).eq('date', today),
     supabase.from('expenses').select('id').eq('user_id', userId).gte('created_at', iso),
     supabase.from('presence_events').select('id').eq('user_id', userId).gte('occurred_at', iso),
-    supabase.from('quotes').select('status, issue_date, reminded_at').eq('user_id', userId),
+    supabase.from('quotes').select('status, issue_date, valid_until, reminded_at').eq('user_id', userId),
     supabase.from('invoices').select('status, due_date').eq('user_id', userId),
     supabase.from('projects').select('status, end_date').eq('user_id', userId),
   ])
@@ -36,7 +35,7 @@ async function getData(userId: string) {
   const totalHours = times.reduce((s, t) => s + num(t.hours), 0)
   const ticketsToday = (expRes.data || []).length
   const pointagesToday = (presRes.data || []).length
-  const aRelancer = quotes.filter(q => q.status === 'envoye' && daysSince(q.issue_date) >= 7 && (!q.reminded_at || daysSince(q.reminded_at) >= 7)).length
+  const aRelancer = quotes.filter(q => isRelanceDue(q)).length
   const echues = invoices.filter(i => i.status === 'envoyee' && i.due_date && i.due_date < today).length
   const enRetard = projects.filter(p => !CLOSED.includes(p.status) && p.end_date && p.end_date < today).length
 

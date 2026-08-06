@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { getValidGmailToken } from '@/lib/gmail-token'
 import { sendGmailHtml } from '@/lib/gmail-send'
+import { relanceThresholds } from '@/lib/relances'
 
 // Chrono universel des relances de devis (Vercel Cron, 1×/jour).
 // Un devis resté au statut « envoyé » (donc NON signé électroniquement — la signature
@@ -132,10 +133,11 @@ async function runRelances(req: NextRequest) {
     const settings = await getSettings(q.user_id)
     if (settings.disabled.includes('devis_relance')) { bump('regle_desactivee'); continue }
 
-    const ref = q.sent_at || q.issue_date
+    // Paliers proportionnels à la durée de validité (50 % puis 80 %).
+    const ref = q.issue_date || q.sent_at
     if (!ref) { bump('sans_date'); continue }
     const days = Math.floor((Date.now() - new Date(ref).getTime()) / DAY)
-    const threshold = settings.delays[q.reminder_count]
+    const threshold = relanceThresholds(q.issue_date, q.valid_until)[q.reminder_count]
     if (threshold == null) { bump('paliers_epuises'); continue }
     if (days < threshold) { bump('pas_encore_du'); continue }
 

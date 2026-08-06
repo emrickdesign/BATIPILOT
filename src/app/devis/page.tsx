@@ -5,13 +5,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, FileText, Clock, CheckCircle2, Percent } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
+import { isRelanceDue } from '@/lib/relances'
 import StatCard from '@/components/charts/StatCard'
 import DevisKanban from './DevisKanban'
 import { devisCol, type DevisCardData } from './kanban-config'
 
 const num = (v: unknown) => Number(v) || 0
-const DAY = 86_400_000
-const daysSince = (d?: string | null) => (d ? Math.floor((Date.now() - new Date(d).getTime()) / DAY) : 0)
 
 type Disp = 'brouillon' | 'pret' | 'envoye' | 'relance' | 'accepte' | 'refuse' | 'expire' | 'transforme'
 
@@ -40,9 +39,9 @@ function nextAction(q: { status: string; valid_until?: string | null; reminded_a
     case 'brouillon': return 'À finaliser et envoyer'
     case 'pret': return 'À envoyer au client'
     case 'envoye':
-      if (q.valid_until && q.valid_until < today) return 'Expiré — relancer ou archiver'
+      if (q.valid_until && q.valid_until < today) return 'Expiré — renouveler'
       if (q.reminded_at) return 'Relancé — en attente de réponse'
-      if (daysSince(q.issue_date) >= 7) return 'Sans réponse — à relancer'
+      if (isRelanceDue(q)) return 'Sans réponse — à relancer'
       return 'En attente de réponse'
     case 'accepte': return 'Créer le chantier / la facture'
     case 'transforme': return 'Facturé'

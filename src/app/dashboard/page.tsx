@@ -9,6 +9,7 @@ import {
 import { Card, CardContent } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
 import { timeProgress, isAValider } from '@/lib/chantiers'
+import { isRelanceDue } from '@/lib/relances'
 import ChantiersActifsList from './ChantiersActifsList'
 import EncaissementsChart from './EncaissementsChart'
 import DonutMetricCard from '@/components/charts/DonutMetricCard'
@@ -65,7 +66,7 @@ async function getData(userId: string) {
   }
 
   const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes, absRes, vehAsgRes, snzRes] = await Promise.all([
-    supabase.from('quotes').select('id, quote_number, status, total_ttc, subtotal_ht, issue_date, reminded_at, client_id, project_id, created_at').eq('user_id', userId),
+    supabase.from('quotes').select('id, quote_number, status, total_ttc, subtotal_ht, issue_date, valid_until, reminded_at, client_id, project_id, created_at').eq('user_id', userId),
     supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due, issue_date, due_date, client_id, quote_id, created_at').eq('user_id', userId),
     supabase.from('projects').select('id, title, status, start_date, end_date, progress, created_at').eq('user_id', userId).neq('status', 'archive'),
     supabase.from('expenses').select('amount_ttc, amount_ht, status, source, category, expense_date, project_id, created_at').eq('user_id', userId),
@@ -102,7 +103,7 @@ async function getData(userId: string) {
   const devisEnAttente = quotes.filter(q => q.status === 'envoye').reduce((s, q) => s + num(q.total_ttc), 0)
 
   // ── 2. À traiter aujourd'hui ────────────────────────────────────────
-  const aRelancer = quotes.filter(q => q.status === 'envoye' && daysSince(q.issue_date) >= 7 && (!q.reminded_at || daysSince(q.reminded_at) >= 7)).length
+  const aRelancer = quotes.filter(q => isRelanceDue(q)).length
   const aRapprocher = bank.filter(t => t.status === 'a_rapprocher' && num(t.amount) > 0).length
   const ticketsAValider = exp.filter(e => e.status === 'a_verifier').length
   const aTransmettre = exp.filter(e => e.status === 'valide').length
