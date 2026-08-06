@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     const hauteurMur = String(formData.get('hauteur_mur') || '2.5')
     const clientId = String(formData.get('client_id') || '') || null
     const projectId = String(formData.get('project_id') || '') || null
+    const visitId = String(formData.get('visit_id') || '') || null
     // Réponses aux questions posées par l'IA après lecture du plan (étape 3)
     let reponses: { question: string; reponse: string }[] = []
     try {
@@ -62,14 +63,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Le plan doit être un PDF ou une image (PNG/JPG).' }, { status: 415 })
     }
 
-    const prompt = buildPrompt(demande, hauteurMur, baseDePrix, reponses)
+    // Photos d'une visite de repérage (optionnel) → aident à cerner l'état existant / matériaux
+    const visitBlocks: any[] = []
+    if (visitId) {
+      const { data: vphotos } = await supabase.from('site_visit_photos')
+        .select('storage_path, caption').eq('visit_id', visitId).eq('user_id', user.id).order('sort_order').limit(6)
+      for (const p of vphotos || []) {
+        const { data: blob } = await supabase.storage.from('documents').download(p.storage_path as string)
+        if (!blob) continue
+        const b = Buffer.from(await blob.arrayBuffer())
+        const mt = (blob.type === 'image/png' ? 'image/png' : blob.type === 'image/webp' ? 'image/webp' : 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/webp'
+        visitBlocks.push({ type: 'image', source: { type: 'base64', media_type: mt, data: b.toString('base64') } })
+      }
+    }
+
+    const prompt = buildPrompt(demande, hauteurMur, baseDePrix, reponses, visitBlocks.length)
 
     let message: Awaited<ReturnType<typeof anthropic.messages.create>>
     try {
       message = await anthropic.messages.create({
         model: 'claude-sonnet-4-6',
         max_tokens: 12000,
-        messages: [{ role: 'user', content: [planBlock, { type: 'text', text: prompt }] }],
+        messages: [{ role: 'user', content: [planBlock, ...visitBlocks, { type: 'text', text: prompt }] }],
       })
     } catch (apiErr: any) {
       console.error('Anthropic API error (plan):', apiErr)
@@ -139,16 +154,19 @@ export async function POST(req: NextRequest) {
   }
 }
 
-function buildPrompt(demande: string, hauteurMur: string, baseDePrix: string, reponses: { question: string; reponse: string }[] = []): string {
+function buildPrompt(demande: string, hauteurMur: string, baseDePrix: string, reponses: { question: string; reponse: string }[] = [], nbPhotosVisite = 0): string {
   const precisions = reponses.length
     ? `\nPRÉCISIONS DONNÉES PAR L'ARTISAN (réponses à tes questions — elles font FOI, respecte-les strictement) :\n${reponses.map(r => `- ${r.question}\n  → ${r.reponse}`).join('\n')}\n`
+    : ''
+  const photosVisite = nbPhotosVisite
+    ? `\n${nbPhotosVisite} PHOTO(S) DE REPÉRAGE prises sur place sont fournies APRÈS le plan : sers-t'en pour l'état existant, les matériaux en place, les contraintes et pour affiner les métrés/quantités.\n`
     : ''
 
   return `Tu es un métreur-chiffreur expert du bâtiment. Tu analyses un PLAN 2D coté (les cotes sont en CENTIMÈTRES sauf indication contraire : ex "405" = 4,05 m, "240/215" = largeur/hauteur d'une ouverture en cm).
 
 DEMANDE DE L'ARTISAN (dictée, peut être approximative) :
 "${demande}"
-${precisions}
+${precisions}${photosVisite}
 
 HYPOTHÈSE HAUTEUR SOUS PLAFOND : ${hauteurMur} m (sauf si le plan indique autre chose).
 

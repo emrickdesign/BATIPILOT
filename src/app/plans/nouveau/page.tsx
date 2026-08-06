@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -39,6 +40,18 @@ export default function PlansPage() {
   const [hauteur, setHauteur] = useState('2.5')
   const [analysing, setAnalysing] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
+  // Visite de repérage (optionnelle) : ses photos enrichissent l'analyse du plan
+  const [visits, setVisits] = useState<{ id: string; title: string }[]>([])
+  const [visitId, setVisitId] = useState('')
+
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return
+      supabase.from('site_visits').select('id, title').eq('user_id', user.id).neq('status', 'archive').order('created_at', { ascending: false }).limit(50)
+        .then(({ data }) => setVisits((data as { id: string; title: string }[]) || []))
+    })
+  }, [])
 
   // Parcours en 2 temps : l'IA lit le plan et pose ses questions, puis chiffre.
   const [lecture, setLecture] = useState<{ lecture: string; pieces: string[]; questions: Question[] } | null>(null)
@@ -96,6 +109,7 @@ export default function PlansPage() {
     fd.append('file', file)
     fd.append('demande', demande)
     fd.append('hauteur_mur', hauteur)
+    if (visitId) fd.append('visit_id', visitId)
     const payload = reps ?? (lecture?.questions || []).map((q, i) => ({ question: q.question, reponse: reponses[i] || '' })).filter(r => r.reponse.trim())
     if (payload.length) fd.append('reponses', JSON.stringify(payload))
     try {
@@ -198,6 +212,17 @@ export default function PlansPage() {
               )}
             </div>
             <input ref={fileRef} type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" className="hidden" onChange={e => pickFile(e.target.files?.[0])} />
+            {visits.length > 0 && (
+              <div className="mt-3 space-y-1">
+                <label className="text-xs text-gray-500">Photos d&apos;une visite de repérage (optionnel)</label>
+                <select value={visitId} onChange={e => setVisitId(e.target.value)}
+                  className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="">— Aucune —</option>
+                  {visits.map(v => <option key={v.id} value={v.id}>{v.title}</option>)}
+                </select>
+                <p className="text-[11px] text-gray-400">Les photos de la visite seront jointes au plan pour affiner le chiffrage.</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 
