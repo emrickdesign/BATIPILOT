@@ -56,26 +56,27 @@ export default async function ClientFiche({ id, base }: { id: string; base: '/cl
     supabase.from('site_visits').select('id,title,address,status,transcript,created_at').eq('client_id', id).neq('status', 'archive').order('created_at', { ascending: false }),
   ])
 
-  // Miniature (1re photo) + compteur photos par visite de repérage.
+  // TOUTES les photos de chaque visite (galerie inline sur la fiche, sans quitter la page).
   const visitList = (visits || []) as { id: string; title: string; address: string | null; status: string; transcript: string | null; created_at: string }[]
-  const photoCount = new Map<string, number>()
-  const firstPhoto = new Map<string, string>()
+  type VisitPhoto = { url: string; caption: string | null }
+  const photosByVisit = new Map<string, VisitPhoto[]>()
   if (visitList.length) {
     const { data: ph } = await supabase.from('site_visit_photos')
-      .select('visit_id, storage_path, sort_order').eq('user_id', user.id).in('visit_id', visitList.map(v => v.id)).order('sort_order')
-    for (const p of ph || []) {
-      const vid = p.visit_id as string
-      photoCount.set(vid, (photoCount.get(vid) || 0) + 1)
-      if (!firstPhoto.has(vid)) firstPhoto.set(vid, p.storage_path as string)
+      .select('visit_id, storage_path, caption, sort_order').eq('user_id', user.id).in('visit_id', visitList.map(v => v.id)).order('sort_order')
+    const rows = (ph || []) as { visit_id: string; storage_path: string; caption: string | null }[]
+    const paths = rows.map(r => r.storage_path)
+    const signedByPath = new Map<string, string>()
+    if (paths.length) {
+      const { data: signed } = await supabase.storage.from('documents').createSignedUrls(paths, 3600)
+      paths.forEach((p, i) => signedByPath.set(p, signed?.[i]?.signedUrl || ''))
+    }
+    for (const r of rows) {
+      const arr = photosByVisit.get(r.visit_id) || []
+      arr.push({ url: signedByPath.get(r.storage_path) || '', caption: r.caption })
+      photosByVisit.set(r.visit_id, arr)
     }
   }
-  const thumbPaths = [...firstPhoto.values()]
-  const thumbUrl = new Map<string, string>()
-  if (thumbPaths.length) {
-    const { data: signed } = await supabase.storage.from('documents').createSignedUrls(thumbPaths, 3600)
-    thumbPaths.forEach((p, i) => thumbUrl.set(p, signed?.[i]?.signedUrl || ''))
-  }
-  const thumbOf = (vid: string) => { const p = firstPhoto.get(vid); return p ? thumbUrl.get(p) || null : null }
+  const photosOf = (vid: string) => photosByVisit.get(vid) || []
 
   const isPaid = (s: string) => s === 'payee' || s === 'paye'
   const isOpen = (s: string) => s === 'envoyee' || s === 'en_retard' || s === 'payee_partiellement'
@@ -284,48 +285,6 @@ export default async function ClientFiche({ id, base }: { id: string; base: '/cl
         </div>
       </div>
 
-      {/* Repérage / Visite — photos + notes du lieu, stockées AVANT le devis signé */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2"><Camera className="w-4 h-4 text-[#C14E33]" /> Repérage ({visitList.length})</CardTitle>
-          <Link href={`/visites/nouveau?client=${id}`}><Button variant="outline" size="sm" className="h-7 text-xs">+ Visite</Button></Link>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {!visitList.length ? (
-            <p className="text-sm text-gray-400 py-2">Aucune visite de repérage. Ajoute photos et notes du lieu avant de faire le devis.</p>
-          ) : (
-            <div className="space-y-2">
-              {visitList.map(v => {
-                const thumb = thumbOf(v.id)
-                const nb = photoCount.get(v.id) || 0
-                return (
-                  <Link key={v.id} href={`/visites/${v.id}`} className="group block">
-                    <div className="flex items-stretch gap-3 rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm transition-all group-hover:border-primary/40 group-hover:shadow-md">
-                      {thumb ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={thumb} alt="" className="w-20 object-cover flex-shrink-0" />
-                      ) : (
-                        <span className="grid place-items-center w-20 flex-shrink-0 bg-[#FCE7DE] text-[#C14E33]"><Camera className="w-5 h-5" /></span>
-                      )}
-                      <div className="min-w-0 flex-1 py-2.5 pr-3">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-gray-800 truncate">{v.title || 'Visite'}</p>
-                          <Badge className="bg-[#EAF1FC] text-[#1F5FAE] border-0 text-[10px] flex-shrink-0">{nb} photo{nb > 1 ? 's' : ''}</Badge>
-                        </div>
-                        {v.transcript && (
-                          <p className="text-xs text-gray-500 mt-1 line-clamp-2 flex gap-1"><StickyNote className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />{v.transcript}</p>
-                        )}
-                        <p className="text-[11px] text-gray-400 mt-1">{formatDate(v.created_at)}</p>
-                      </div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Chantiers */}
       <Card>
         <CardHeader className="pb-2 pt-4 px-4">
@@ -367,6 +326,68 @@ export default async function ClientFiche({ id, base }: { id: string; base: '/cl
                       </div>
                     </div>
                   </Link>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Repérage / Visite — SOUS les chantiers. Photos visibles inline (galerie), sans quitter la fiche. */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2"><Camera className="w-4 h-4 text-[#C14E33]" /> Repérage ({visitList.length})</CardTitle>
+          <Link href={`/visites/nouveau?client=${id}`}><Button variant="outline" size="sm" className="h-7 text-xs">+ Visite</Button></Link>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          {!visitList.length ? (
+            <p className="text-sm text-gray-400 py-2">Aucune visite de repérage. Ajoute photos et notes du lieu avant de faire le devis.</p>
+          ) : (
+            <div className="space-y-2">
+              {visitList.map(v => {
+                const photos = photosOf(v.id)
+                const nb = photos.length
+                return (
+                  <details key={v.id} className="group rounded-xl border border-gray-200 bg-white overflow-hidden open:shadow-md transition-shadow">
+                    <summary className="list-none cursor-pointer select-none flex items-stretch gap-3">
+                      {photos[0]?.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={photos[0].url} alt="" className="w-20 object-cover flex-shrink-0" />
+                      ) : (
+                        <span className="grid place-items-center w-20 flex-shrink-0 bg-[#FCE7DE] text-[#C14E33]"><Camera className="w-5 h-5" /></span>
+                      )}
+                      <div className="min-w-0 flex-1 py-2.5 pr-3">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-800 truncate">{v.title || 'Visite'}</p>
+                          <Badge className="bg-[#EAF1FC] text-[#1F5FAE] border-0 text-[10px] flex-shrink-0">{nb} photo{nb > 1 ? 's' : ''}</Badge>
+                          <ChevronDown className="w-4 h-4 text-gray-400 ml-auto flex-shrink-0 transition-transform group-open:rotate-180" />
+                        </div>
+                        {v.transcript && (
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2 group-open:line-clamp-none flex gap-1"><StickyNote className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />{v.transcript}</p>
+                        )}
+                        <p className="text-[11px] text-gray-400 mt-1">{formatDate(v.created_at)}</p>
+                      </div>
+                    </summary>
+                    {/* Galerie complète, visible ici sans redirection */}
+                    <div className="px-3 pb-3 pt-2 border-t border-gray-100">
+                      {!nb ? (
+                        <p className="text-xs text-gray-400 py-1">Aucune photo sur cette visite.</p>
+                      ) : (
+                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                          {photos.map((p, i) => (
+                            <a key={i} href={p.url} target="_blank" rel="noreferrer" className="group/photo block relative rounded-lg overflow-hidden border border-gray-100">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={p.url} alt={p.caption || ''} className="w-full aspect-square object-cover transition-transform group-hover/photo:scale-105" />
+                              {p.caption && <span className="absolute inset-x-0 bottom-0 bg-black/50 text-white text-[10px] px-1 py-0.5 truncate">{p.caption}</span>}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      <div className="mt-2 flex justify-end">
+                        <Link href={`/visites/${v.id}`} className="text-xs text-primary hover:underline">Ouvrir la visite ↗</Link>
+                      </div>
+                    </div>
+                  </details>
                 )
               })}
             </div>
