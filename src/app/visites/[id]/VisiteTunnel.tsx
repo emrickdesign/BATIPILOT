@@ -11,7 +11,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import DictationButton from '@/components/DictationButton'
-import { ArrowLeft, Camera, Loader2, Trash2, Sparkles, AlertTriangle, HelpCircle, FileText } from 'lucide-react'
+import CameraCapture from '@/components/CameraCapture'
+import { ArrowLeft, Camera, Loader2, Trash2, Sparkles, AlertTriangle, HelpCircle, FileText, ImagePlus } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { fmtUnit } from '@/lib/materiaux'
 import { clientDisplayName } from '@/lib/chantiers'
@@ -41,7 +42,7 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
     if (error) toast.error('Enregistrement impossible')
   }
 
-  async function addPhotos(files: FileList) {
+  async function addPhotos(files: FileList | File[]) {
     setUploading(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
@@ -128,8 +129,15 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
           <CardTitle className="text-base flex items-center gap-2"><Camera className="w-4 h-4 text-gray-400" /> Photos {photos.length > 0 && <span className="text-sm font-normal text-gray-500">· {photos.length}</span>}</CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          <input ref={photoRef} type="file" accept="image/*" capture="environment" multiple className="hidden"
+          {/* Caméra live (webcam MacBook ou mobile) + import fichier/galerie */}
+          <input ref={photoRef} type="file" accept="image/*" multiple className="hidden"
             onChange={e => { if (e.target.files?.length) addPhotos(e.target.files); if (photoRef.current) photoRef.current.value = '' }} />
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <CameraCapture onCapture={f => addPhotos([f])} disabled={uploading} />
+            <Button variant="outline" size="sm" className="gap-1.5" disabled={uploading} onClick={() => photoRef.current?.click()}>
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />} Importer
+            </Button>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             {photos.map(p => (
               <div key={p.id} className="group relative">
