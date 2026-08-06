@@ -202,6 +202,14 @@ function renderParties(doc: any, cfg: TemplateConfig, company: any, client: any,
 
 // ─── PRESTATION TABLE ──────────────────────────────────────────────────────────
 
+// Saut de page contrôlé : si le bloc à venir dépasse le bas de page, on ouvre une
+// nouvelle page et on repart en haut. Évite les pages presque blanches / une info par page.
+function ensureSpace(doc: any, cfg: TemplateConfig, y: number, needed: number): number {
+  const bottom = doc.page.height - cfg.margin
+  if (y + needed > bottom) { doc.addPage(); return cfg.margin }
+  return y
+}
+
 function renderTable(doc: any, cfg: TemplateConfig, lines: any[], startY: number): number {
   const ML = cfg.margin
   const CW = doc.page.width - 2 * ML
@@ -218,12 +226,13 @@ function renderTable(doc: any, cfg: TemplateConfig, lines: any[], startY: number
     y += 22
     const desigW = Math.floor(CW * 0.65)
     lines.forEach((l, i) => {
-      if (i > 0) doc.moveTo(ML, y).lineTo(ML + CW, y).strokeColor('#e5e7eb').lineWidth(0.5).stroke()
       doc.fontSize(10).font(F.bold)
       const dH = doc.heightOfString(l.designation || '', { width: desigW })
       doc.fontSize(8).font(F.reg)
       const descH = l.description ? doc.heightOfString(l.description, { width: desigW }) + 4 : 0
       const rowH = Math.max(44, dH + descH + 22)
+      const yBefore = y; y = ensureSpace(doc, cfg, y, rowH)
+      if (i > 0 && y === yBefore) doc.moveTo(ML, y).lineTo(ML + CW, y).strokeColor('#e5e7eb').lineWidth(0.5).stroke()
       doc.fillColor('#111').fontSize(10).font(F.bold).text(l.designation || '', ML + 10, y + 10, { width: desigW })
       if (l.description) doc.fillColor('#888').fontSize(8).font(F.reg).text(l.description, ML + 10, y + 10 + dH + 4, { width: desigW })
       const total = l.total_ht ?? (l.quantity * l.unit_price_ht)
@@ -266,8 +275,9 @@ function renderTable(doc: any, cfg: TemplateConfig, lines: any[], startY: number
     doc.fontSize(8).font(F.reg)
     const descH = l.description ? doc.heightOfString(l.description, { width: desigW }) + 3 : 0
     const rowH = Math.max(28, dH + descH + 16)
+    const yBefore = y; y = ensureSpace(doc, cfg, y, rowH)
     if (isStripe) doc.rect(ML, y, CW, rowH).fill(hexToRgb(cfg.secondaryBg))
-    else if (i > 0) doc.moveTo(ML, y).lineTo(ML + CW, y).strokeColor('#e9ecef').lineWidth(0.3).stroke()
+    else if (i > 0 && y === yBefore) doc.moveTo(ML, y).lineTo(ML + CW, y).strokeColor('#e9ecef').lineWidth(0.3).stroke()
     doc.fillColor('#111').fontSize(9).font(F.bold).text(l.designation || '', c.desig, y + 7, { width: desigW })
     if (l.description) doc.fillColor('#888').fontSize(7.5).font(F.reg).text(l.description, c.desig, y + 7 + dH + 2, { width: desigW })
     doc.fillColor('#333').fontSize(8.5).font(F.reg)
@@ -430,10 +440,12 @@ export async function generateQuotePDF(quote: any, company: any, signature?: Cli
     let y = renderHeader(doc, cfg, 'DEVIS', quote.quote_number, quote.issue_date, quote.valid_until, "Valable jusqu'au", company)
     y = renderParties(doc, cfg, company, client, clientName, y)
     y = renderTable(doc, cfg, lines, y)
+    y = ensureSpace(doc, cfg, y, 120)
     y = renderTotals(doc, cfg, quote.subtotal_ht, quote.total_vat, quote.total_ttc, 'Total estimé', y)
 
     if (quote.deposit_amount > 0) {
       const ML = cfg.margin, CW = doc.page.width - 2 * ML
+      y = ensureSpace(doc, cfg, y, 26)
       doc.fillColor('#2563eb').fontSize(9).font(F.reg)
         .text(`Acompte demandé (${quote.deposit_percent}%)`, ML + 4, y + 4)
         .text(fmt(quote.deposit_amount), ML, y + 4, { align: 'right', width: CW - 4 })
@@ -441,8 +453,10 @@ export async function generateQuotePDF(quote: any, company: any, signature?: Cli
     }
 
     y = renderNotes(doc, cfg, quote.notes || '', y)
+    y = ensureSpace(doc, cfg, y, signature ? 130 : 100)
     y = renderSignatures(doc, cfg, company, quote.issue_date, y, 'BON POUR ACCORD — CLIENT', signature)
     if (signature) y = renderSignatureProof(doc, cfg, signature, y)
+    y = ensureSpace(doc, cfg, y, 30)
     renderFooter(doc, cfg, company, 'TVA non applicable — art. 293B CGI (micro-entreprise)', y)
     doc.end()
   })
@@ -469,13 +483,16 @@ export async function generateInvoicePDF(invoice: any, company: any, signature?:
     let y = renderHeader(doc, cfg, 'FACTURE', invoice.invoice_number, invoice.issue_date, invoice.due_date, 'Échéance :', company)
     y = renderParties(doc, cfg, company, client, clientName, y)
     y = renderTable(doc, cfg, lines, y)
+    y = ensureSpace(doc, cfg, y, 120)
     y = renderTotals(doc, cfg, invoice.subtotal_ht, invoice.total_vat, invoice.total_ttc, 'Total TTC', y)
 
     if (invoice.deposit_already_paid > 0) {
+      y = ensureSpace(doc, cfg, y, 26)
       doc.fillColor('#555').fontSize(8.5).font(F.reg)
         .text('Acompte versé', ML + 4, y + 4).text(`- ${fmt(invoice.deposit_already_paid)}`, ML, y + 4, { align: 'right', width: CW - 4 })
       y += 22
     }
+    y = ensureSpace(doc, cfg, y, 40)
     const tw = 220, tx = ML + CW - tw
     doc.moveTo(tx, y).lineTo(ML + CW, y).strokeColor('#e5e7eb').lineWidth(0.5).stroke()
     y += 6
@@ -483,14 +500,17 @@ export async function generateInvoicePDF(invoice: any, company: any, signature?:
     y += 26
 
     if (company?.iban) {
+      y = ensureSpace(doc, cfg, y, 38 + cfg.sectionGap)
       drawBox(doc, cfg, ML, y, CW, 38)
       doc.fillColor(P).fontSize(7).font(F.bold).text('COORDONNÉES BANCAIRES', ML + 12, y + 10)
       doc.fillColor('#333').fontSize(8.5).font(F.reg).text(`IBAN : ${company.iban}`, ML + 12, y + 22)
       y += 38 + cfg.sectionGap
     }
 
+    y = ensureSpace(doc, cfg, y, signature ? 130 : 100)
     y = renderSignatures(doc, cfg, company, invoice.issue_date, y, 'ACQUIT DE PAIEMENT — CLIENT', signature)
     if (signature) y = renderSignatureProof(doc, cfg, signature, y)
+    y = ensureSpace(doc, cfg, y, 30)
     renderFooter(doc, cfg, company, 'En cas de retard : pénalités 3× taux légal + indemnité forfaitaire 40 €', y)
     doc.end()
   })

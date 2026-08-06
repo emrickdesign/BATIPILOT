@@ -153,9 +153,34 @@ export const PREDEFINED_TEMPLATES: Record<string, TemplateConfig> = {
   },
 }
 
+// Correspondance modèles HTML (vus par le client) → config PDF équivalente (mêmes
+// couleurs/arrondi), pour que le PDF envoyé à l'admin ressemble au devis signé.
+const HTML_TEMPLATE_MAP: Record<string, { base: string; primaryColor: string; rounded: boolean }> = {
+  azur:      { base: 'minimaliste', primaryColor: '#111111', rounded: false },
+  via:       { base: 'agence',      primaryColor: '#f35b04', rounded: true },
+  novalis:   { base: 'artisan',     primaryColor: '#0b4ea2', rounded: true },
+  maisonova: { base: 'premium',     primaryColor: '#13131f', rounded: true },
+  verdalia:  { base: 'artisan',     primaryColor: '#0f766e', rounded: true },
+}
+
 export function getTemplateConfig(company: any): TemplateConfig {
   const style = company?.template_style || {}
   const id: string = style.template_id || 'agence'
+
+  // Modèle HTML choisi par l'entreprise → config PDF assortie
+  const htmlMap = HTML_TEMPLATE_MAP[id]
+  if (htmlMap) {
+    const b = PREDEFINED_TEMPLATES[htmlMap.base]
+    const primary = style.primary_color || htmlMap.primaryColor
+    return {
+      ...b,
+      id,
+      rounded: htmlMap.rounded,
+      primaryColor: primary,
+      tableHeaderBg: b.headerStyle === 'dark' ? b.tableHeaderBg : primary,
+      headerBg: b.headerStyle === 'bar' ? primary : b.headerBg,
+    }
+  }
 
   if (id === 'custom') {
     const base = PREDEFINED_TEMPLATES.artisan
