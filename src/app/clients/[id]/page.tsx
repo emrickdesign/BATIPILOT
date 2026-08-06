@@ -6,11 +6,11 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ArrowLeft, Phone, Mail, MapPin, HardHat, FolderOpen, Edit, Hash, CalendarDays,
-  FileText, ReceiptText, ChevronDown, Banknote, Wallet, PiggyBank,
+  FileText, ReceiptText, ChevronDown, Banknote, Wallet, PiggyBank, Camera, StickyNote,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { projectStatusLabels, projectStatusColors } from '@/lib/chantiers'
-import { clientDisplayName, clientStatusLabels, clientStatusColors } from '@/lib/clients'
+import { clientDisplayName, clientStatusLabels, clientStatusColors, isProspect } from '@/lib/clients'
 import type { ProjectStatus, ClientStatus } from '@/types'
 
 const num = (v: unknown) => Number(v) || 0
@@ -41,12 +41,34 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     .from('clients').select('*').eq('id', id).eq('user_id', user.id).single()
   if (!client) return notFound()
 
-  const [{ data: projects }, { data: quotes }, { data: invoices }, { data: documents }] = await Promise.all([
+  const [{ data: projects }, { data: quotes }, { data: invoices }, { data: documents }, { data: visits }] = await Promise.all([
     supabase.from('projects').select('id,title,status,project_type,address,start_date,end_date').eq('client_id', id).neq('status', 'archive').order('created_at', { ascending: false }),
     supabase.from('quotes').select('id,quote_number,status,total_ttc,issue_date').eq('client_id', id).order('created_at', { ascending: false }),
     supabase.from('invoices').select('id,invoice_number,status,total_ttc,amount_due,issue_date').eq('client_id', id).order('created_at', { ascending: false }),
     supabase.from('documents').select('id,name,category').eq('client_id', id).order('created_at', { ascending: false }),
+    supabase.from('site_visits').select('id,title,address,status,transcript,created_at').eq('client_id', id).neq('status', 'archive').order('created_at', { ascending: false }),
   ])
+
+  // Miniature (1re photo) + compteur photos par visite de repérage.
+  const visitList = (visits || []) as { id: string; title: string; address: string | null; status: string; transcript: string | null; created_at: string }[]
+  const photoCount = new Map<string, number>()
+  const firstPhoto = new Map<string, string>()
+  if (visitList.length) {
+    const { data: ph } = await supabase.from('site_visit_photos')
+      .select('visit_id, storage_path, sort_order').eq('user_id', user.id).in('visit_id', visitList.map(v => v.id)).order('sort_order')
+    for (const p of ph || []) {
+      const vid = p.visit_id as string
+      photoCount.set(vid, (photoCount.get(vid) || 0) + 1)
+      if (!firstPhoto.has(vid)) firstPhoto.set(vid, p.storage_path as string)
+    }
+  }
+  const thumbPaths = [...firstPhoto.values()]
+  const thumbUrl = new Map<string, string>()
+  if (thumbPaths.length) {
+    const { data: signed } = await supabase.storage.from('documents').createSignedUrls(thumbPaths, 3600)
+    thumbPaths.forEach((p, i) => thumbUrl.set(p, signed?.[i]?.signedUrl || ''))
+  }
+  const thumbOf = (vid: string) => { const p = firstPhoto.get(vid); return p ? thumbUrl.get(p) || null : null }
 
   const isPaid = (s: string) => s === 'payee' || s === 'paye'
   const isOpen = (s: string) => s === 'envoyee' || s === 'en_retard' || s === 'payee_partiellement'
@@ -56,25 +78,41 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const reste = inv.filter(i => isOpen(i.status)).reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
 
   const clientName = clientDisplayName(client)
+  // La fiche est unique (même ligne DB) mais s'adapte : prospect (avant devis signé) vs client converti.
+  const prospect = isProspect(client.status as ClientStatus)
+  const backHref = prospect ? '/prospects' : '/clients'
 
   return (
     <div className="space-y-4 max-w-3xl">
-      {/* En-tête */}
+      {/* En-tête — titre adaptatif selon le stade (prospect / client) */}
       <div className="flex items-center gap-3">
-        <Link href="/clients">
+        <Link href={backHref}>
           <Button variant="ghost" size="sm" className="gap-1"><ArrowLeft className="w-4 h-4" /> Retour</Button>
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900 truncate">{clientName}</h1>
-        <Badge className={`${clientStatusColors[client.status as ClientStatus] || 'bg-gray-100 text-gray-700'} border-0 flex-shrink-0 text-xs`}>
-          {clientStatusLabels[client.status as ClientStatus] || client.status}
-        </Badge>
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full ${prospect ? 'bg-[#EAF1FC] text-[#1F5FAE]' : 'bg-[#E9F2DB] text-[#3F7A2E]'}`}>
+              {prospect ? 'Fiche prospect' : 'Fiche client'}
+            </span>
+            <Badge className={`${clientStatusColors[client.status as ClientStatus] || 'bg-gray-100 text-gray-700'} border-0 flex-shrink-0 text-xs`}>
+              {clientStatusLabels[client.status as ClientStatus] || client.status}
+            </Badge>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 truncate mt-0.5">{clientName}</h1>
+        </div>
       </div>
 
-      {/* Actions */}
+      {/* Actions — adaptées au stade */}
       <div className="flex flex-wrap gap-2">
-        {/* « Créer un chantier » uniquement s'il n'y en a aucun ; sinon le chantier lié est listé plus bas. */}
-        {!projects?.length && (
-          <Link href={`/chantiers/nouveau?client=${id}`}><Button size="sm" className="gap-1"><HardHat className="w-4 h-4" /> Créer un chantier</Button></Link>
+        {prospect ? (
+          <>
+            <Link href={`/devis/nouveau?client=${id}`}><Button size="sm" className="gap-1"><FileText className="w-4 h-4" /> Créer un devis</Button></Link>
+            <Link href={`/visites/nouveau?client=${id}`}><Button variant="outline" size="sm" className="gap-1"><Camera className="w-4 h-4" /> Nouvelle visite</Button></Link>
+          </>
+        ) : (
+          !projects?.length && (
+            <Link href={`/chantiers/nouveau?client=${id}`}><Button size="sm" className="gap-1"><HardHat className="w-4 h-4" /> Créer un chantier</Button></Link>
+          )
         )}
         {client.email && (
           <Link href={`/emails?compose=1&to=${encodeURIComponent(client.email)}`}>
@@ -84,23 +122,33 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         <Link href={`/clients/${id}/modifier`}><Button variant="outline" size="sm" className="gap-1"><Edit className="w-4 h-4" /> Modifier</Button></Link>
       </div>
 
-      {/* Résumé financier */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="border border-[#CFDDF6] bg-[#EAF1FC]"><CardContent className="p-4">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#3E5C8A]"><Banknote className="w-3.5 h-3.5" /> Total facturé</div>
-          <div className="inline-block text-xl font-bold text-[#1F5FAE] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#CFDDF6]">{formatCurrency(totalFacture)}</div>
-        </CardContent></Card>
-        <Card className="border border-[#DDE9C9] bg-[#EEF6E4]"><CardContent className="p-4">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#4C6F35]"><Wallet className="w-3.5 h-3.5" /> Encaissé</div>
-          <div className="inline-block text-xl font-bold text-[#3F7A2E] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#DDE9C9]">{formatCurrency(encaisse)}</div>
-        </CardContent></Card>
-        <Link href="/banque">
-          <Card className="border border-[#F0E1C0] bg-[#FBF1D8] card-interactive h-full"><CardContent className="p-4">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8A6D2E]"><PiggyBank className="w-3.5 h-3.5" /> Reste à encaisser</div>
-            <div className={`inline-block text-xl font-bold tabular-nums mt-2 rounded-lg px-2 py-0.5 border ${reste > 0 ? 'text-[#8A5A08] bg-white/70 border-[#F0E1C0]' : 'text-gray-400 bg-white/50 border-gray-200'}`}>{formatCurrency(reste)}</div>
+      {/* Résumé financier — seulement pour un client converti (un prospect n'a rien facturé) */}
+      {!prospect && (
+        <div className="grid grid-cols-3 gap-3">
+          <Card className="border border-[#CFDDF6] bg-[#EAF1FC]"><CardContent className="p-4">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#3E5C8A]"><Banknote className="w-3.5 h-3.5" /> Total facturé</div>
+            <div className="inline-block text-xl font-bold text-[#1F5FAE] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#CFDDF6]">{formatCurrency(totalFacture)}</div>
           </CardContent></Card>
-        </Link>
-      </div>
+          <Card className="border border-[#DDE9C9] bg-[#EEF6E4]"><CardContent className="p-4">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#4C6F35]"><Wallet className="w-3.5 h-3.5" /> Encaissé</div>
+            <div className="inline-block text-xl font-bold text-[#3F7A2E] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#DDE9C9]">{formatCurrency(encaisse)}</div>
+          </CardContent></Card>
+          <Link href="/banque">
+            <Card className="border border-[#F0E1C0] bg-[#FBF1D8] card-interactive h-full"><CardContent className="p-4">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8A6D2E]"><PiggyBank className="w-3.5 h-3.5" /> Reste à encaisser</div>
+              <div className={`inline-block text-xl font-bold tabular-nums mt-2 rounded-lg px-2 py-0.5 border ${reste > 0 ? 'text-[#8A5A08] bg-white/70 border-[#F0E1C0]' : 'text-gray-400 bg-white/50 border-gray-200'}`}>{formatCurrency(reste)}</div>
+            </CardContent></Card>
+          </Link>
+        </div>
+      )}
+
+      {/* Prospect : bandeau explicite — devient client quand le devis est signé */}
+      {prospect && (
+        <div className="rounded-xl border border-[#CFDDF6] bg-[#EAF1FC] px-4 py-3 text-sm text-[#1F5FAE] flex items-center gap-2">
+          <span className="text-lg">👋</span>
+          <span>Prospect en cours. Les infos (visite, photos, notes, devis) sont stockées ici. Il devient <strong>client</strong> dès que le devis est signé.</span>
+        </div>
+      )}
 
       {/* Coordonnées */}
       <Card>
@@ -134,6 +182,48 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
           )}
           {client.notes && (
             <div className="pt-2 border-t border-gray-100"><p className="text-sm text-gray-500 italic whitespace-pre-line">{client.notes}</p></div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Repérage / Visite — photos + notes du lieu, stockées AVANT le devis signé */}
+      <Card>
+        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+          <CardTitle className="text-base flex items-center gap-2"><Camera className="w-4 h-4 text-[#C14E33]" /> Repérage ({visitList.length})</CardTitle>
+          <Link href={`/visites/nouveau?client=${id}`}><Button variant="outline" size="sm" className="h-7 text-xs">+ Visite</Button></Link>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          {!visitList.length ? (
+            <p className="text-sm text-gray-400 py-2">Aucune visite de repérage. Ajoute photos et notes du lieu avant de faire le devis.</p>
+          ) : (
+            <div className="space-y-2">
+              {visitList.map(v => {
+                const thumb = thumbOf(v.id)
+                const nb = photoCount.get(v.id) || 0
+                return (
+                  <Link key={v.id} href={`/visites/${v.id}`} className="group block">
+                    <div className="flex items-stretch gap-3 rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm transition-all group-hover:border-primary/40 group-hover:shadow-md">
+                      {thumb ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={thumb} alt="" className="w-20 object-cover flex-shrink-0" />
+                      ) : (
+                        <span className="grid place-items-center w-20 flex-shrink-0 bg-[#FCE7DE] text-[#C14E33]"><Camera className="w-5 h-5" /></span>
+                      )}
+                      <div className="min-w-0 flex-1 py-2.5 pr-3">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-gray-800 truncate">{v.title || 'Visite'}</p>
+                          <Badge className="bg-[#EAF1FC] text-[#1F5FAE] border-0 text-[10px] flex-shrink-0">{nb} photo{nb > 1 ? 's' : ''}</Badge>
+                        </div>
+                        {v.transcript && (
+                          <p className="text-xs text-gray-500 mt-1 line-clamp-2 flex gap-1"><StickyNote className="w-3 h-3 mt-0.5 flex-shrink-0 text-gray-400" />{v.transcript}</p>
+                        )}
+                        <p className="text-[11px] text-gray-400 mt-1">{formatDate(v.created_at)}</p>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
+            </div>
           )}
         </CardContent>
       </Card>
