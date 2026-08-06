@@ -6,33 +6,15 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
-import { Phone, Mail, FileText, Send, Receipt, RotateCcw, Camera } from 'lucide-react'
+import { Phone, Mail, Camera } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { isProspect } from '@/lib/clients'
 import DndKanban from '@/components/kanban/DndKanban'
 import { PROSPECT_COLUMNS, type ProspectCardData } from './kanban-config'
-import RelanceDialog from '@/components/RelanceDialog'
 import { daysUntilExpiry } from '@/lib/relances'
 import type { ClientStatus } from '@/types'
 
 const dotOf = (col: string) => PROSPECT_COLUMNS.find(c => c.key === col)?.dot || '#94918A'
-
-// CTA principal adapté à la colonne où se trouve la carte.
-function ctaFor(p: ProspectCardData): { label: string; href: string; Icon: typeof FileText; external: boolean } {
-  const devis = { label: 'Créer un devis', href: `/devis/nouveau?client=${p.id}`, Icon: FileText, external: false }
-  switch (p.col) {
-    case 'devis_envoye': {
-      const href = p.waHref || (p.email ? `mailto:${p.email}` : p.phone ? `tel:${p.phone}` : `/clients/${p.id}`)
-      return { label: 'Relancer le client', href, Icon: Send, external: !!p.waHref }
-    }
-    case 'devis_accepte':
-      return { label: 'Créer la facture', href: `/factures/nouveau?client=${p.id}`, Icon: Receipt, external: false }
-    case 'devis_refuse':
-      return { label: 'Nouveau devis', href: `/devis/nouveau?client=${p.id}`, Icon: RotateCcw, external: false }
-    default:
-      return devis
-  }
-}
 
 export default function ProspectsKanban({ initialItems }: { initialItems: ProspectCardData[] }) {
   const router = useRouter()
@@ -90,7 +72,7 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
       footer={<p className="text-[11px] text-gray-400 mt-3">Glissez une carte d&apos;une colonne à l&apos;autre pour changer son statut. Accepté = conversion en client.</p>}
       renderCard={(p) => {
         const dot = dotOf(p.col)
-        const cta = ctaFor(p)
+        const daysLeft = p.col === 'devis_envoye' && p.relanceQuote ? daysUntilExpiry(p.relanceQuote.validUntil) : null
         return (
           <Card className="shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing border" style={{ backgroundColor: `${dot}0D`, borderColor: `${dot}33` }}>
             <CardContent className="p-3.5">
@@ -116,22 +98,10 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
                   <Camera className="w-3 h-3" /> Visite de repérage
                 </Link>
               )}
-              {p.col === 'devis_envoye' && p.relanceQuote ? (
-                <RelanceDialog
-                  quoteId={p.relanceQuote.id} clientName={p.name} phone={p.phone} email={p.email}
-                  issueDate={p.relanceQuote.issueDate} validUntil={p.relanceQuote.validUntil} dot={dot}
-                  daysLeft={daysUntilExpiry(p.relanceQuote.validUntil)}
-                />
-              ) : (
-                <a
-                  href={cta.href}
-                  onClick={e => e.stopPropagation()}
-                  {...(cta.external ? { target: '_blank', rel: 'noopener noreferrer' } : {})}
-                  className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight border bg-white/70 hover:bg-white transition-colors"
-                  style={{ borderColor: dot, color: dot }}
-                >
-                  <cta.Icon className="w-3.5 h-3.5 flex-shrink-0" /><span>{cta.label}</span>
-                </a>
+              {daysLeft != null && (
+                <p className={`mt-2 text-[11px] font-semibold ${daysLeft <= 3 ? 'text-[#C0392B]' : 'text-gray-500'}`}>
+                  {daysLeft < 0 ? 'Devis expiré' : daysLeft === 0 ? 'Devis : dernier jour de validité' : `Devis valable encore ${daysLeft} j`}
+                </p>
               )}
             </CardContent>
           </Card>

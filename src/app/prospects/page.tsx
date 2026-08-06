@@ -89,8 +89,8 @@ export default async function ProspectsPage() {
     <div className="space-y-5">
       <div className="flex items-start justify-between gap-4 animate-fade-up">
         <div>
-          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Prospects</h1>
-          <p className="text-gray-500 mt-1 text-sm">Vos pistes commerciales, du premier contact au devis accepté.</p>
+          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Suivi des prospects</h1>
+          <p className="text-gray-500 mt-1 text-sm">Suivi automatique de vos pistes, du premier contact au devis accepté. Les actions (devis, relance, facture) se font depuis la section Devis.</p>
         </div>
         <Link href="/clients/nouveau">
           <Button className="h-10 gap-2 shadow-sm"><Plus className="w-4 h-4" /> Nouveau prospect</Button>
