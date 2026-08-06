@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
-import { MapPin, HardHat, Phone, CalendarClock, Receipt, Send, CheckCircle2 } from 'lucide-react'
+import { MapPin, Phone, CalendarClock, Receipt, Send, CheckCircle2 } from 'lucide-react'
 import DndKanban from '@/components/kanban/DndKanban'
 import { CLIENT_COLUMNS, type ClientCard } from './kanban-config'
 import type { ClientStatus } from '@/types'
@@ -103,7 +103,6 @@ export default function ClientsKanban({ initialItems }: { initialItems: ClientCa
                 {c.facture} <span className="text-[11px] font-normal text-gray-400">facturé</span>
               </p>
               {c.reste && <p className="text-[11px] font-medium text-[#C0392B] mt-0.5">Reste {c.reste}</p>}
-              <p className="text-[11px] text-gray-400 mt-1 flex items-center gap-1"><HardHat className="w-3 h-3" />{c.chantiers} chantier{c.chantiers > 1 ? 's' : ''} · {c.contact}</p>
               <a
                 href={cta.href}
                 onClick={e => e.stopPropagation()}
