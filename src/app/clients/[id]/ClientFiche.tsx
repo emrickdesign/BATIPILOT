@@ -131,26 +131,6 @@ export default async function ClientFiche({ id, base }: { id: string; base: '/cl
         <Link href={`/clients/${id}/modifier`}><Button variant="outline" size="sm" className="gap-1"><Edit className="w-4 h-4" /> Modifier</Button></Link>
       </div>
 
-      {/* Résumé financier — seulement pour un client converti (un prospect n'a rien facturé) */}
-      {!prospect && (
-        <div className="grid grid-cols-3 gap-3">
-          <Card className="border border-[#CFDDF6] bg-[#EAF1FC]"><CardContent className="p-4">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#3E5C8A]"><Banknote className="w-3.5 h-3.5" /> Total facturé</div>
-            <div className="inline-block text-xl font-bold text-[#1F5FAE] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#CFDDF6]">{formatCurrency(totalFacture)}</div>
-          </CardContent></Card>
-          <Card className="border border-[#DDE9C9] bg-[#EEF6E4]"><CardContent className="p-4">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#4C6F35]"><Wallet className="w-3.5 h-3.5" /> Encaissé</div>
-            <div className="inline-block text-xl font-bold text-[#3F7A2E] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#DDE9C9]">{formatCurrency(encaisse)}</div>
-          </CardContent></Card>
-          <Link href="/banque">
-            <Card className="border border-[#F0E1C0] bg-[#FBF1D8] card-interactive h-full"><CardContent className="p-4">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8A6D2E]"><PiggyBank className="w-3.5 h-3.5" /> Reste à encaisser</div>
-              <div className={`inline-block text-xl font-bold tabular-nums mt-2 rounded-lg px-2 py-0.5 border ${reste > 0 ? 'text-[#8A5A08] bg-white/70 border-[#F0E1C0]' : 'text-gray-400 bg-white/50 border-gray-200'}`}>{formatCurrency(reste)}</div>
-            </CardContent></Card>
-          </Link>
-        </div>
-      )}
-
       {/* Prospect : bandeau explicite — devient client quand le devis est signé */}
       {prospect && (
         <div className="rounded-xl border border-[#CFDDF6] bg-[#EAF1FC] px-4 py-3 text-sm text-[#1F5FAE] flex items-center gap-2">
@@ -159,41 +139,150 @@ export default async function ClientFiche({ id, base }: { id: string; base: '/cl
         </div>
       )}
 
-      {/* Coordonnées */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <Badge variant="outline" className="w-fit">{client.type === 'professionnel' ? '🏢 Professionnel' : '👤 Particulier'}</Badge>
-          <div className="flex flex-wrap gap-2">
-            {client.phone && (
-              <a href={`tel:${client.phone}`} className="inline-flex items-center gap-2 text-sm rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 hover:border-primary/40 transition-colors">
-                <span className="grid place-items-center w-6 h-6 rounded-md bg-[#EAF1FC] text-[#1F5FAE]"><Phone className="w-3.5 h-3.5" /></span>
-                <span className="font-medium text-gray-700">{client.phone}</span>
-              </a>
-            )}
-            {client.email && (
-              <a href={`/emails?compose=1&to=${encodeURIComponent(client.email)}`} className="inline-flex items-center gap-2 text-sm rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 hover:border-primary/40 transition-colors min-w-0">
-                <span className="grid place-items-center w-6 h-6 rounded-md bg-[#FFF1E9] text-[#E8571E] flex-shrink-0"><Mail className="w-3.5 h-3.5" /></span>
-                <span className="font-medium text-gray-700 truncate">{client.email}</span>
-              </a>
-            )}
-            {client.type === 'professionnel' && client.siret && (
-              <span className="inline-flex items-center gap-2 text-sm rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
-                <span className="grid place-items-center w-6 h-6 rounded-md bg-[#F3EEFB] text-[#6D4AAE]"><Hash className="w-3.5 h-3.5" /></span>
-                <span className="font-medium text-gray-700">SIRET {client.siret}</span>
+      {/* Bloc haut : infos (gauche) + 3 raccourcis Devis/Factures/Documents (colonne droite, pleine hauteur) */}
+      <div className="grid lg:grid-cols-3 gap-3 items-stretch">
+        {/* Colonne gauche : résumé financier (client) + coordonnées */}
+        <div className="lg:col-span-2 space-y-3">
+          {!prospect && (
+            <div className="grid grid-cols-3 gap-3">
+              <Card className="border border-[#CFDDF6] bg-[#EAF1FC]"><CardContent className="p-4">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#3E5C8A]"><Banknote className="w-3.5 h-3.5" /> Total facturé</div>
+                <div className="inline-block text-xl font-bold text-[#1F5FAE] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#CFDDF6]">{formatCurrency(totalFacture)}</div>
+              </CardContent></Card>
+              <Card className="border border-[#DDE9C9] bg-[#EEF6E4]"><CardContent className="p-4">
+                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#4C6F35]"><Wallet className="w-3.5 h-3.5" /> Encaissé</div>
+                <div className="inline-block text-xl font-bold text-[#3F7A2E] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#DDE9C9]">{formatCurrency(encaisse)}</div>
+              </CardContent></Card>
+              <Link href="/banque">
+                <Card className="border border-[#F0E1C0] bg-[#FBF1D8] card-interactive h-full"><CardContent className="p-4">
+                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8A6D2E]"><PiggyBank className="w-3.5 h-3.5" /> Reste à encaisser</div>
+                  <div className={`inline-block text-xl font-bold tabular-nums mt-2 rounded-lg px-2 py-0.5 border ${reste > 0 ? 'text-[#8A5A08] bg-white/70 border-[#F0E1C0]' : 'text-gray-400 bg-white/50 border-gray-200'}`}>{formatCurrency(reste)}</div>
+                </CardContent></Card>
+              </Link>
+            </div>
+          )}
+
+          {/* Coordonnées */}
+          <Card className="h-full">
+            <CardContent className="p-4 space-y-3">
+              <Badge variant="outline" className="w-fit">{client.type === 'professionnel' ? '🏢 Professionnel' : '👤 Particulier'}</Badge>
+              <div className="flex flex-wrap gap-2">
+                {client.phone && (
+                  <a href={`tel:${client.phone}`} className="inline-flex items-center gap-2 text-sm rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 hover:border-primary/40 transition-colors">
+                    <span className="grid place-items-center w-6 h-6 rounded-md bg-[#EAF1FC] text-[#1F5FAE]"><Phone className="w-3.5 h-3.5" /></span>
+                    <span className="font-medium text-gray-700">{client.phone}</span>
+                  </a>
+                )}
+                {client.email && (
+                  <a href={`/emails?compose=1&to=${encodeURIComponent(client.email)}`} className="inline-flex items-center gap-2 text-sm rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 hover:border-primary/40 transition-colors min-w-0">
+                    <span className="grid place-items-center w-6 h-6 rounded-md bg-[#FFF1E9] text-[#E8571E] flex-shrink-0"><Mail className="w-3.5 h-3.5" /></span>
+                    <span className="font-medium text-gray-700 truncate">{client.email}</span>
+                  </a>
+                )}
+                {client.type === 'professionnel' && client.siret && (
+                  <span className="inline-flex items-center gap-2 text-sm rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+                    <span className="grid place-items-center w-6 h-6 rounded-md bg-[#F3EEFB] text-[#6D4AAE]"><Hash className="w-3.5 h-3.5" /></span>
+                    <span className="font-medium text-gray-700">SIRET {client.siret}</span>
+                  </span>
+                )}
+              </div>
+              {client.billing_address && (
+                <div className="flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-[#1F5FAE] mt-0.5 flex-shrink-0" /><span className="text-gray-700 whitespace-pre-line"><span className="text-[11px] font-semibold text-[#1F5FAE] block uppercase tracking-wide">Facturation</span>{client.billing_address}</span></div>
+              )}
+              {client.site_address && (
+                <div className="flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-[#E8571E] mt-0.5 flex-shrink-0" /><span className="text-gray-700 whitespace-pre-line"><span className="text-[11px] font-semibold text-[#E8571E] block uppercase tracking-wide">Chantier</span>{client.site_address}</span></div>
+              )}
+              {client.notes && (
+                <div className="pt-2 border-t border-gray-100"><p className="text-sm text-gray-500 italic whitespace-pre-line">{client.notes}</p></div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Colonne droite : 3 tuiles (bord + icône + écriture colorés, SANS fond) — couleurs distinctes des cartes prix */}
+        <div className="flex flex-col gap-3">
+          {/* Devis — violet */}
+          <details className="group flex-1 rounded-2xl border-2 border-[#7C3AED]/40 bg-white open:shadow-md transition-shadow overflow-hidden">
+            <summary className="list-none cursor-pointer select-none px-4 py-3 h-full flex items-center gap-3">
+              <FileText className="w-6 h-6 text-[#7C3AED] flex-shrink-0" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-2xl font-bold text-[#7C3AED] tabular-nums leading-none">{quotes?.length || 0}</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-[#7C3AED]">Devis</span>
               </span>
-            )}
-          </div>
-          {client.billing_address && (
-            <div className="flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-[#1F5FAE] mt-0.5 flex-shrink-0" /><span className="text-gray-700 whitespace-pre-line"><span className="text-[11px] font-semibold text-[#1F5FAE] block uppercase tracking-wide">Facturation</span>{client.billing_address}</span></div>
-          )}
-          {client.site_address && (
-            <div className="flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-[#E8571E] mt-0.5 flex-shrink-0" /><span className="text-gray-700 whitespace-pre-line"><span className="text-[11px] font-semibold text-[#E8571E] block uppercase tracking-wide">Chantier</span>{client.site_address}</span></div>
-          )}
-          {client.notes && (
-            <div className="pt-2 border-t border-gray-100"><p className="text-sm text-gray-500 italic whitespace-pre-line">{client.notes}</p></div>
-          )}
-        </CardContent>
-      </Card>
+              <ChevronDown className="w-4 h-4 text-[#7C3AED] flex-shrink-0 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="px-3 pb-3 pt-1 border-t border-[#7C3AED]/15">
+              {!quotes?.length ? <p className="text-sm text-gray-400 py-1">Aucun devis</p> : (
+                <div className="divide-y divide-gray-100">
+                  {quotes.map(q => (
+                    <Link key={q.id} href={`/devis/${q.id}?from=${encodeURIComponent(selfPath)}`}>
+                      <div className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2">
+                        <div className="flex items-center gap-2 min-w-0"><span className="font-mono text-[11px] text-[#7C3AED] bg-[#F3EEFB] rounded px-1.5 py-0.5">{q.quote_number}</span><span className="text-sm text-gray-500 truncate">{formatDate(q.issue_date)}</span></div>
+                        <span className="text-sm font-bold text-gray-800 tabular-nums flex-shrink-0">{formatCurrency(q.total_ttc)}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </details>
+
+          {/* Factures — rose */}
+          <details className="group flex-1 rounded-2xl border-2 border-[#E11D48]/40 bg-white open:shadow-md transition-shadow overflow-hidden">
+            <summary className="list-none cursor-pointer select-none px-4 py-3 h-full flex items-center gap-3">
+              <ReceiptText className="w-6 h-6 text-[#E11D48] flex-shrink-0" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-2xl font-bold text-[#E11D48] tabular-nums leading-none">{inv.length}</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-[#E11D48]">Factures</span>
+              </span>
+              <ChevronDown className="w-4 h-4 text-[#E11D48] flex-shrink-0 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="px-3 pb-3 pt-1 border-t border-[#E11D48]/15">
+              {!inv.length ? <p className="text-sm text-gray-400 py-1">Aucune facture</p> : (
+                <div className="divide-y divide-gray-100">
+                  {inv.map(i => (
+                    <Link key={i.id} href={`/factures/${i.id}`}>
+                      <div className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2">
+                        <span className="font-mono text-[11px] text-[#E11D48] bg-[#FCE7EC] rounded px-1.5 py-0.5">{i.invoice_number}</span>
+                        <span className="text-sm font-bold text-gray-800 tabular-nums">{formatCurrency(num(i.amount_due) || num(i.total_ttc))}</span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </details>
+
+          {/* Documents — cyan */}
+          <details className="group flex-1 rounded-2xl border-2 border-[#0891B2]/40 bg-white open:shadow-md transition-shadow overflow-hidden">
+            <summary className="list-none cursor-pointer select-none px-4 py-3 h-full flex items-center gap-3">
+              <FolderOpen className="w-6 h-6 text-[#0891B2] flex-shrink-0" />
+              <span className="flex-1 min-w-0">
+                <span className="block text-2xl font-bold text-[#0891B2] tabular-nums leading-none">{documents?.length || 0}</span>
+                <span className="block text-[11px] font-bold uppercase tracking-wide text-[#0891B2]">Documents</span>
+              </span>
+              <ChevronDown className="w-4 h-4 text-[#0891B2] flex-shrink-0 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="px-3 pb-3 pt-1 border-t border-[#0891B2]/15">
+              <div className="flex justify-end mb-1">
+                <Link href={`/documents?client=${id}`}><Button variant="outline" size="sm" className="h-7 text-xs">+ Ajouter</Button></Link>
+              </div>
+              {!documents?.length ? <p className="text-sm text-gray-400 py-1">Aucun document</p> : (
+                <div className="divide-y divide-gray-100">
+                  {documents.map(doc => (
+                    <Link key={doc.id} href={`/documents?client=${id}`}>
+                      <div className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2">
+                        <div className="flex items-center gap-2 min-w-0"><FolderOpen className="w-4 h-4 text-[#0891B2] flex-shrink-0" /><span className="text-sm text-gray-700 truncate">{doc.name}</span></div>
+                        {doc.category && <Badge variant="outline" className="text-xs flex-shrink-0">{doc.category}</Badge>}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          </details>
+        </div>
+      </div>
 
       {/* Repérage / Visite — photos + notes du lieu, stockées AVANT le devis signé */}
       <Card>
@@ -285,80 +374,6 @@ export default async function ClientFiche({ id, base }: { id: string; base: '/cl
         </CardContent>
       </Card>
 
-      {/* Devis · Factures · Documents — 3 tuiles compactes, dépliables au clic (pas de scroll inutile) */}
-      <div className="grid grid-cols-3 gap-3">
-        {/* Devis */}
-        <details className="group col-span-1 open:col-span-3 rounded-2xl border border-[#CFDDF6] bg-[#EAF1FC] open:bg-white open:shadow-md transition-shadow overflow-hidden">
-          <summary className="list-none cursor-pointer select-none p-3 flex flex-col items-center text-center gap-0.5">
-            <span className="grid place-items-center w-11 h-11 rounded-xl bg-white text-[#1F5FAE] shadow-sm mb-1"><FileText className="w-5 h-5" /></span>
-            <span className="text-2xl font-bold text-[#1F5FAE] tabular-nums leading-none">{quotes?.length || 0}</span>
-            <span className="text-[11px] font-semibold text-[#3E5C8A] flex items-center gap-1">Devis <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" /></span>
-          </summary>
-          <div className="px-3 pb-3 pt-1 text-left">
-            {!quotes?.length ? <p className="text-sm text-gray-400 py-1">Aucun devis</p> : (
-              <div className="divide-y divide-gray-100">
-                {quotes.map(q => (
-                  <Link key={q.id} href={`/devis/${q.id}?from=${encodeURIComponent(selfPath)}`}>
-                    <div className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2">
-                      <div className="flex items-center gap-2"><span className="font-mono text-[11px] text-[#1F5FAE] bg-[#EAF1FC] rounded px-1.5 py-0.5">{q.quote_number}</span><span className="text-sm text-gray-500">{formatDate(q.issue_date)}</span></div>
-                      <span className="text-sm font-bold text-gray-800 tabular-nums">{formatCurrency(q.total_ttc)}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </details>
-
-        {/* Factures */}
-        <details className="group col-span-1 open:col-span-3 rounded-2xl border border-[#DDE9C9] bg-[#EEF6E4] open:bg-white open:shadow-md transition-shadow overflow-hidden">
-          <summary className="list-none cursor-pointer select-none p-3 flex flex-col items-center text-center gap-0.5">
-            <span className="grid place-items-center w-11 h-11 rounded-xl bg-white text-[#3F7A2E] shadow-sm mb-1"><ReceiptText className="w-5 h-5" /></span>
-            <span className="text-2xl font-bold text-[#3F7A2E] tabular-nums leading-none">{inv.length}</span>
-            <span className="text-[11px] font-semibold text-[#4C6F35] flex items-center gap-1">Factures <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" /></span>
-          </summary>
-          <div className="px-3 pb-3 pt-1 text-left">
-            {!inv.length ? <p className="text-sm text-gray-400 py-1">Aucune facture</p> : (
-              <div className="divide-y divide-gray-100">
-                {inv.map(i => (
-                  <Link key={i.id} href={`/factures/${i.id}`}>
-                    <div className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2">
-                      <span className="font-mono text-[11px] text-[#3F7A2E] bg-[#EEF6E4] rounded px-1.5 py-0.5">{i.invoice_number}</span>
-                      <span className="text-sm font-bold text-gray-800 tabular-nums">{formatCurrency(num(i.amount_due) || num(i.total_ttc))}</span>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </details>
-
-        {/* Documents */}
-        <details className="group col-span-1 open:col-span-3 rounded-2xl border border-[#E4D8F3] bg-[#F3EEFB] open:bg-white open:shadow-md transition-shadow overflow-hidden">
-          <summary className="list-none cursor-pointer select-none p-3 flex flex-col items-center text-center gap-0.5">
-            <span className="grid place-items-center w-11 h-11 rounded-xl bg-white text-[#6D4AAE] shadow-sm mb-1"><FolderOpen className="w-5 h-5" /></span>
-            <span className="text-2xl font-bold text-[#6D4AAE] tabular-nums leading-none">{documents?.length || 0}</span>
-            <span className="text-[11px] font-semibold text-[#5B3E93] flex items-center gap-1">Documents <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" /></span>
-          </summary>
-          <div className="px-3 pb-3 pt-1 text-left">
-            <div className="flex justify-end mb-1">
-              <Link href={`/documents?client=${id}`}><Button variant="outline" size="sm" className="h-7 text-xs">+ Ajouter</Button></Link>
-            </div>
-            {!documents?.length ? <p className="text-sm text-gray-400 py-1">Aucun document</p> : (
-              <div className="divide-y divide-gray-100">
-                {documents.map(doc => (
-                  <Link key={doc.id} href={`/documents?client=${id}`}>
-                    <div className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2">
-                      <div className="flex items-center gap-2 min-w-0"><FolderOpen className="w-4 h-4 text-[#6D4AAE] flex-shrink-0" /><span className="text-sm text-gray-700 truncate">{doc.name}</span></div>
-                      {doc.category && <Badge variant="outline" className="text-xs flex-shrink-0">{doc.category}</Badge>}
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </div>
-        </details>
-      </div>
     </div>
   )
 }
