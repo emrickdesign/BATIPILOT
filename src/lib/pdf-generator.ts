@@ -499,12 +499,22 @@ export async function generateInvoicePDF(invoice: any, company: any, signature?:
     doc.fillColor('#dc2626').fontSize(11).font(F.bold).text('Reste à payer', tx, y).text(fmt(invoice.amount_due), ML, y, { align: 'right', width: CW - 4 })
     y += 26
 
-    if (company?.iban) {
-      y = ensureSpace(doc, cfg, y, 38 + cfg.sectionGap)
-      drawBox(doc, cfg, ML, y, CW, 38)
+    // Coordonnées bancaires + RÉFÉRENCE de paiement à rappeler dans le motif du virement
+    // (= numéro de facture). Clé de rapprochement des virements reçus.
+    {
+      const boxH = company?.iban ? 52 : 40
+      y = ensureSpace(doc, cfg, y, boxH + cfg.sectionGap)
+      drawBox(doc, cfg, ML, y, CW, boxH)
       doc.fillColor(P).fontSize(7).font(F.bold).text('COORDONNÉES BANCAIRES', ML + 12, y + 10)
-      doc.fillColor('#333').fontSize(8.5).font(F.reg).text(`IBAN : ${company.iban}`, ML + 12, y + 22)
-      y += 38 + cfg.sectionGap
+      let ly = y + 22
+      if (company?.iban) {
+        doc.fillColor('#333').fontSize(8.5).font(F.reg).text(`IBAN : ${company.iban}`, ML + 12, ly)
+        ly += 12
+      }
+      doc.fillColor('#333').fontSize(8.5).font(F.reg)
+        .text('Référence à indiquer dans le motif du virement : ', ML + 12, ly, { continued: true })
+        .font(F.bold).fillColor(P).text(invoice.invoice_number)
+      y += boxH + cfg.sectionGap
     }
 
     y = ensureSpace(doc, cfg, y, signature ? 130 : 100)

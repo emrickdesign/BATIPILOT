@@ -165,6 +165,15 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
               <div className="flex justify-between font-bold text-blue-700 border-t pt-1"><span>Net à payer</span><span>{formatCurrency(invoice.amount_due)}</span></div>
             </div>
           </div>
+          {/* Référence de paiement = numéro de facture, à rappeler dans le motif du virement (clé de rapprochement). */}
+          <div className="rounded-lg border border-[#CFDDF6] bg-[#EAF1FC] p-3">
+            <p className="text-[11px] font-semibold text-[#3E5C8A] uppercase tracking-wide mb-1.5">Référence de paiement</p>
+            <p className="text-sm text-gray-700">À rappeler dans le motif du virement :
+              <span className="font-mono font-bold text-[#1F5FAE] ml-1.5 bg-white rounded px-1.5 py-0.5 border border-[#CFDDF6]">{invoice.invoice_number}</span>
+            </p>
+            {company?.iban && <p className="text-xs text-gray-500 mt-1.5">IBAN : <span className="font-mono">{company.iban}</span></p>}
+            <p className="text-[11px] text-gray-400 mt-1.5">Cette référence permettra de rapprocher automatiquement les virements reçus à cette facture.</p>
+          </div>
           {invoice.legal_mentions && <div className="text-xs text-gray-400 border-t pt-3">{invoice.legal_mentions}</div>}
         </CardContent>
       </Card>
