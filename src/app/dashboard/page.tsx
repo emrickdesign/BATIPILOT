@@ -171,8 +171,8 @@ async function getData(userId: string) {
     paid.filter(i => { const d = new Date(i.issue_date!); return d >= start && d < end }).reduce((s, i) => s + num(i.total_ttc), 0)
   // Chaque période = { current, previous } : courbe actuelle + comparaison (pointillés).
   const DAY_MS = 86400000
-  const startOfDay = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
-  const addDays = (d: Date, n: number) => { const x = startOfDay(d); x.setDate(x.getDate() + n); return x }
+  const atMidnight = (d: Date) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x }
+  const addDays = (d: Date, n: number) => { const x = atMidnight(d); x.setDate(x.getDate() + n); return x }
   const wd = (d: Date) => d.toLocaleDateString('fr-FR', { weekday: 'short' }).replace('.', '')
   const dm = (d: Date) => d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }).replace('.', '')
   // Buckets journaliers : [from, from+count[
@@ -194,7 +194,7 @@ async function getData(userId: string) {
       return { label: label(a, k), value: sumBetween(a, b) }
     })
 
-  const today0 = startOfDay(now)
+  const today0 = atMidnight(now)
   const yNow = now.getFullYear(), mNow = now.getMonth(), dNow = now.getDate()
 
   // 7 jours : 7 derniers jours vs 7 jours d'avant
@@ -210,7 +210,7 @@ async function getData(userId: string) {
   // Trimestre : semaines écoulées du trimestre en cours vs trimestre précédent (mêmes semaines)
   const curQ = Math.floor(mNow / 3)
   const qStart = new Date(yNow, curQ * 3, 1)
-  const weeksElapsed = Math.min(14, Math.max(1, Math.ceil((today0.getTime() - startOfDay(qStart).getTime()) / (7 * DAY_MS)) + 1))
+  const weeksElapsed = Math.min(14, Math.max(1, Math.ceil((today0.getTime() - atMidnight(qStart).getTime()) / (7 * DAY_MS)) + 1))
   const sTri = {
     current: weekly(qStart, weeksElapsed, dm),
     previous: weekly(new Date(yNow, curQ * 3 - 3, 1), weeksElapsed, dm),
