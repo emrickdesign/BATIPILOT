@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ArrowLeft, Phone, Mail, MapPin, HardHat, FolderOpen, Edit, Hash, CalendarDays,
+  FileText, ReceiptText, ChevronDown, Banknote, Wallet, PiggyBank,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { projectStatusLabels, projectStatusColors } from '@/lib/chantiers'
@@ -86,17 +87,17 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       {/* Résumé financier */}
       <div className="grid grid-cols-3 gap-3">
         <Card className="border border-[#CFDDF6] bg-[#EAF1FC]"><CardContent className="p-4">
-          <div className="text-[11px] font-medium text-[#3E5C8A]">Total facturé</div>
-          <div className="text-xl font-bold text-[#1F5FAE] tabular-nums mt-1">{formatCurrency(totalFacture)}</div>
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#3E5C8A]"><Banknote className="w-3.5 h-3.5" /> Total facturé</div>
+          <div className="inline-block text-xl font-bold text-[#1F5FAE] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#CFDDF6]">{formatCurrency(totalFacture)}</div>
         </CardContent></Card>
         <Card className="border border-[#DDE9C9] bg-[#EEF6E4]"><CardContent className="p-4">
-          <div className="text-[11px] font-medium text-[#4C6F35]">Encaissé</div>
-          <div className="text-xl font-bold text-[#3F7A2E] tabular-nums mt-1">{formatCurrency(encaisse)}</div>
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#4C6F35]"><Wallet className="w-3.5 h-3.5" /> Encaissé</div>
+          <div className="inline-block text-xl font-bold text-[#3F7A2E] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#DDE9C9]">{formatCurrency(encaisse)}</div>
         </CardContent></Card>
         <Link href="/banque">
           <Card className="border border-[#F0E1C0] bg-[#FBF1D8] card-interactive h-full"><CardContent className="p-4">
-            <div className="text-[11px] font-medium text-[#8A6D2E]">Reste à encaisser</div>
-            <div className={`text-xl font-bold tabular-nums mt-1 ${reste > 0 ? 'text-[#8A5A08]' : 'text-gray-400'}`}>{formatCurrency(reste)}</div>
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8A6D2E]"><PiggyBank className="w-3.5 h-3.5" /> Reste à encaisser</div>
+            <div className={`inline-block text-xl font-bold tabular-nums mt-2 rounded-lg px-2 py-0.5 border ${reste > 0 ? 'text-[#8A5A08] bg-white/70 border-[#F0E1C0]' : 'text-gray-400 bg-white/50 border-gray-200'}`}>{formatCurrency(reste)}</div>
           </CardContent></Card>
         </Link>
       </div>
@@ -105,20 +106,31 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
       <Card>
         <CardContent className="p-4 space-y-3">
           <Badge variant="outline" className="w-fit">{client.type === 'professionnel' ? '🏢 Professionnel' : '👤 Particulier'}</Badge>
-          {client.phone && (
-            <div className="flex items-center gap-2 text-sm"><Phone className="w-4 h-4 text-gray-400" /><a href={`tel:${client.phone}`} className="text-primary">{client.phone}</a></div>
-          )}
-          {client.email && (
-            <div className="flex items-center gap-2 text-sm"><Mail className="w-4 h-4 text-gray-400" /><a href={`mailto:${client.email}`} className="text-primary truncate">{client.email}</a></div>
-          )}
-          {client.type === 'professionnel' && client.siret && (
-            <div className="flex items-center gap-2 text-sm"><Hash className="w-4 h-4 text-gray-400" /><span className="text-gray-700">SIRET {client.siret}</span></div>
-          )}
+          <div className="flex flex-wrap gap-2">
+            {client.phone && (
+              <a href={`tel:${client.phone}`} className="inline-flex items-center gap-2 text-sm rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 hover:border-primary/40 transition-colors">
+                <span className="grid place-items-center w-6 h-6 rounded-md bg-[#EAF1FC] text-[#1F5FAE]"><Phone className="w-3.5 h-3.5" /></span>
+                <span className="font-medium text-gray-700">{client.phone}</span>
+              </a>
+            )}
+            {client.email && (
+              <a href={`/emails?compose=1&to=${encodeURIComponent(client.email)}`} className="inline-flex items-center gap-2 text-sm rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5 hover:border-primary/40 transition-colors min-w-0">
+                <span className="grid place-items-center w-6 h-6 rounded-md bg-[#FFF1E9] text-[#E8571E] flex-shrink-0"><Mail className="w-3.5 h-3.5" /></span>
+                <span className="font-medium text-gray-700 truncate">{client.email}</span>
+              </a>
+            )}
+            {client.type === 'professionnel' && client.siret && (
+              <span className="inline-flex items-center gap-2 text-sm rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
+                <span className="grid place-items-center w-6 h-6 rounded-md bg-[#F3EEFB] text-[#6D4AAE]"><Hash className="w-3.5 h-3.5" /></span>
+                <span className="font-medium text-gray-700">SIRET {client.siret}</span>
+              </span>
+            )}
+          </div>
           {client.billing_address && (
-            <div className="flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-gray-400 mt-0.5" /><span className="text-gray-700 whitespace-pre-line"><span className="text-[11px] text-gray-400 block">Facturation</span>{client.billing_address}</span></div>
+            <div className="flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-[#1F5FAE] mt-0.5 flex-shrink-0" /><span className="text-gray-700 whitespace-pre-line"><span className="text-[11px] font-semibold text-[#1F5FAE] block uppercase tracking-wide">Facturation</span>{client.billing_address}</span></div>
           )}
           {client.site_address && (
-            <div className="flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-gray-400 mt-0.5" /><span className="text-gray-700 whitespace-pre-line"><span className="text-[11px] text-gray-400 block">Chantier</span>{client.site_address}</span></div>
+            <div className="flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-[#E8571E] mt-0.5 flex-shrink-0" /><span className="text-gray-700 whitespace-pre-line"><span className="text-[11px] font-semibold text-[#E8571E] block uppercase tracking-wide">Chantier</span>{client.site_address}</span></div>
           )}
           {client.notes && (
             <div className="pt-2 border-t border-gray-100"><p className="text-sm text-gray-500 italic whitespace-pre-line">{client.notes}</p></div>
@@ -174,67 +186,80 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </CardContent>
       </Card>
 
-      {/* Devis */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-base">Devis ({quotes?.length || 0})</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {!quotes?.length ? <p className="text-sm text-gray-400 py-2">Aucun devis</p> : (
-            <div className="space-y-2">
-              {quotes.map(q => (
-                <Link key={q.id} href={`/devis/${q.id}?from=${encodeURIComponent(`/clients/${id}`)}`}>
-                  <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <div><span className="font-mono text-xs text-gray-400">{q.quote_number}</span><span className="ml-2 text-sm text-gray-700">{formatDate(q.issue_date)}</span></div>
-                    <span className="text-sm font-semibold">{formatCurrency(q.total_ttc)}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Devis · Factures · Documents — 3 tuiles compactes, dépliables au clic (pas de scroll inutile) */}
+      <div className="grid grid-cols-3 gap-3">
+        {/* Devis */}
+        <details className="group col-span-1 open:col-span-3 rounded-2xl border border-[#CFDDF6] bg-[#EAF1FC] open:bg-white open:shadow-md transition-shadow overflow-hidden">
+          <summary className="list-none cursor-pointer select-none p-3 flex flex-col items-center text-center gap-0.5">
+            <span className="grid place-items-center w-11 h-11 rounded-xl bg-white text-[#1F5FAE] shadow-sm mb-1"><FileText className="w-5 h-5" /></span>
+            <span className="text-2xl font-bold text-[#1F5FAE] tabular-nums leading-none">{quotes?.length || 0}</span>
+            <span className="text-[11px] font-semibold text-[#3E5C8A] flex items-center gap-1">Devis <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" /></span>
+          </summary>
+          <div className="px-3 pb-3 pt-1 text-left">
+            {!quotes?.length ? <p className="text-sm text-gray-400 py-1">Aucun devis</p> : (
+              <div className="divide-y divide-gray-100">
+                {quotes.map(q => (
+                  <Link key={q.id} href={`/devis/${q.id}?from=${encodeURIComponent(`/clients/${id}`)}`}>
+                    <div className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2">
+                      <div className="flex items-center gap-2"><span className="font-mono text-[11px] text-[#1F5FAE] bg-[#EAF1FC] rounded px-1.5 py-0.5">{q.quote_number}</span><span className="text-sm text-gray-500">{formatDate(q.issue_date)}</span></div>
+                      <span className="text-sm font-bold text-gray-800 tabular-nums">{formatCurrency(q.total_ttc)}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </details>
 
-      {/* Factures */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base">Factures ({inv.length})</CardTitle></CardHeader>
-        <CardContent className="px-4 pb-4">
-          {!inv.length ? <p className="text-sm text-gray-400 py-2">Aucune facture</p> : (
-            <div className="space-y-2">
-              {inv.map(i => (
-                <Link key={i.id} href={`/factures/${i.id}`}>
-                  <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <span className="font-mono text-xs text-gray-400">{i.invoice_number}</span>
-                    <span className="text-sm font-semibold">{formatCurrency(num(i.amount_due) || num(i.total_ttc))}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        {/* Factures */}
+        <details className="group col-span-1 open:col-span-3 rounded-2xl border border-[#DDE9C9] bg-[#EEF6E4] open:bg-white open:shadow-md transition-shadow overflow-hidden">
+          <summary className="list-none cursor-pointer select-none p-3 flex flex-col items-center text-center gap-0.5">
+            <span className="grid place-items-center w-11 h-11 rounded-xl bg-white text-[#3F7A2E] shadow-sm mb-1"><ReceiptText className="w-5 h-5" /></span>
+            <span className="text-2xl font-bold text-[#3F7A2E] tabular-nums leading-none">{inv.length}</span>
+            <span className="text-[11px] font-semibold text-[#4C6F35] flex items-center gap-1">Factures <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" /></span>
+          </summary>
+          <div className="px-3 pb-3 pt-1 text-left">
+            {!inv.length ? <p className="text-sm text-gray-400 py-1">Aucune facture</p> : (
+              <div className="divide-y divide-gray-100">
+                {inv.map(i => (
+                  <Link key={i.id} href={`/factures/${i.id}`}>
+                    <div className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2">
+                      <span className="font-mono text-[11px] text-[#3F7A2E] bg-[#EEF6E4] rounded px-1.5 py-0.5">{i.invoice_number}</span>
+                      <span className="text-sm font-bold text-gray-800 tabular-nums">{formatCurrency(num(i.amount_due) || num(i.total_ttc))}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </details>
 
-      {/* Documents */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Documents ({documents?.length || 0})</CardTitle>
-          <Link href={`/documents?client=${id}`}><Button variant="outline" size="sm">+ Document</Button></Link>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {!documents?.length ? <p className="text-sm text-gray-400 py-2">Aucun document</p> : (
-            <div className="space-y-2">
-              {documents.map(doc => (
-                <Link key={doc.id} href={`/documents?client=${id}`}>
-                  <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <div className="flex items-center gap-2 min-w-0"><FolderOpen className="w-4 h-4 text-gray-400 flex-shrink-0" /><span className="text-sm text-gray-700 truncate">{doc.name}</span></div>
-                    {doc.category && <Badge variant="outline" className="text-xs flex-shrink-0">{doc.category}</Badge>}
-                  </div>
-                </Link>
-              ))}
+        {/* Documents */}
+        <details className="group col-span-1 open:col-span-3 rounded-2xl border border-[#E4D8F3] bg-[#F3EEFB] open:bg-white open:shadow-md transition-shadow overflow-hidden">
+          <summary className="list-none cursor-pointer select-none p-3 flex flex-col items-center text-center gap-0.5">
+            <span className="grid place-items-center w-11 h-11 rounded-xl bg-white text-[#6D4AAE] shadow-sm mb-1"><FolderOpen className="w-5 h-5" /></span>
+            <span className="text-2xl font-bold text-[#6D4AAE] tabular-nums leading-none">{documents?.length || 0}</span>
+            <span className="text-[11px] font-semibold text-[#5B3E93] flex items-center gap-1">Documents <ChevronDown className="w-3 h-3 transition-transform group-open:rotate-180" /></span>
+          </summary>
+          <div className="px-3 pb-3 pt-1 text-left">
+            <div className="flex justify-end mb-1">
+              <Link href={`/documents?client=${id}`}><Button variant="outline" size="sm" className="h-7 text-xs">+ Ajouter</Button></Link>
             </div>
-          )}
-        </CardContent>
-      </Card>
+            {!documents?.length ? <p className="text-sm text-gray-400 py-1">Aucun document</p> : (
+              <div className="divide-y divide-gray-100">
+                {documents.map(doc => (
+                  <Link key={doc.id} href={`/documents?client=${id}`}>
+                    <div className="flex items-center justify-between py-2.5 hover:bg-gray-50 rounded-lg px-2 -mx-2">
+                      <div className="flex items-center gap-2 min-w-0"><FolderOpen className="w-4 h-4 text-[#6D4AAE] flex-shrink-0" /><span className="text-sm text-gray-700 truncate">{doc.name}</span></div>
+                      {doc.category && <Badge variant="outline" className="text-xs flex-shrink-0">{doc.category}</Badge>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </details>
+      </div>
     </div>
   )
 }
