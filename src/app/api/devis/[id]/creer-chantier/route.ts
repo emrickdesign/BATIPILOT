@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { isProspect } from '@/lib/clients'
+import { transferClientVisitsToProject } from '@/lib/visitTransfer'
 import type { ClientStatus } from '@/types'
 
 // §7.4 — Quand un devis est accepté : créer le chantier (à planifier),
@@ -39,6 +40,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   // Convertir le prospect en client (à planifier) s'il est encore au stade prospect.
   if (client && isProspect(client.status)) {
     await supabase.from('clients').update({ status: 'chantier_a_planifier' }).eq('id', client.id)
+  }
+
+  // Transférer les visites de repérage validées du client vers ce nouveau chantier.
+  if (quote.client_id) {
+    try { await transferClientVisitsToProject(supabase, user.id, quote.client_id as string, project.id) } catch { /* non bloquant */ }
   }
 
   return NextResponse.json({ projectId: project.id })

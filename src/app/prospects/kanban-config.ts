@@ -24,5 +24,6 @@ export type ProspectCardData = {
   quoteTotal: number
   quoteCount: number
   relanceQuote: { id: string; number: string; issueDate: string | null; validUntil: string | null } | null
+  visitId: string | null
   createdAt: string
 }

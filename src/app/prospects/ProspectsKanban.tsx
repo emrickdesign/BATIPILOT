@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
-import { Phone, Mail, FileText, Send, Receipt, RotateCcw } from 'lucide-react'
+import { Phone, Mail, FileText, Send, Receipt, RotateCcw, Camera } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { isProspect } from '@/lib/clients'
 import DndKanban from '@/components/kanban/DndKanban'
@@ -110,6 +110,12 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
                 </p>
               )}
               <p className="text-[11px] text-gray-400 mt-1">{new Date(p.createdAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
+              {p.visitId && (
+                <Link href={`/visites/${p.visitId}`} onClick={e => e.stopPropagation()}
+                  className="mt-2 inline-flex items-center gap-1 text-[11px] font-medium text-[#3F7A2E] bg-[#F1F6E9] rounded-full px-2 py-0.5 hover:opacity-85">
+                  <Camera className="w-3 h-3" /> Visite de repérage
+                </Link>
+              )}
               {p.col === 'devis_envoye' && p.relanceQuote ? (
                 <RelanceDialog
                   quoteId={p.relanceQuote.id} clientName={p.name} phone={p.phone} email={p.email}

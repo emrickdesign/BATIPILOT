@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { transferClientVisitsToProject } from '@/lib/visitTransfer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -90,6 +91,10 @@ export default function ChantierForm({ project }: { project?: Project }) {
       const { data: created, error } = await supabase.from('projects')
         .insert({ user_id: user.id, ...payload }).select('id').single()
       if (error || !created) { toast.error('Erreur lors de la création'); setLoading(false); return }
+      // Rattache les visites de repérage validées du client à ce nouveau chantier.
+      if (clientId) {
+        try { await transferClientVisitsToProject(supabase, user.id, clientId, created.id) } catch { /* non bloquant */ }
+      }
       toast.success('Chantier créé !')
       router.push(`/chantiers/${created.id}`)
     }

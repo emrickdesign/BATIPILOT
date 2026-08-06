@@ -106,39 +106,46 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
     if (data && data.length === 1) setProjId(data[0].id)
   }
 
-  // Valide la visite : rattache les photos à l'album du chantier + la note aux notes du chantier.
+  // Valide la visite. Avec un chantier : photos → album + note → notes du chantier.
+  // Sans chantier (prospect) : la visite reste rattachée au prospect ; le transfert se fera
+  // automatiquement quand un chantier sera créé pour ce client.
   async function validate() {
-    if (!projId) { toast.error('Choisissez le chantier'); return }
+    if (!clientId) { toast.error('Rattachez d\'abord un client / prospect (en haut)'); return }
     setValidating(true)
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setValidating(false); return }
 
-    // Photos → documents du chantier (apparaissent dans l'album)
-    if (photos.length) {
-      const rows = photos.map(p => ({
-        user_id: user.id, project_id: projId, client_id: clientId || null,
-        name: p.caption || `Photo visite — ${title}`, category: 'photo',
-        storage_path: p.storage_path, file_type: 'image/jpeg',
-      }))
-      const { error } = await supabase.from('documents').insert(rows)
-      if (error) { toast.error('Erreur rattachement des photos'); setValidating(false); return }
+    if (projId) {
+      // Photos → documents du chantier (apparaissent dans l'album)
+      if (photos.length) {
+        const rows = photos.map(p => ({
+          user_id: user.id, project_id: projId, client_id: clientId || null,
+          name: p.caption || `Photo visite — ${title}`, category: 'photo',
+          storage_path: p.storage_path, file_type: 'image/jpeg',
+        }))
+        const { error } = await supabase.from('documents').insert(rows)
+        if (error) { toast.error('Erreur rattachement des photos'); setValidating(false); return }
+      }
+      // Note → notes du chantier
+      const noteText = notes.trim()
+      if (noteText) {
+        await supabase.from('notes').insert({
+          user_id: user.id, project_id: projId, author_employee_id: null,
+          author_name: `Visite — ${title}`, body: noteText,
+        })
+      }
+      await patch({ status: 'valide', project_id: projId })
+      setValidating(false); setValidateOpen(false)
+      toast.success('Visite validée — photos et note ajoutées au chantier ✅')
+      router.push(`/chantiers/${projId}`)
+    } else {
+      // Validation au stade prospect : pas encore de chantier
+      await patch({ status: 'valide' })
+      setValidating(false); setValidateOpen(false)
+      toast.success('Visite validée — rattachée au prospect. Photos et notes suivront au chantier.')
+      router.push('/prospects')
     }
-
-    // Note → notes du chantier
-    const noteText = notes.trim()
-    if (noteText) {
-      await supabase.from('notes').insert({
-        user_id: user.id, project_id: projId, author_employee_id: null,
-        author_name: `Visite — ${title}`, body: noteText,
-      })
-    }
-
-    await patch({ status: 'valide' })
-    setValidating(false)
-    setValidateOpen(false)
-    toast.success('Visite validée — photos et note ajoutées au chantier ✅')
-    router.push(`/chantiers/${projId}`)
   }
 
   async function archive() {
@@ -242,7 +249,7 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
       <Button onClick={openValidate} className="w-full h-12 text-base gap-2">
         <CheckCircle2 className="w-5 h-5" /> Valider la visite
       </Button>
-      <p className="text-xs text-gray-400 text-center -mt-2">Les photos et la note seront ajoutées au chantier choisi.</p>
+      <p className="text-xs text-gray-400 text-center -mt-2">Rattache les photos et la note au prospect (ou à un chantier si déjà créé).</p>
 
       <button onClick={archive} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 transition-colors py-1">
         Archiver la visite (garde les photos et notes dans le chantier)
@@ -251,21 +258,26 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
       <Dialog open={validateOpen} onOpenChange={setValidateOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader><DialogTitle>Valider la visite</DialogTitle></DialogHeader>
-          <p className="text-sm text-gray-500 -mt-1">À quel chantier rattacher les {photos.length} photo{photos.length > 1 ? 's' : ''} et la note ?</p>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-gray-500 flex items-center gap-1.5"><HardHat className="w-3.5 h-3.5" /> Chantier</Label>
-            <select value={projId} onChange={e => setProjId(e.target.value)}
-              className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-              <option value="">— Choisir un chantier —</option>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
-            {projects.length === 0 && (
-              <p className="text-xs text-[#C77D0E]">Aucun chantier{linkedClient ? ` pour ${clientDisplayName(linkedClient)}` : ''}. <Link href="/chantiers/nouveau" className="underline">Créez-en un</Link>.</p>
-            )}
-          </div>
-          <Button onClick={validate} disabled={validating || !projId} className="w-full h-11 gap-2 mt-1">
-            {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Valider et rattacher
-          </Button>
+          {!clientId ? (
+            <p className="text-sm text-[#C77D0E]">Rattachez d&apos;abord un client / prospect à cette visite (champ en haut).</p>
+          ) : (
+            <>
+              <p className="text-sm text-gray-500 -mt-1">{photos.length} photo{photos.length > 1 ? 's' : ''} + la note seront rattachées à <span className="font-medium text-gray-700">{linkedClient ? clientDisplayName(linkedClient) : 'ce prospect'}</span>.</p>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-gray-500 flex items-center gap-1.5"><HardHat className="w-3.5 h-3.5" /> Rattacher à un chantier (optionnel)</Label>
+                <select value={projId} onChange={e => setProjId(e.target.value)}
+                  className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                  <option value="">— Aucun (rester sur le prospect) —</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+                <p className="text-[11px] text-gray-400">Sans chantier : tout reste sur le prospect et sera transféré automatiquement dès qu&apos;un chantier sera créé pour lui.</p>
+              </div>
+              <Button onClick={validate} disabled={validating} className="w-full h-11 gap-2 mt-1">
+                {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                {projId ? 'Valider et rattacher au chantier' : 'Valider sur le prospect'}
+              </Button>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

@@ -26,12 +26,17 @@ export default async function ProspectsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [{ data: prospects }, { data: quotes }] = await Promise.all([
+  const [{ data: prospects }, { data: quotes }, { data: visites }] = await Promise.all([
     supabase.from('clients').select('*').eq('user_id', user.id).in('status', BOARD_STATUSES).order('created_at', { ascending: false }),
     supabase.from('quotes').select('id, client_id, quote_number, total_ttc, status, issue_date, valid_until').eq('user_id', user.id),
+    // Visites de repérage validées, pas encore rattachées à un chantier → indicateur sur la carte prospect
+    supabase.from('site_visits').select('id, client_id').eq('user_id', user.id).eq('status', 'valide').is('project_id', null).order('created_at', { ascending: false }),
   ])
 
   const list = (prospects as Client[]) || []
+
+  const visitByClient = new Map<string, string>()
+  for (const v of visites || []) { if (v.client_id && !visitByClient.has(v.client_id)) visitByClient.set(v.client_id, v.id) }
 
   // Montant + nombre de devis par client (total de TOUS ses devis), et le devis « envoyé »
   // le plus récent → cible de la relance depuis la carte.
@@ -75,6 +80,7 @@ export default async function ProspectsPage() {
       quoteTotal: quoteAgg.get(p.id)?.total || 0,
       quoteCount: quoteAgg.get(p.id)?.count || 0,
       relanceQuote: primaryQuote.get(p.id) || null,
+      visitId: visitByClient.get(p.id) || null,
       createdAt: p.created_at,
     }]
   })
