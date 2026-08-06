@@ -7,7 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Badge } from '@/components/ui/badge'
 import { projectStatusColors, projectStatusLabels } from '@/lib/chantiers'
 import type { ProjectStatus } from '@/types'
-import { HardHat, AlertTriangle, CheckCircle2, CalendarClock, Check, CalendarPlus } from 'lucide-react'
+import { HardHat, AlertTriangle, CheckCircle2, CalendarClock, Check, CalendarPlus, ChevronDown } from 'lucide-react'
 import { toast } from 'sonner'
 
 export type ChantierActif = {
@@ -123,13 +123,29 @@ function Row({ c }: { c: ChantierActif }) {
   )
 }
 
+const COLLAPSED = 3
+
 export default function ChantiersActifsList({ items }: { items: ChantierActif[] }) {
+  const [expanded, setExpanded] = useState(false)
   if (items.length === 0) {
     return <p className="text-sm text-gray-400 py-6 text-center">Aucun chantier actif — <Link href="/chantiers/nouveau" className="text-primary hover:underline">créez-en un</Link>.</p>
   }
+  const shown = expanded ? items : items.slice(0, COLLAPSED)
+  const extra = items.length - COLLAPSED
   return (
-    <div className="space-y-1.5">
-      {items.map(c => (c.aValider ? <ValiderCard key={c.id} c={c} /> : <Row key={c.id} c={c} />))}
+    <div className="flex flex-col">
+      <div className={expanded ? 'space-y-1.5 max-h-[360px] overflow-y-auto pr-1 -mr-1' : 'space-y-1.5'}>
+        {shown.map(c => (c.aValider ? <ValiderCard key={c.id} c={c} /> : <Row key={c.id} c={c} />))}
+      </div>
+      {extra > 0 && (
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="mt-2.5 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium text-primary hover:bg-primary/[0.05] transition-colors"
+        >
+          {expanded ? 'Voir moins' : `Voir plus (${extra})`}
+          <ChevronDown className={`w-3.5 h-3.5 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+        </button>
+      )}
     </div>
   )
 }

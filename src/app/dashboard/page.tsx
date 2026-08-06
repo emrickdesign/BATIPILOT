@@ -163,7 +163,7 @@ async function getData(userId: string) {
       (Number(b.aValider) - Number(a.aValider)) ||
       (b.progress - a.progress) ||
       (b.createdTs - a.createdTs))
-    .slice(0, 5)
+    .slice(0, 40)
 
   // ── 4. Évolution des encaissements (séries) ─────────────────────────
   const paid = inv.filter(i => isPaid(i.status) && i.issue_date)
