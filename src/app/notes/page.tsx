@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
-import NotesClient, { type AdminNote } from './NotesClient'
+import { clientDisplayName } from '@/lib/chantiers'
+import NotesClient, { type AdminNote, type NoteProject } from './NotesClient'
 
 export default async function NotesPage() {
   const supabase = await createClient()
@@ -8,27 +9,25 @@ export default async function NotesPage() {
 
   const [{ data: notes }, { data: projects }] = await Promise.all([
     supabase.from('notes')
-      .select('id, project_id, body, author_name, author_employee_id, created_at, projects(title)')
+      .select('id, project_id, body, author_name, author_employee_id, created_at')
       .eq('user_id', user.id).order('created_at', { ascending: false }),
-    supabase.from('projects').select('id, title').eq('user_id', user.id).neq('status', 'archive').order('created_at', { ascending: false }),
+    supabase.from('projects')
+      .select('id, title, clients(type, first_name, last_name, company_name)')
+      .eq('user_id', user.id).neq('status', 'archive').order('created_at', { ascending: false }),
   ])
 
-  const rows: AdminNote[] = (notes || []).map(n => ({
-    id: n.id,
-    project_id: n.project_id,
-    project_title: (n.projects as { title?: string } | null)?.title || 'Chantier',
-    body: n.body,
-    author_name: n.author_name,
-    author_employee_id: n.author_employee_id,
-    created_at: n.created_at,
+  const projectRows: NoteProject[] = (projects || []).map(p => ({
+    id: p.id,
+    title: p.title,
+    clientName: p.clients ? clientDisplayName(p.clients as Parameters<typeof clientDisplayName>[0]) : null,
   }))
 
   return (
     <NotesClient
       ownerId={user.id}
       authorName={user.email?.split('@')[0] || 'Admin'}
-      projects={(projects || []) as { id: string; title: string }[]}
-      initial={rows}
+      projects={projectRows}
+      initial={(notes || []) as AdminNote[]}
     />
   )
 }
