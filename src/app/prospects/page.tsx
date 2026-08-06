@@ -36,16 +36,20 @@ export default async function ProspectsPage() {
   // Montant + nombre de devis par client (total de TOUS ses devis), et le devis « envoyé »
   // le plus récent → cible de la relance depuis la carte.
   const quoteAgg = new Map<string, { total: number; count: number }>()
-  const primaryQuote = new Map<string, { id: string; number: string; issueDate: string | null; validUntil: string | null }>()
+  const primaryQuote = new Map<string, { id: string; number: string; issueDate: string | null; validUntil: string | null; status: string }>()
+  const score = (s?: string) => (s === 'envoye' ? 2 : 1) // devis envoyé prioritaire pour la relance
   for (const q of quotes || []) {
     if (!q.client_id) continue
     const a = quoteAgg.get(q.client_id) || { total: 0, count: 0 }
     a.total += num(q.total_ttc); a.count += 1
     quoteAgg.set(q.client_id, a)
-    if (q.status === 'envoye') {
+    // Devis « relançable » = le plus récent NON refusé (en privilégiant le statut envoyé),
+    // pour que le bouton Relancer ouvre toujours le popup même si le statut n'est pas pile "envoye".
+    if (q.status !== 'refuse') {
       const cur = primaryQuote.get(q.client_id)
-      if (!cur || (q.issue_date || '') > (cur.issueDate || '')) {
-        primaryQuote.set(q.client_id, { id: q.id, number: q.quote_number, issueDate: q.issue_date, validUntil: q.valid_until })
+      const qs = score(q.status), cs = cur ? score(cur.status) : 0
+      if (!cur || qs > cs || (qs === cs && (q.issue_date || '') > (cur.issueDate || ''))) {
+        primaryQuote.set(q.client_id, { id: q.id, number: q.quote_number, issueDate: q.issue_date, validUntil: q.valid_until, status: q.status })
       }
     }
   }
