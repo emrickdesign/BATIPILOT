@@ -24,17 +24,19 @@ function DraggableCard({ id, children }: { id: string; children: ReactNode }) {
   )
 }
 
-function DroppableColumn({ col, count, children }: { col: KanbanColumn; count: number; children: ReactNode }) {
+function DroppableColumn({ col, count, hideHeader, children }: { col: KanbanColumn; count: number; hideHeader?: boolean; children: ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key })
   return (
     <div className="flex flex-col min-w-0">
-      <div className="flex items-center justify-between px-1 mb-2">
-        <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-          <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: col.dot }} />
-          {col.label}
-        </span>
-        <span className="text-xs font-semibold rounded-full px-2 py-0.5" style={{ backgroundColor: `${col.dot}26`, color: col.dot }}>{count}</span>
-      </div>
+      {!hideHeader && (
+        <div className="flex items-center justify-between px-1 mb-2">
+          <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: col.dot }} />
+            {col.label}
+          </span>
+          <span className="text-xs font-semibold rounded-full px-2 py-0.5" style={{ backgroundColor: `${col.dot}26`, color: col.dot }}>{count}</span>
+        </div>
+      )}
       <div
         ref={setNodeRef}
         className="space-y-3 rounded-2xl p-2.5 min-h-[80px] flex-1 transition-all"
@@ -52,13 +54,14 @@ function DroppableColumn({ col, count, children }: { col: KanbanColumn; count: n
 // Kanban générique avec glisser-déposer (dnd-kit). Contrôlé : le parent détient `items`
 // (chaque item porte sa colonne `col`) et applique le déplacement dans `onMove`.
 export default function DndKanban<T extends KanbanItem>({
-  columns, items, onMove, renderCard, footer,
+  columns, items, onMove, renderCard, footer, hideHeaders,
 }: {
   columns: KanbanColumn[]
   items: T[]
   onMove: (id: string, toCol: string) => void
   renderCard: (item: T) => ReactNode
   footer?: ReactNode
+  hideHeaders?: boolean
 }) {
   const [activeId, setActiveId] = useState<string | null>(null)
   const sensors = useSensors(
@@ -85,7 +88,7 @@ export default function DndKanban<T extends KanbanItem>({
         {columns.map(col => {
           const colItems = items.filter(i => i.col === col.key)
           return (
-            <DroppableColumn key={col.key} col={col} count={colItems.length}>
+            <DroppableColumn key={col.key} col={col} count={colItems.length} hideHeader={hideHeaders}>
               {colItems.map(item => (
                 <DraggableCard key={item.id} id={item.id}>{renderCard(item)}</DraggableCard>
               ))}
