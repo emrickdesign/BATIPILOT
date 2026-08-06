@@ -79,7 +79,7 @@ export default async function DevisDetailPage({ params }: { params: Promise<{ id
             <h1 className="text-xl font-bold text-gray-900">{clientName}</h1>
           </div>
         </div>
-        <Link href={`/devis/${id}/modifier`}>
+        <Link href={`/devis/nouveau?edit=${id}`}>
           <Button variant="outline" size="sm" className="gap-1">
             <Edit className="w-4 h-4" /> Modifier
           </Button>

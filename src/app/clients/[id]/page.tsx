@@ -5,14 +5,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  ArrowLeft, Phone, Mail, MapPin, FileText, HardHat, FolderOpen, Edit,
-  ReceiptText, BellRing, Hash, Mails,
+  ArrowLeft, Phone, Mail, MapPin, HardHat, FolderOpen, Edit, Hash,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { projectStatusLabels, projectStatusColors } from '@/lib/chantiers'
 import { clientDisplayName, clientStatusLabels, clientStatusColors } from '@/lib/clients'
 import type { ProjectStatus, ClientStatus } from '@/types'
-import ArchiveClientButton from './ArchiveClientButton'
 
 const num = (v: unknown) => Number(v) || 0
 
@@ -26,23 +24,12 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
     .from('clients').select('*').eq('id', id).eq('user_id', user.id).single()
   if (!client) return notFound()
 
-  const [{ data: projects }, { data: quotes }, { data: invoices }, { data: documents }, { data: emails }] = await Promise.all([
+  const [{ data: projects }, { data: quotes }, { data: invoices }, { data: documents }] = await Promise.all([
     supabase.from('projects').select('id,title,status,project_type').eq('client_id', id).neq('status', 'archive').order('created_at', { ascending: false }),
     supabase.from('quotes').select('id,quote_number,status,total_ttc,issue_date').eq('client_id', id).order('created_at', { ascending: false }),
     supabase.from('invoices').select('id,invoice_number,status,total_ttc,amount_due,issue_date').eq('client_id', id).order('created_at', { ascending: false }),
     supabase.from('documents').select('id,name,category').eq('client_id', id).order('created_at', { ascending: false }),
-    supabase.from('emails').select('id,subject,from_name,received_at,category').eq('linked_client_id', id).order('received_at', { ascending: false }).limit(6),
   ])
-
-  // Tickets / dépenses rattachés aux chantiers du client
-  const projectIds = (projects || []).map(p => p.id)
-  let tickets: { id: string; supplier?: string; amount_ttc: number; expense_date?: string; status: string }[] = []
-  if (projectIds.length) {
-    const { data } = await supabase.from('expenses')
-      .select('id,supplier,amount_ttc,expense_date,status,project_id')
-      .in('project_id', projectIds).order('expense_date', { ascending: false }).limit(8)
-    tickets = data || []
-  }
 
   const isPaid = (s: string) => s === 'payee' || s === 'paye'
   const isOpen = (s: string) => s === 'envoyee' || s === 'en_retard' || s === 'payee_partiellement'
@@ -52,7 +39,6 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
   const reste = inv.filter(i => isOpen(i.status)).reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
 
   const clientName = clientDisplayName(client)
-  const isArchived = client.status === 'archive'
 
   return (
     <div className="space-y-4 max-w-3xl">
@@ -67,15 +53,18 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
         </Badge>
       </div>
 
-      {/* Actions (§6.3) */}
+      {/* Actions */}
       <div className="flex flex-wrap gap-2">
-        <Link href={`/devis/nouveau?client=${id}`}><Button size="sm" className="gap-1"><FileText className="w-4 h-4" /> Créer un devis</Button></Link>
-        <Link href={`/chantiers/nouveau?client=${id}`}><Button variant="outline" size="sm" className="gap-1"><HardHat className="w-4 h-4" /> Créer un chantier</Button></Link>
-        {client.email && <a href={`mailto:${client.email}`}><Button variant="info" size="sm" className="gap-1"><Mail className="w-4 h-4" /> Email</Button></a>}
-        <Link href="/relances"><Button variant="outline" size="sm" className="gap-1"><BellRing className="w-4 h-4" /> Relancer</Button></Link>
-        <Link href={`/documents?client=${id}`}><Button variant="outline" size="sm" className="gap-1"><FolderOpen className="w-4 h-4" /> Document</Button></Link>
+        {/* « Créer un chantier » uniquement s'il n'y en a aucun ; sinon le chantier lié est listé plus bas. */}
+        {!projects?.length && (
+          <Link href={`/chantiers/nouveau?client=${id}`}><Button size="sm" className="gap-1"><HardHat className="w-4 h-4" /> Créer un chantier</Button></Link>
+        )}
+        {client.email && (
+          <Link href={`/emails?compose=1&to=${encodeURIComponent(client.email)}`}>
+            <Button variant="info" size="sm" className="gap-1"><Mail className="w-4 h-4" /> Email</Button>
+          </Link>
+        )}
         <Link href={`/clients/${id}/modifier`}><Button variant="outline" size="sm" className="gap-1"><Edit className="w-4 h-4" /> Modifier</Button></Link>
-        <ArchiveClientButton clientId={id} archived={isArchived} />
       </div>
 
       {/* Résumé financier */}
@@ -123,9 +112,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
       {/* Chantiers */}
       <Card>
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+        <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-base">Chantiers ({projects?.length || 0})</CardTitle>
-          <Link href={`/chantiers/nouveau?client=${id}`}><Button variant="outline" size="sm">+ Nouveau</Button></Link>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           {!projects?.length ? <p className="text-sm text-gray-400 py-2">Aucun chantier</p> : (
@@ -145,9 +133,8 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
 
       {/* Devis */}
       <Card>
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+        <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-base">Devis ({quotes?.length || 0})</CardTitle>
-          <Link href={`/devis/nouveau?client=${id}`}><Button variant="outline" size="sm">+ Nouveau</Button></Link>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           {!quotes?.length ? <p className="text-sm text-gray-400 py-2">Aucun devis</p> : (
@@ -176,47 +163,6 @@ export default async function ClientPage({ params }: { params: Promise<{ id: str
                   <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
                     <span className="font-mono text-xs text-gray-400">{i.invoice_number}</span>
                     <span className="text-sm font-semibold">{formatCurrency(num(i.amount_due) || num(i.total_ttc))}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Tickets / dépenses */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base">Tickets &amp; dépenses ({tickets.length})</CardTitle></CardHeader>
-        <CardContent className="px-4 pb-4">
-          {!tickets.length ? <p className="text-sm text-gray-400 py-2">Aucun ticket rattaché à ses chantiers</p> : (
-            <div className="space-y-2">
-              {tickets.map(t => (
-                <Link key={t.id} href="/tickets">
-                  <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <div className="flex items-center gap-2 min-w-0"><ReceiptText className="w-4 h-4 text-gray-400 flex-shrink-0" /><span className="text-sm text-gray-700 truncate">{t.supplier || 'Ticket'}{t.expense_date ? ` · ${formatDate(t.expense_date)}` : ''}</span></div>
-                    <span className="text-sm font-semibold flex-shrink-0">{formatCurrency(num(t.amount_ttc))}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Emails */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Emails ({emails?.length || 0})</CardTitle>
-          <Link href="/emails"><Button variant="outline" size="sm">Voir tout</Button></Link>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {!emails?.length ? <p className="text-sm text-gray-400 py-2">Aucun email rattaché</p> : (
-            <div className="space-y-2">
-              {emails.map(e => (
-                <Link key={e.id} href="/emails">
-                  <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <div className="flex items-center gap-2 min-w-0"><Mails className="w-4 h-4 text-gray-400 flex-shrink-0" /><span className="text-sm text-gray-700 truncate">{e.subject || '(sans objet)'}</span></div>
-                    {e.received_at && <span className="text-xs text-gray-400 flex-shrink-0">{formatDate(e.received_at)}</span>}
                   </div>
                 </Link>
               ))}

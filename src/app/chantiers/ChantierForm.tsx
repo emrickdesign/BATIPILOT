@@ -58,6 +58,8 @@ export default function ChantierForm({ project }: { project?: Project }) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { setLoading(false); return }
 
+    if (!clientId) { toast.error('Choisis le client / prospect en lien avec ce chantier.'); setLoading(false); return }
+
     const startDate = (data.get('start_date') as string) || ''
     const endDate = (data.get('end_date') as string) || ''
     if (!startDate || !endDate) { toast.error('Renseigne les dates de début et de fin prévues.'); setLoading(false); return }
@@ -112,9 +114,9 @@ export default function ChantierForm({ project }: { project?: Project }) {
           </div>
           <div className="grid sm:grid-cols-3 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="client_id">Client</Label>
+              <Label htmlFor="client_id">Client ou prospect *</Label>
               <select id="client_id" value={clientId} onChange={e => setClientId(e.target.value)} className={selectClass}>
-                <option value="">— Aucun —</option>
+                <option value="">— À sélectionner —</option>
                 {clients.map(c => (
                   <option key={c.id} value={c.id}>{clientDisplayName(c)}</option>
                 ))}

@@ -26,6 +26,7 @@ function DevisForm() {
   const searchParams = useSearchParams()
   const preselectedClient = searchParams.get('client')
   const preselectedProject = searchParams.get('project')
+  const editId = searchParams.get('edit')
   const [projectInfo, setProjectInfo] = useState<{ title: string; address: string | null } | null>(null)
 
   const [loading, setLoading] = useState(false)
@@ -53,6 +54,9 @@ function DevisForm() {
   const [companyDefaults, setCompanyDefaults] = useState<{
     default_vat_rate: number; legal_mentions: string | null
   }>({ default_vat_rate: 10, legal_mentions: null })
+  // Édition d'un devis existant (?edit=<id>) : date d'ancrage = date de création,
+  // pour que la validité ne « glisse » pas à chaque enregistrement.
+  const [editAnchor, setEditAnchor] = useState<string | null>(null)
 
   useEffect(() => {
     const supabase = createClient()
@@ -70,11 +74,54 @@ function DevisForm() {
           default_vat_rate: Number(co.default_vat_rate) || 10,
           legal_mentions: co.legal_mentions ?? null,
         })
-        if (co.quote_validity_days) setValidDays(String(co.quote_validity_days))
-        if (co.default_deposit_percent != null) setDepositPercent(String(co.default_deposit_percent))
+        // En édition, on garde les valeurs du devis existant (chargées plus bas), pas les défauts.
+        if (!editId && co.quote_validity_days) setValidDays(String(co.quote_validity_days))
+        if (!editId && co.default_deposit_percent != null) setDepositPercent(String(co.default_deposit_percent))
       }
     })
   }, [])
+
+  // Édition : charge le devis existant et pré-remplit tout le formulaire.
+  useEffect(() => {
+    if (!editId) return
+    const supabase = createClient()
+    Promise.all([
+      supabase.from('quotes').select('*').eq('id', editId).single(),
+      supabase.from('quote_lines').select('*').eq('quote_id', editId).order('sort_order'),
+    ]).then(([{ data: q }, { data: ql }]) => {
+      if (!q) { toast.error('Devis introuvable'); return }
+      setSelectedClientId(q.client_id || '')
+      setSelectedProjectId(q.project_id || '')
+      setTitle(q.title || '')
+      setDescription(q.description || '')
+      setDepositPercent(q.deposit_percent != null ? String(q.deposit_percent) : '')
+      setNotes(q.notes || '')
+      // Ancre la validité sur la date de création : durée = valid_until − created_at.
+      const created = (q.created_at || '').split('T')[0] || null
+      setEditAnchor(created)
+      if (q.valid_until && created) {
+        const days = Math.round((new Date(q.valid_until).getTime() - new Date(created).getTime()) / 86400000)
+        if (days > 0) setValidDays(String(days))
+      }
+      if (Array.isArray(ql)) {
+        setLines(ql.map((l, i) => ({
+          tempId: `edit-${i}`,
+          price_item_id: l.price_item_id,
+          category: l.category,
+          designation: l.designation,
+          description: l.description,
+          quantity: l.quantity,
+          unit: l.unit,
+          unit_price_ht: l.unit_price_ht,
+          vat_rate: l.vat_rate,
+          discount_percent: l.discount_percent,
+          total_ht: l.total_ht,
+          sort_order: l.sort_order,
+          is_option: l.is_option,
+        }) as LineItem))
+      }
+    })
+  }, [editId])
 
   // Pré-remplir adresse depuis client
   useEffect(() => {
@@ -237,17 +284,30 @@ function DevisForm() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    // Numéro de devis
-    const { count } = await supabase.from('quotes').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-    const quoteNumber = `DEV-${new Date().getFullYear()}-${String((count || 0) + 1).padStart(3, '0')}`
-    const validUntil = new Date()
-    validUntil.setDate(validUntil.getDate() + parseInt(validDays || '30'))
+    // Date de validité : en édition, ancrée sur la date de création ; sinon à partir d'aujourd'hui.
+    const vdNum = parseInt(validDays || '30') || 30
+    const validUntil = new Date(editId && editAnchor ? editAnchor : Date.now())
+    validUntil.setDate(validUntil.getDate() + vdNum)
 
-    const { data: quote, error } = await supabase.from('quotes').insert({
-      user_id: user.id,
+    const linePayload = (quoteId: string) => lines.map((l, i) => ({
+      quote_id: quoteId,
+      price_item_id: l.price_item_id || null,
+      category: l.category,
+      designation: l.designation,
+      description: l.description,
+      quantity: l.quantity,
+      unit: l.unit,
+      unit_price_ht: l.unit_price_ht,
+      vat_rate: l.vat_rate,
+      discount_percent: l.discount_percent,
+      total_ht: l.total_ht,
+      sort_order: i,
+      is_option: l.is_option || false,
+    }))
+
+    const quoteFields = {
       client_id: selectedClientId,
       project_id: selectedProjectId || null,
-      quote_number: quoteNumber,
       title,
       description,
       status,
@@ -258,33 +318,37 @@ function DevisForm() {
       deposit_percent: depositPercent ? parseFloat(depositPercent) : null,
       deposit_amount: depositAmount || null,
       notes,
+    }
+
+    // La durée saisie devient le défaut de l'utilisateur (pré-rempli sur les prochains devis).
+    await supabase.from('companies').update({ quote_validity_days: vdNum }).eq('user_id', user.id)
+
+    if (editId) {
+      // --- Mode édition : met à jour le devis + remplace ses lignes ---
+      const { error } = await supabase.from('quotes').update(quoteFields).eq('id', editId)
+      if (error) { toast.error('Erreur modification devis'); setSaving(false); return }
+      await supabase.from('quote_lines').delete().eq('quote_id', editId)
+      await supabase.from('quote_lines').insert(linePayload(editId))
+      toast.success('Devis modifié !')
+      router.push(`/devis/${editId}`)
+      return
+    }
+
+    // --- Mode création ---
+    const { count } = await supabase.from('quotes').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
+    const quoteNumber = `DEV-${new Date().getFullYear()}-${String((count || 0) + 1).padStart(3, '0')}`
+
+    const { data: quote, error } = await supabase.from('quotes').insert({
+      user_id: user.id,
+      quote_number: quoteNumber,
+      ...quoteFields,
       internal_notes: '',
       legal_mentions: companyDefaults.legal_mentions || 'TVA à taux réduit — Article 279-0 bis du CGI (travaux de rénovation)',
     }).select().single()
 
     if (error || !quote) { toast.error('Erreur création devis'); setSaving(false); return }
 
-    // La durée saisie devient le défaut de l'utilisateur (pré-rempli sur les prochains devis).
-    const vd = parseInt(validDays || '30') || 30
-    await supabase.from('companies').update({ quote_validity_days: vd }).eq('user_id', user.id)
-
-    await supabase.from('quote_lines').insert(
-      lines.map((l, i) => ({
-        quote_id: quote.id,
-        price_item_id: l.price_item_id || null,
-        category: l.category,
-        designation: l.designation,
-        description: l.description,
-        quantity: l.quantity,
-        unit: l.unit,
-        unit_price_ht: l.unit_price_ht,
-        vat_rate: l.vat_rate,
-        discount_percent: l.discount_percent,
-        total_ht: l.total_ht,
-        sort_order: i,
-        is_option: l.is_option || false,
-      }))
-    )
+    await supabase.from('quote_lines').insert(linePayload(quote.id))
 
     // Fait avancer le prospect dans le pipeline : nouveau/infos → « Devis à faire »
     await supabase.from('clients').update({ status: 'devis_a_faire' })
@@ -307,7 +371,7 @@ function DevisForm() {
           </Button>
         </Link>
       </div>
-      <FormPageTitle icon={Receipt} color={entityColors.devis} title="Nouveau devis" />
+      <FormPageTitle icon={Receipt} color={entityColors.devis} title={editId ? 'Modifier le devis' : 'Nouveau devis'} />
 
       {/* Client ou prospect */}
       <FormSection icon={User} color={entityColors.devis} title="Client ou prospect *">
@@ -359,6 +423,14 @@ function DevisForm() {
             <Label>Objet du devis</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Rénovation salle de bain" />
             <p className="text-[11px] text-gray-400">Affiché sur le devis, en tête.</p>
+          </div>
+          <div className="space-y-1">
+            <Label>Durée de validité du devis</Label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <Input type="number" value={validDays} onChange={e => setValidDays(e.target.value)} min="1" className="w-24" />
+              <span className="text-sm text-gray-500">jours — valable jusqu&apos;au <strong className="text-gray-700">{new Date((editId && editAnchor ? new Date(editAnchor).getTime() : Date.now()) + (parseInt(validDays || '30') || 30) * 86400000).toLocaleDateString('fr-FR')}</strong></span>
+            </div>
+            <p className="text-[11px] text-gray-400">Modifiable ici. Mémorisée comme votre défaut pour les prochains devis.</p>
           </div>
           <div className="space-y-1">
             <Label>Adresse du chantier</Label>
@@ -611,27 +683,17 @@ function DevisForm() {
           </button>
           {showDepot && (
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <Label>Acompte (%)</Label>
-                  <Input
-                    type="number"
-                    value={depositPercent}
-                    onChange={e => setDepositPercent(e.target.value)}
-                    placeholder="ex: 30"
-                    min="0"
-                    max="100"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label>Validité (jours)</Label>
-                  <Input
-                    type="number"
-                    value={validDays}
-                    onChange={e => setValidDays(e.target.value)}
-                    min="1"
-                  />
-                </div>
+              <div className="space-y-1">
+                <Label>Acompte (%)</Label>
+                <Input
+                  type="number"
+                  value={depositPercent}
+                  onChange={e => setDepositPercent(e.target.value)}
+                  placeholder="ex: 30"
+                  min="0"
+                  max="100"
+                  className="w-32"
+                />
               </div>
               <div className="space-y-1">
                 <Label>Modalités de paiement <span className="text-gray-400 font-normal">(visible sur le devis)</span></Label>
@@ -657,7 +719,7 @@ function DevisForm() {
           onClick={() => handleSave('pret')}
           disabled={saving}
         >
-          {saving ? 'Création...' : 'Créer le devis'}
+          {saving ? 'Enregistrement...' : editId ? 'Enregistrer les modifications' : 'Créer le devis'}
         </Button>
       </div>
     </div>

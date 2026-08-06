@@ -91,6 +91,16 @@ export default function EmailsPage() {
   const [manageLabels, setManageLabels] = useState(false)
   const [signatureOpen, setSignatureOpen] = useState(false)
   const [stats, setStats] = useState<{ demandesDevis: number; devisEnvoyes: number; signesEur: number } | null>(null)
+  // Ouverture directe de la fenêtre de rédaction depuis une fiche client (?compose=1&to=…).
+  const composeParamRef = useRef(false)
+  useEffect(() => {
+    if (composeParamRef.current) return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('compose')) {
+      composeParamRef.current = true
+      setCompose({ mode: 'new', to: params.get('to') || '', subject: params.get('subject') || '' })
+    }
+  }, [])
 
   // Pagination Gmail : jetons opaques, empilés pour pouvoir revenir en arrière.
   const [pageTokens, setPageTokens] = useState<(string | null)[]>([null])
