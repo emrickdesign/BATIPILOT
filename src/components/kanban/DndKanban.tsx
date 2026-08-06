@@ -84,7 +84,7 @@ export default function DndKanban<T extends KanbanItem>({
 
   return (
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onStart} onDragEnd={onEnd} onDragCancel={() => setActiveId(null)}>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${columns.length <= 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-5'}`}>
         {columns.map(col => {
           const colItems = items.filter(i => i.col === col.key)
           return (
