@@ -76,7 +76,7 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
         return (
           <Card className="shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing border" style={{ backgroundColor: `${dot}0D`, borderColor: `${dot}33` }}>
             <CardContent className="p-3.5">
-              <Link href={`/clients/${p.id}`} onClick={e => e.stopPropagation()} className="block font-semibold text-[15px] text-gray-900 hover:text-primary truncate leading-snug">
+              <Link href={`/prospects/${p.id}`} onClick={e => e.stopPropagation()} className="block font-semibold text-[15px] text-gray-900 hover:text-primary truncate leading-snug">
                 {p.name}
               </Link>
               <div className="mt-1 space-y-0.5 text-xs text-gray-500">

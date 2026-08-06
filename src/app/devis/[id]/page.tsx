@@ -31,7 +31,7 @@ export default async function DevisDetailPage({ params, searchParams }: {
   const { from } = await searchParams
   // Retour contextuel : revient là d'où on vient (ex. fiche client) si chemin interne, sinon liste devis.
   const backHref = from && from.startsWith('/') && !from.startsWith('//') ? from : '/devis'
-  const backLabel = backHref.startsWith('/clients/') ? 'Retour à la fiche' : 'Retour'
+  const backLabel = (backHref.startsWith('/clients/') || backHref.startsWith('/prospects/')) ? 'Retour à la fiche' : 'Retour'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
