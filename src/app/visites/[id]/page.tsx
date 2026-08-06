@@ -15,7 +15,7 @@ export default async function VisitePage({ params }: { params: Promise<{ id: str
 
   const [{ data: photos }, { data: clients }] = await Promise.all([
     supabase.from('site_visit_photos').select('id, storage_path, caption, sort_order').eq('visit_id', id).eq('user_id', user.id).order('sort_order'),
-    supabase.from('clients').select('id, type, first_name, last_name, company_name').eq('user_id', user.id).neq('status', 'archive').order('created_at', { ascending: false }),
+    supabase.from('clients').select('id, type, first_name, last_name, company_name, site_address, billing_address').eq('user_id', user.id).neq('status', 'archive').order('created_at', { ascending: false }),
   ])
 
   const withUrls: VisitPhoto[] = await Promise.all((photos || []).map(async p => {
@@ -31,7 +31,7 @@ export default async function VisitePage({ params }: { params: Promise<{ id: str
         client_id: visit.client_id,
       }}
       photos={withUrls}
-      clients={(clients as { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null }[]) || []}
+      clients={(clients as { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null; site_address: string | null; billing_address: string | null }[]) || []}
     />
   )
 }

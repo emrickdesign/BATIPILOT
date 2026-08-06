@@ -17,7 +17,8 @@ import { ArrowLeft, Camera, Loader2, Trash2, Sparkles, FileText, ImagePlus, Hard
 import { clientDisplayName } from '@/lib/chantiers'
 
 export type VisitPhoto = { id: string; url: string; caption: string | null; storage_path: string }
-type ClientOption = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null }
+type ClientOption = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null; site_address?: string | null; billing_address?: string | null }
+const clientAddress = (c?: ClientOption | null) => (c ? (c.site_address || c.billing_address || '') : '')
 type Visit = {
   id: string; title: string; address: string | null; transcript: string | null; notes: string | null
   status: string; client_id: string | null
@@ -139,6 +140,12 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
     router.push(`/chantiers/${projId}`)
   }
 
+  async function archive() {
+    await patch({ status: 'archive' })
+    toast.success('Visite archivée')
+    router.push('/visites')
+  }
+
   const linkedClient = clients.find(c => c.id === clientId)
 
   return (
@@ -155,7 +162,13 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
           <div className="grid sm:grid-cols-2 gap-3">
             <div className="space-y-1">
               <Label className="text-xs text-gray-500">Client / prospect</Label>
-              <select value={clientId} onChange={e => { setClientId(e.target.value); patch({ client_id: e.target.value || null }) }}
+              <select value={clientId} onChange={e => {
+                  const id = e.target.value
+                  setClientId(id); patch({ client_id: id || null })
+                  // Pré-remplit l'adresse depuis la fiche client si le champ est vide
+                  const addr = clientAddress(clients.find(c => c.id === id))
+                  if (id && addr && !address.trim()) { setAddress(addr); patch({ address: addr }) }
+                }}
                 className="w-full h-10 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
                 <option value="">— Aucun —</option>
                 {clients.map(c => <option key={c.id} value={c.id}>{clientDisplayName(c)}</option>)}
@@ -230,6 +243,10 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
         <CheckCircle2 className="w-5 h-5" /> Valider la visite
       </Button>
       <p className="text-xs text-gray-400 text-center -mt-2">Les photos et la note seront ajoutées au chantier choisi.</p>
+
+      <button onClick={archive} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 transition-colors py-1">
+        Archiver la visite (garde les photos et notes dans le chantier)
+      </button>
 
       <Dialog open={validateOpen} onOpenChange={setValidateOpen}>
         <DialogContent className="max-w-md">

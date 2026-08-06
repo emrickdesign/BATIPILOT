@@ -51,5 +51,8 @@ export function normalizeVisitResult(raw: unknown): VisitResult {
 
 export const visitStatusLabels: Record<string, string> = {
   brouillon: 'En cours',
+  en_cours: 'En cours',
   analyse: 'Analysée',
+  valide: 'Validée',
+  archive: 'Archivée',
 }

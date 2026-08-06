@@ -12,7 +12,8 @@ import { toast } from 'sonner'
 import { ArrowLeft, Camera } from 'lucide-react'
 import { clientDisplayName } from '@/lib/chantiers'
 
-type ClientOption = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null }
+type ClientOption = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null; site_address: string | null; billing_address: string | null }
+const clientAddress = (c?: ClientOption | null) => (c ? (c.site_address || c.billing_address || '') : '')
 
 function NouvelleVisiteForm() {
   const router = useRouter()
@@ -27,7 +28,7 @@ function NouvelleVisiteForm() {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
       if (!user) return
-      supabase.from('clients').select('id, type, first_name, last_name, company_name')
+      supabase.from('clients').select('id, type, first_name, last_name, company_name, site_address, billing_address')
         .eq('user_id', user.id).neq('status', 'archive').order('created_at', { ascending: false })
         .then(({ data }) => setClients((data as ClientOption[]) || []))
     })
@@ -65,7 +66,12 @@ function NouvelleVisiteForm() {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="client">Client / prospect (optionnel)</Label>
-            <select id="client" value={clientId} onChange={e => setClientId(e.target.value)}
+            <select id="client" value={clientId} onChange={e => {
+                const id = e.target.value
+                setClientId(id)
+                const addr = clientAddress(clients.find(c => c.id === id))
+                if (id && addr && !address.trim()) setAddress(addr)
+              }}
               className="w-full h-11 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
               <option value="">— Aucun pour l&apos;instant —</option>
               {clients.map(c => <option key={c.id} value={c.id}>{clientDisplayName(c)}</option>)}
