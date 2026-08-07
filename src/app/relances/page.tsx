@@ -10,8 +10,9 @@ import GoogleG from '@/components/icons/GoogleG'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
-import { isRelanceDue } from '@/lib/relances'
-import RelanceButton from './RelanceButton'
+import { isRelanceDue, daysUntilExpiry } from '@/lib/relances'
+import { devisRelanceMsg, factureRelanceMsg, chantierPlanifMsg } from '@/lib/relance-messages'
+import RelanceContact from './RelanceContact'
 
 const num = (v: unknown) => Number(v) || 0
 const DAY = 86_400_000
@@ -111,6 +112,8 @@ export default async function RelancesPage() {
   if (!user) return null
 
   const d = await getData(user.id)
+  const { data: company } = await supabase.from('companies').select('trade_name').eq('user_id', user.id).maybeSingle()
+  const companyName = company?.trade_name || null
 
   return (
     <div className="space-y-6">
@@ -148,8 +151,10 @@ export default async function RelancesPage() {
                     </div>
                   </div>
                   <span className="text-sm font-semibold text-marine tabular-nums hidden sm:block">{formatCurrency(q.total_ttc)}</span>
-                  <ContactActions client={c} />
-                  <RelanceButton quoteId={q.id} />
+                  {(() => {
+                    const m = devisRelanceMsg(clientDisplayName(c), q.quote_number, companyName, daysUntilExpiry(q.valid_until))
+                    return <RelanceContact clientName={clientDisplayName(c)} email={c?.email ?? null} phone={c?.phone ?? null} subject={m.subject} body={m.body} sms={m.sms} markQuoteId={q.id} />
+                  })()}
                 </div>
               )
             })}
@@ -178,7 +183,10 @@ export default async function RelancesPage() {
                     </div>
                   </div>
                   <span className="text-sm font-semibold text-marine tabular-nums hidden sm:block">{formatCurrency(num(inv.amount_due) || num(inv.total_ttc))}</span>
-                  <ContactActions client={c} />
+                  {(() => {
+                    const m = factureRelanceMsg(clientDisplayName(c), inv.invoice_number, num(inv.amount_due) || num(inv.total_ttc), inv.due_date, inv.enRetard, companyName)
+                    return <RelanceContact clientName={clientDisplayName(c)} email={c?.email ?? null} phone={c?.phone ?? null} subject={m.subject} body={m.body} sms={m.sms} />
+                  })()}
                 </div>
               )
             })}
@@ -200,7 +208,10 @@ export default async function RelancesPage() {
                     <span className="text-xs text-gray-500">{clientDisplayName(c)} · à planifier</span>
                   </div>
                   <Link href="/planning" className="text-xs font-medium text-primary hover:underline hidden sm:block flex-shrink-0">Planifier</Link>
-                  <ContactActions client={c} />
+                  {(() => {
+                    const m = chantierPlanifMsg(clientDisplayName(c), p.title, companyName)
+                    return <RelanceContact clientName={clientDisplayName(c)} email={c?.email ?? null} phone={c?.phone ?? null} subject={m.subject} body={m.body} sms={m.sms} />
+                  })()}
                 </div>
               )
             })}
