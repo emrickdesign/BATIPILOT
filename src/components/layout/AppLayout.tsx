@@ -77,10 +77,18 @@ const bottomNav: NavLink[] = [
 ]
 
 function Logo({ collapsed }: { collapsed?: boolean }) {
+  // Logo perso déposé dans public/logo.png (ou .svg) → repli auto sur l'icône casque
+  // tant que le fichier n'existe pas, donc rien ne casse avant qu'il soit ajouté.
+  const [logoOk, setLogoOk] = useState(true)
   return (
     <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'justify-center w-full')}>
-      <span className="grid place-items-center w-9 h-9 rounded-xl bg-white/95 shadow-[0_4px_14px_rgba(60,20,0,0.18)] flex-shrink-0">
-        <HardHat className="w-5 h-5 text-[#D05C43]" strokeWidth={2.2} />
+      <span className="grid place-items-center w-9 h-9 rounded-xl bg-white/95 shadow-[0_4px_14px_rgba(60,20,0,0.18)] flex-shrink-0 overflow-hidden">
+        {logoOk ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src="/logo.png" alt="TonPilote" className="w-full h-full object-contain p-0.5" onError={() => setLogoOk(false)} />
+        ) : (
+          <HardHat className="w-5 h-5 text-[#D05C43]" strokeWidth={2.2} />
+        )}
       </span>
       {!collapsed && (
         <span className="text-lg font-bold tracking-tight text-white font-heading truncate">

@@ -5,8 +5,16 @@ import { clientDisplayName } from '@/lib/chantiers'
 import { geocodeAddress } from '@/lib/meteo'
 import AvisClient, { type AvisRow } from './AvisClient'
 import ReviewLinkGuide from './ReviewLinkGuide'
+import ReviewsReport from './ReviewsReport'
 
 const DONE_STATUSES = ['termine', 'facture', 'paye']
+
+// place_id extrait du lien d'avis enregistré (format autocomplétion : ?placeid=XXX).
+// Les liens g.page manuels n'en contiennent pas → rapport d'avis indisponible pour eux.
+function placeIdFromUrl(u: string): string | null {
+  const m = u.match(/place_?id=([^&]+)/i)
+  return m ? decodeURIComponent(m[1]) : null
+}
 
 export default async function AvisPage() {
   const supabase = await createClient()
@@ -62,7 +70,11 @@ export default async function AvisPage() {
         <ReviewLinkGuide initialUrl="" companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} biasLat={bias?.lat} biasLng={bias?.lon} />
       ) : (
         <>
-          <AvisClient companyName={companyName} reviewUrl={reviewUrl} toAsk={toAsk} done={done} />
+          {/* PC : demandes à gauche (moitié), rapport d'avis à droite */}
+          <div className="grid lg:grid-cols-2 gap-5 items-start">
+            <AvisClient companyName={companyName} reviewUrl={reviewUrl} toAsk={toAsk} done={done} />
+            <ReviewsReport placeId={placeIdFromUrl(reviewUrl)} mapsKey={mapsKey} />
+          </div>
           <ReviewLinkGuide initialUrl={reviewUrl} collapsible companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} biasLat={bias?.lat} biasLng={bias?.lon} />
         </>
       )}

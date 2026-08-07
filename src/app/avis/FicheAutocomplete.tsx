@@ -7,26 +7,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
-
-// Chargement de la Maps JS API via callback (pattern fiable) : quand le callback
-// se déclenche, google.maps.places est prêt. Pas d'importLibrary (indispo avec ce
-// mode de chargement).
-let mapsPromise: Promise<void> | null = null
-function loadMaps(key: string): Promise<void> {
-  const w = window as any
-  if (w.google?.maps?.places) return Promise.resolve()
-  if (mapsPromise) return mapsPromise
-  mapsPromise = new Promise<void>((resolve, reject) => {
-    const cb = '__batipilotMapsInit'
-    w[cb] = () => resolve()
-    const s = document.createElement('script')
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(key)}&libraries=places&language=fr&region=FR&loading=async&callback=${cb}`
-    s.async = true
-    s.onerror = () => reject(new Error('Chargement de Google Maps impossible (réseau ou clé).'))
-    document.head.appendChild(s)
-  })
-  return mapsPromise
-}
+import { loadGoogleMaps } from '@/lib/googleMaps'
 
 const INPUT_CLASS = 'w-full h-11 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
 
@@ -50,7 +31,7 @@ export default function FicheAutocomplete({
     let cleanup = () => {}
     let cancelled = false
 
-    loadMaps(apiKey).then(() => {
+    loadGoogleMaps(apiKey).then(() => {
       if (cancelled) return
       const places = (window as any).google?.maps?.places
       if (!places) throw new Error('google.maps.places indisponible.')
