@@ -2,9 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
   Clock, FileText, Receipt, AlertTriangle, TrendingUp, Wallet, Star, CalendarClock,
-  CheckCircle2, Phone, Mail, MessageCircle, type LucideIcon,
+  CheckCircle2, Phone, Mail, MessageCircle,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
+import StatCard from '@/components/charts/StatCard'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
@@ -87,21 +88,6 @@ async function getData(userId: string) {
   }
 }
 
-function Kpi({ label, value, icon: Icon, tile, sub }: { label: string; value: string; icon: LucideIcon; tile: string; sub?: string }) {
-  return (
-    <Card className="border border-gray-200/80 bg-white h-full">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <span className="text-sm text-gray-500 font-medium">{label}</span>
-          <span className={`grid place-items-center w-8 h-8 rounded-lg ${tile}`}><Icon className="w-4 h-4" /></span>
-        </div>
-        <div className="text-[24px] font-bold text-marine mt-2 leading-none">{value}</div>
-        {sub && <div className="text-xs text-gray-400 mt-1">{sub}</div>}
-      </CardContent>
-    </Card>
-  )
-}
-
 function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
     <div className="animate-fade-up">
@@ -132,10 +118,10 @@ export default async function RelancesPage() {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up">
-        <Kpi label="Devis à relancer" value={String(d.nbARelancer)} icon={Clock} tile="bg-accent text-primary" />
-        <Kpi label="En attente de signature" value={formatCurrency(d.montantEnAttenteSignature)} icon={TrendingUp} tile="bg-[#F3E5D6] text-[#8A4B24]" sub="devis envoyés (TTC)" />
-        <Kpi label="Factures en retard" value={String(d.nbFacturesEnRetard)} icon={AlertTriangle} tile="bg-[#FBE0DA] text-[#C0392B]" />
-        <Kpi label="Reste à encaisser" value={formatCurrency(d.montantAEncaisser)} icon={Wallet} tile="bg-[#E9F2DB] text-[#3F7A2E]" />
+        <StatCard label="Devis à relancer" value={String(d.nbARelancer)} icon={Clock} tone="coral" note="devis sans réponse" />
+        <StatCard label="En attente de signature" value={formatCurrency(d.montantEnAttenteSignature)} icon={TrendingUp} tone="amber" note="devis envoyés (TTC)" />
+        <StatCard label="Factures en retard" value={String(d.nbFacturesEnRetard)} icon={AlertTriangle} tone="red" note={`${d.nbFacturesEnRetard > 0 ? 'à traiter en priorité' : 'rien en retard'}`} />
+        <StatCard label="Reste à encaisser" value={formatCurrency(d.montantAEncaisser)} icon={Wallet} tone="green" note="paiements attendus" />
       </div>
 
       {/* Devis à relancer (§9.1) */}
