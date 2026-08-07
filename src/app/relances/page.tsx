@@ -92,7 +92,7 @@ function Section({ title, count, children }: { title: string; count: number; chi
   return (
     <div className="animate-fade-up">
       <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">{title} {count > 0 && <span className="text-gray-300">· {count}</span>}</h2>
-      <Card className="border border-gray-200/80 bg-white"><CardContent className="p-2 sm:p-4">{children}</CardContent></Card>
+      <Card className="border border-gray-200/80 bg-white h-full"><CardContent className="p-2 sm:p-4 max-h-[360px] overflow-y-auto">{children}</CardContent></Card>
     </div>
   )
 }
@@ -124,6 +124,7 @@ export default async function RelancesPage() {
         <StatCard label="Reste à encaisser" value={formatCurrency(d.montantAEncaisser)} icon={Wallet} tone="green" note="paiements attendus" />
       </div>
 
+      <div className="grid lg:grid-cols-2 gap-4 items-start animate-fade-up">
       {/* Devis à relancer (§9.1) */}
       <Section title="Devis sans réponse" count={d.aRelancer.length}>
         {d.aRelancer.length === 0 ? empty('Aucun devis en attente de relance. 👌') : (
@@ -225,6 +226,7 @@ export default async function RelancesPage() {
           </div>
         )}
       </Section>
+      </div>
 
       <p className="text-[11px] text-gray-400">
         Suggestions automatiques : devis sans réponse depuis 7 j · facture impayée · chantier accepté à planifier · avis à demander après un chantier terminé. « Information manquante » et « client à rappeler » suivront avec un suivi de relances dédié.

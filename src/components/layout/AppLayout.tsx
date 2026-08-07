@@ -99,9 +99,10 @@ function Logo({ collapsed }: { collapsed?: boolean }) {
   )
 }
 
-function NavItem({ href, label, icon: Icon, active, onClick, mobile, collapsed }: {
-  href: string; label: string; icon: any; active: boolean; onClick?: () => void; mobile?: boolean; collapsed?: boolean
+function NavItem({ href, label, icon: Icon, active, onClick, mobile, collapsed, badge }: {
+  href: string; label: string; icon: any; active: boolean; onClick?: () => void; mobile?: boolean; collapsed?: boolean; badge?: number
 }) {
+  const showBadge = !!badge && badge > 0
   return (
     <Link
       href={href}
@@ -116,7 +117,15 @@ function NavItem({ href, label, icon: Icon, active, onClick, mobile, collapsed }
       )}
     >
       <Icon className={cn('w-[18px] h-[18px] flex-shrink-0 transition-transform', !active && 'text-white/70 group-hover:text-white group-hover:scale-110')} strokeWidth={2.1} />
-      {!collapsed && label}
+      {!collapsed && <span className="flex-1 truncate">{label}</span>}
+      {showBadge && (collapsed ? (
+        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#E5484D] ring-2 ring-[var(--sidebar,#C14E33)]" />
+      ) : (
+        <span className={cn('ml-auto min-w-[19px] h-[19px] px-1 grid place-items-center rounded-full text-[10px] font-bold leading-none flex-shrink-0',
+          active ? 'bg-[#E5484D] text-white' : 'bg-white text-[#C0392B]')}>
+          {badge > 99 ? '99+' : badge}
+        </span>
+      ))}
     </Link>
   )
 }
@@ -127,6 +136,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [profile, setProfile] = useState<{ name: string; role: string; initials: string }>({ name: '', role: 'Artisan', initials: '' })
   const [collapsed, setCollapsed] = useState(false)
+  const [counts, setCounts] = useState<Record<string, number>>({})
+
+  // Pastilles sidebar : rafraîchies au montage et à chaque navigation (après une action).
+  useEffect(() => {
+    let alive = true
+    fetch('/api/notifications/counts').then(r => (r.ok ? r.json() : {})).then((d: { relances?: number; prospects?: number }) => {
+      if (alive) setCounts({ '/relances': d.relances || 0, '/prospects': d.prospects || 0 })
+    }).catch(() => {})
+    return () => { alive = false }
+  }, [pathname])
 
   // Sidebar repliable (desktop) : préférence persistée par appareil.
   useEffect(() => {
@@ -191,7 +210,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     <>
       <nav className="flex-1 p-3 space-y-1 overflow-y-auto overflow-x-hidden">
         {topNav.map(item => (
-          <NavItem key={item.href} {...item} active={isActive(item.href)} mobile={mobile} collapsed={rail} onClick={mobile ? () => setMenuOpen(false) : undefined} />
+          <NavItem key={item.href} {...item} badge={counts[item.href]} active={isActive(item.href)} mobile={mobile} collapsed={rail} onClick={mobile ? () => setMenuOpen(false) : undefined} />
         ))}
         {navGroups.map(group => {
           const open = isGroupOpen(group.id)
@@ -211,7 +230,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               {(rail || open) && (
                 <div className="mt-1 space-y-1">
                   {group.items.map(item => (
-                    <NavItem key={item.href} {...item} active={isActive(item.href)} mobile={mobile} collapsed={rail} onClick={mobile ? () => setMenuOpen(false) : undefined} />
+                    <NavItem key={item.href} {...item} badge={counts[item.href]} active={isActive(item.href)} mobile={mobile} collapsed={rail} onClick={mobile ? () => setMenuOpen(false) : undefined} />
                   ))}
                 </div>
               )}
