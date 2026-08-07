@@ -10,7 +10,8 @@ import { Star, RefreshCw, MessageSquareQuote, Send, Info, Clock, CornerDownRight
 import { toast } from 'sonner'
 
 type Review = { name: string; author: string; photo: string | null; rating: number; text: string; when: string; reply: string | null }
-type Data = { ok?: boolean; error?: string; title?: string | null; rating?: number; total?: number; reviews?: Review[] }
+type Loc = { name: string; title: string; address: string }
+type Data = { ok?: boolean; error?: string; needsSelection?: boolean; locations?: Loc[]; selected?: string; title?: string | null; rating?: number; total?: number; reviews?: Review[] }
 
 function Stars({ n }: { n: number }) {
   return (
@@ -44,6 +45,15 @@ export default function GoogleBusinessReviews() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  async function choose(loc: Loc) {
+    setLoading(true)
+    await fetch('/api/avis/google/select', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ location: loc.name, title: loc.title }),
+    })
+    await load()
+  }
 
   async function sendReply(review: Review) {
     if (!replyText.trim()) return
@@ -79,8 +89,31 @@ export default function GoogleBusinessReviews() {
       <CardContent className="p-4 space-y-4">
         {header}
 
+        {/* Sélecteur de fiche (compte gérant plusieurs fiches) */}
+        {!data?.needsSelection && data?.locations && data.locations.length > 1 && (
+          <select
+            value={data.selected || ''}
+            onChange={e => { const l = data.locations!.find(x => x.name === e.target.value); if (l) choose(l) }}
+            className="w-full h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm text-marine focus:outline-none focus:ring-2 focus:ring-primary/30">
+            {data.locations.map(l => (
+              <option key={l.name} value={l.name}>{l.title}{l.address ? ` — ${l.address}` : ''}</option>
+            ))}
+          </select>
+        )}
+
         {loading && !data ? (
           <div className="py-10 text-center text-sm text-gray-400">Chargement des avis…</div>
+        ) : data?.needsSelection ? (
+          <div className="space-y-2">
+            <p className="text-sm text-gray-500">Ce compte gère plusieurs fiches. Choisissez celle à afficher :</p>
+            {(data.locations || []).map(l => (
+              <button key={l.name} onClick={() => choose(l)} disabled={loading}
+                className="w-full text-left rounded-xl border border-gray-200 p-3 hover:border-primary/40 hover:bg-primary/[0.03] transition-colors">
+                <p className="text-sm font-semibold text-marine">{l.title}</p>
+                {l.address && <p className="text-xs text-gray-400">{l.address}</p>}
+              </button>
+            ))}
+          </div>
         ) : data?.error === 'no-access' ? (
           <div className="rounded-xl bg-amber-50/70 border border-amber-100 p-3 text-xs text-amber-800 flex gap-2">
             <Clock className="w-4 h-4 flex-shrink-0 mt-0.5" />
