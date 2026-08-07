@@ -1,12 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
-  Clock, FileText, Receipt, AlertTriangle, TrendingUp, Wallet, CalendarClock,
-  CheckCircle2, Phone, Mail, MessageCircle,
+  Clock, FileText, Receipt, AlertTriangle, TrendingUp, Wallet, CalendarClock, CheckCircle2,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import StatCard from '@/components/charts/StatCard'
-import GoogleG from '@/components/icons/GoogleG'
+import RepartitionDonut from '@/components/charts/RepartitionDonut'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
@@ -16,7 +15,6 @@ import RelanceContact from './RelanceContact'
 
 const num = (v: unknown) => Number(v) || 0
 const DAY = 86_400_000
-const CLOSED = ['termine', 'a_facturer', 'facture', 'paye']
 
 function daysSince(d?: string | null): number {
   if (!d) return 0
@@ -25,41 +23,22 @@ function daysSince(d?: string | null): number {
 
 type ClientJoined = { type: string; first_name: string | null; last_name: string | null; company_name: string | null; phone?: string | null; email?: string | null } | null
 
-function waLink(phone?: string | null) {
-  if (!phone) return null
-  let p = phone.replace(/\D/g, '')
-  if (p.startsWith('0')) p = '33' + p.slice(1)
-  return p.length >= 8 ? `https://wa.me/${p}` : null
-}
-
-function ContactActions({ client }: { client: ClientJoined }) {
-  const wa = waLink(client?.phone)
-  const base = 'grid place-items-center w-8 h-8 rounded-lg bg-gray-50 text-gray-500 hover:bg-accent hover:text-primary transition-colors flex-shrink-0'
-  return (
-    <div className="flex items-center gap-1 flex-shrink-0">
-      {client?.phone && <a href={`tel:${client.phone}`} title="Appeler" className={base}><Phone className="w-3.5 h-3.5" /></a>}
-      {wa && <a href={wa} target="_blank" rel="noopener noreferrer" title="WhatsApp" className={base}><MessageCircle className="w-3.5 h-3.5" /></a>}
-      {client?.email && <a href={`mailto:${client.email}`} title="Email" className={base}><Mail className="w-3.5 h-3.5" /></a>}
-    </div>
-  )
-}
-
 async function getData(userId: string) {
   const supabase = await createClient()
   const today = new Date().toISOString().split('T')[0]
-  const avisDepuis = new Date(Date.now() - 30 * DAY).toISOString().split('T')[0]
 
   const clientCols = 'type, first_name, last_name, company_name, phone, email'
   const [quotesRes, invoicesRes, projectsRes] = await Promise.all([
     supabase.from('quotes')
       .select(`id, quote_number, status, total_ttc, issue_date, valid_until, reminded_at, clients(${clientCols})`)
       .eq('user_id', userId).eq('status', 'envoye'),
+    // Toutes les factures non annulées → sert aux relances ET au donut de répartition
     supabase.from('invoices')
       .select(`id, invoice_number, status, total_ttc, amount_due, due_date, clients(${clientCols})`)
-      .eq('user_id', userId).in('status', ['envoyee', 'payee_partiellement', 'en_retard']),
+      .eq('user_id', userId).neq('status', 'annulee'),
     supabase.from('projects')
-      .select(`id, title, status, start_date, end_date, clients(${clientCols})`)
-      .eq('user_id', userId).in('status', ['a_planifier', ...CLOSED]),
+      .select(`id, title, status, clients(${clientCols})`)
+      .eq('user_id', userId).eq('status', 'a_planifier'),
   ])
 
   const quotes = quotesRes.data || []
@@ -70,23 +49,26 @@ async function getData(userId: string) {
     .filter(q => isRelanceDue(q))
     .sort((a, b) => new Date(a.issue_date).getTime() - new Date(b.issue_date).getTime())
 
-  const aEncaisser = invoices
+  const openInv = invoices.filter(i => ['envoyee', 'payee_partiellement', 'en_retard'].includes(i.status))
+  const aEncaisser = openInv
     .map(inv => ({ ...inv, enRetard: !!inv.due_date && inv.due_date < today }))
     .sort((a, b) => Number(b.enRetard) - Number(a.enRetard) || (a.due_date || '').localeCompare(b.due_date || ''))
 
-  // Chantiers à confirmer / planifier (devis accepté → chantier à planifier)
-  const aConfirmer = projects.filter(p => p.status === 'a_planifier')
+  const aConfirmer = projects // tous en statut 'a_planifier'
 
-  // Avis client à demander : chantier terminé récemment (≤ 30 j)
-  const avisADemander = projects.filter(p => CLOSED.includes(p.status) && p.end_date && p.end_date >= avisDepuis && p.end_date <= today)
-    .sort((a, b) => (b.end_date || '').localeCompare(a.end_date || ''))
+  // Donut de répartition (montants €)
+  const encaisse = invoices.reduce((s, i) => s + (num(i.total_ttc) - num(i.amount_due)), 0)
+  const overdueAmount = aEncaisser.filter(i => i.enRetard).reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
+  const openNotOverdue = aEncaisser.filter(i => !i.enRetard).reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
+  const montantEnAttenteSignature = quotes.reduce((s, q) => s + num(q.total_ttc), 0)
 
   return {
-    aRelancer, aEncaisser, aConfirmer, avisADemander,
-    montantEnAttenteSignature: quotes.reduce((s, q) => s + num(q.total_ttc), 0),
-    montantAEncaisser: invoices.reduce((s, inv) => s + (num(inv.amount_due) || num(inv.total_ttc)), 0),
+    aRelancer, aEncaisser, aConfirmer,
+    montantEnAttenteSignature,
+    montantAEncaisser: openInv.reduce((s, inv) => s + (num(inv.amount_due) || num(inv.total_ttc)), 0),
     nbARelancer: aRelancer.length,
     nbFacturesEnRetard: aEncaisser.filter(i => i.enRetard).length,
+    donut: { encaisse, overdueAmount, openNotOverdue, devisEnAttente: montantEnAttenteSignature },
   }
 }
 
@@ -119,7 +101,7 @@ export default async function RelancesPage() {
     <div className="space-y-6">
       <div className="animate-fade-up">
         <h1 className="text-2xl md:text-[28px] font-heading font-bold text-marine">Relances</h1>
-        <p className="text-gray-500 mt-1 text-sm">Tout ce qui doit être relancé, au même endroit : devis, paiements, chantiers, avis.</p>
+        <p className="text-gray-500 mt-1 text-sm">Tout ce qui doit être relancé, au même endroit : devis, paiements, chantiers.</p>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up">
@@ -219,30 +201,21 @@ export default async function RelancesPage() {
         )}
       </Section>
 
-      {/* Avis clients à demander (§9.1 / §9.3) */}
-      <Section title="Avis clients à demander" count={d.avisADemander.length}>
-        {d.avisADemander.length === 0 ? empty('Aucun chantier récemment terminé.') : (
-          <div className="divide-y divide-gray-50">
-            {d.avisADemander.map(p => {
-              const c = p.clients as unknown as ClientJoined
-              return (
-                <div key={p.id} className="flex items-center gap-3 py-2.5 px-1">
-                  <span className="grid place-items-center w-9 h-9 rounded-lg bg-white border border-gray-200 flex-shrink-0"><GoogleG className="w-4 h-4" /></span>
-                  <div className="min-w-0 flex-1">
-                    <Link href={`/chantiers/${p.id}`} className="text-sm font-medium text-marine hover:text-primary truncate block">{p.title}</Link>
-                    <span className="text-xs text-gray-500">{clientDisplayName(c)} · terminé le {p.end_date ? formatDate(p.end_date) : '—'}</span>
-                  </div>
-                  <ContactActions client={c} />
-                </div>
-              )
-            })}
-          </div>
-        )}
-      </Section>
+      {/* Répartition financière (remplace l'ancienne section avis, gérée dans l'onglet Avis) */}
+      <RepartitionDonut
+        title="Répartition"
+        format={formatCurrency}
+        segments={[
+          { label: 'Encaissé', value: d.donut.encaisse, color: '#4E9331' },
+          { label: 'À encaisser', value: d.donut.openNotOverdue, color: '#C9820F' },
+          { label: 'En retard', value: d.donut.overdueAmount, color: '#CA4133' },
+          { label: 'Devis en attente', value: d.donut.devisEnAttente, color: '#2F6BE8' },
+        ]}
+      />
       </div>
 
       <p className="text-[11px] text-gray-400">
-        Suggestions automatiques : devis sans réponse depuis 7 j · facture impayée · chantier accepté à planifier · avis à demander après un chantier terminé. « Information manquante » et « client à rappeler » suivront avec un suivi de relances dédié.
+        Suggestions automatiques : devis sans réponse depuis 7 j · facture impayée · chantier accepté à planifier. Les demandes d&apos;avis Google se gèrent dans l&apos;onglet <Link href="/avis" className="underline hover:text-gray-600">Avis clients</Link>.
       </p>
     </div>
   )
