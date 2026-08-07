@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Mail, MessageSquare, Check, Star, RotateCcw } from 'lucide-react'
+import { Mail, MessageSquare, Check, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
+import GoogleG from '@/components/icons/GoogleG'
 import { reviewSms, reviewEmailSubject, reviewEmailBody, mailtoLink, smsLink } from '@/lib/avis'
 
 export type AvisRow = {
@@ -70,7 +71,7 @@ export default function AvisClient({
       <Card className="border-0 shadow-[var(--shadow-sm)]">
         <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-base flex items-center gap-2">
-            <Star className="w-4 h-4 text-amber-500" /> À demander
+            <GoogleG className="w-4 h-4" /> À demander
             {pending.length > 0 && <span className="text-sm font-normal text-gray-500">· {pending.length}</span>}
           </CardTitle>
         </CardHeader>

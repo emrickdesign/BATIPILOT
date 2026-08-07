@@ -1,11 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import {
-  Clock, FileText, Receipt, AlertTriangle, TrendingUp, Wallet, Star, CalendarClock,
+  Clock, FileText, Receipt, AlertTriangle, TrendingUp, Wallet, CalendarClock,
   CheckCircle2, Phone, Mail, MessageCircle,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import StatCard from '@/components/charts/StatCard'
+import GoogleG from '@/components/icons/GoogleG'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
@@ -90,16 +91,17 @@ async function getData(userId: string) {
 
 function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
   return (
-    <div className="animate-fade-up">
+    <div className="animate-fade-up flex flex-col">
       <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">{title} {count > 0 && <span className="text-gray-300">· {count}</span>}</h2>
-      <Card className="border border-gray-200/80 bg-white h-full"><CardContent className="p-2 sm:p-4 max-h-[360px] overflow-y-auto">{children}</CardContent></Card>
+      {/* Hauteur fixe → 4 cases identiques qui ne se referment pas si vides ; scroll interne au-delà */}
+      <Card className="border border-gray-200/80 bg-white"><CardContent className="p-2 sm:p-4 h-[300px] overflow-y-auto">{children}</CardContent></Card>
     </div>
   )
 }
 
 const empty = (msg: string) => (
-  <div className="flex items-center gap-2 text-sm text-gray-400 py-6 justify-center">
-    <CheckCircle2 className="w-4 h-4 text-[#3F7A2E]" /> {msg}
+  <div className="flex flex-col items-center justify-center gap-2 text-sm text-gray-400 h-full text-center px-3">
+    <CheckCircle2 className="w-5 h-5 text-[#3F7A2E]" /> {msg}
   </div>
 )
 
@@ -124,7 +126,7 @@ export default async function RelancesPage() {
         <StatCard label="Reste à encaisser" value={formatCurrency(d.montantAEncaisser)} icon={Wallet} tone="green" note="paiements attendus" />
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-4 items-start animate-fade-up">
+      <div className="grid lg:grid-cols-2 gap-4 animate-fade-up">
       {/* Devis à relancer (§9.1) */}
       <Section title="Devis sans réponse" count={d.aRelancer.length}>
         {d.aRelancer.length === 0 ? empty('Aucun devis en attente de relance. 👌') : (
@@ -214,7 +216,7 @@ export default async function RelancesPage() {
               const c = p.clients as unknown as ClientJoined
               return (
                 <div key={p.id} className="flex items-center gap-3 py-2.5 px-1">
-                  <span className="grid place-items-center w-9 h-9 rounded-lg bg-yellow-100 text-yellow-600 flex-shrink-0"><Star className="w-4 h-4" /></span>
+                  <span className="grid place-items-center w-9 h-9 rounded-lg bg-white border border-gray-200 flex-shrink-0"><GoogleG className="w-4 h-4" /></span>
                   <div className="min-w-0 flex-1">
                     <Link href={`/chantiers/${p.id}`} className="text-sm font-medium text-marine hover:text-primary truncate block">{p.title}</Link>
                     <span className="text-xs text-gray-500">{clientDisplayName(c)} · terminé le {p.end_date ? formatDate(p.end_date) : '—'}</span>
