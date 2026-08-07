@@ -78,17 +78,15 @@ export async function GET() {
 
   const { data: conn } = await supabase.from('google_business_connections').select('location_name').eq('user_id', user.id).maybeSingle()
 
-  // Fiche active : celle enregistrée si toujours valide, sinon auto si une seule,
-  // sinon on demande à l'utilisateur de choisir.
+  // Fiche active : celle enregistrée si toujours valide, sinon la 1ʳᵉ de la liste
+  // (auto, pas de choix forcé). Le sélecteur permet d'en changer ensuite.
   let selected = conn?.location_name && locations.some(l => l.name === conn.location_name) ? conn.location_name : null
-  if (!selected && locations.length === 1) {
-    selected = locations[0].name
-    await supabase.from('google_business_connections').update({
-      location_name: selected, location_title: locations[0].title, updated_at: new Date().toISOString(),
-    }).eq('user_id', user.id)
-  }
   if (!selected) {
-    return NextResponse.json({ ok: true, needsSelection: true, locations })
+    const first = locations[0]
+    selected = first.name
+    await supabase.from('google_business_connections').update({
+      location_name: selected, location_title: first.title, updated_at: new Date().toISOString(),
+    }).eq('user_id', user.id)
   }
 
   const res = await fetchReviews(token, selected)
