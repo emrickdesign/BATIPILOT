@@ -65,8 +65,10 @@ export default function FacturesKanban({ initialItems }: { initialItems: Facture
         footer={<p className="text-[11px] text-gray-400 mt-3">Glissez une facture d&apos;une colonne à l&apos;autre pour changer son statut.</p>}
         renderCard={(f) => {
           const dot = dotOf(f.col)
+          const overdue = f.badge?.label === 'En retard'
           return (
-            <Card className="border border-gray-200/70 shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing bg-white">
+            <Card className="shadow-[var(--shadow-sm)] cursor-grab active:cursor-grabbing border"
+              style={overdue ? { backgroundColor: '#FDF3F1', borderColor: '#E8B4AA' } : { backgroundColor: `${dot}0D`, borderColor: `${dot}33` }}>
               <CardContent className="p-3.5">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-[11px] text-gray-400">{f.number}</span>
@@ -78,11 +80,13 @@ export default function FacturesKanban({ initialItems }: { initialItems: Facture
                 <p className="font-bold text-[17px] text-gray-900 tabular-nums mt-1.5 leading-none">{f.amountFmt}</p>
                 <p className="text-[11px] text-gray-400 mt-1">{f.dueFmt ? `Échéance ${f.dueFmt}` : f.dateFmt}</p>
                 {f.outstanding && <p className="text-[11px] font-medium text-[#C0392B] mt-0.5">{f.resteFmt}</p>}
-                <Link href={`/factures/${f.id}`} onClick={e => e.stopPropagation()}
-                  className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight transition-opacity hover:opacity-85"
-                  style={{ backgroundColor: `${dot}18`, color: dot }}>
-                  <span>{f.cta || 'Ouvrir'}</span><ArrowRight className="w-3.5 h-3.5 flex-shrink-0" />
-                </Link>
+                {f.cta && (
+                  <Link href={`/factures/${f.id}`} onClick={e => e.stopPropagation()}
+                    className="mt-3 flex items-center justify-center gap-1.5 min-h-[34px] px-3 py-1.5 rounded-lg text-[12.5px] font-semibold text-center leading-tight border bg-white/70 hover:bg-white transition-colors"
+                    style={{ borderColor: dot, color: dot }}>
+                    <span>{f.cta}</span><ArrowRight className="w-3.5 h-3.5 flex-shrink-0" />
+                  </Link>
+                )}
               </CardContent>
             </Card>
           )
