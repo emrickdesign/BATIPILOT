@@ -30,6 +30,11 @@ export function googleRedirectUri(origin: string): string {
   return `${origin.replace(/\/+$/, '')}/api/auth/gmail/callback`
 }
 
+/** URI de retour OAuth pour Google Business Profile (avis). À déclarer dans la console. */
+export function gbpRedirectUri(origin: string): string {
+  return `${origin.replace(/\/+$/, '')}/api/auth/gbp/callback`
+}
+
 /** Credentials à utiliser : ceux de la connexion (ancien système) sinon ceux de l'app. */
 export function resolveCredentials(conn?: { client_id?: string | null; client_secret?: string | null } | null) {
   const clientId = conn?.client_id || GOOGLE_CLIENT_ID

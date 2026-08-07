@@ -3,9 +3,12 @@ import { Card, CardContent } from '@/components/ui/card'
 import { HardHat } from 'lucide-react'
 import { clientDisplayName } from '@/lib/chantiers'
 import { geocodeAddress } from '@/lib/meteo'
+import Link from 'next/link'
+import { Star } from 'lucide-react'
 import AvisClient, { type AvisRow } from './AvisClient'
 import ReviewLinkGuide from './ReviewLinkGuide'
 import ReviewsReport from './ReviewsReport'
+import GoogleBusinessReviews from './GoogleBusinessReviews'
 
 const DONE_STATUSES = ['termine', 'facture', 'paye']
 
@@ -21,12 +24,14 @@ export default async function AvisPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [{ data: company }, { data: projects }] = await Promise.all([
+  const [{ data: company }, { data: projects }, { data: gbp }] = await Promise.all([
     supabase.from('companies').select('trade_name, google_review_url, address').eq('user_id', user.id).maybeSingle(),
     supabase.from('projects')
       .select('id, title, status, end_date, created_at, client_id, clients(id, type, first_name, last_name, company_name, email, phone, review_requested_at)')
       .eq('user_id', user.id).in('status', DONE_STATUSES).order('end_date', { ascending: false, nullsFirst: false }),
+    supabase.from('google_business_connections').select('user_id').eq('user_id', user.id).maybeSingle(),
   ])
+  const gbpConnected = !!gbp
 
   const reviewUrl = (company?.google_review_url || '').trim()
   const companyName = company?.trade_name || null
@@ -73,7 +78,21 @@ export default async function AvisPage() {
           {/* PC : demandes à gauche (moitié), rapport d'avis à droite */}
           <div className="grid lg:grid-cols-2 gap-5 items-start">
             <AvisClient companyName={companyName} reviewUrl={reviewUrl} toAsk={toAsk} done={done} />
-            <ReviewsReport placeId={placeIdFromUrl(reviewUrl)} mapsKey={mapsKey} />
+            {gbpConnected ? (
+              <GoogleBusinessReviews />
+            ) : (
+              <div className="space-y-4">
+                <ReviewsReport placeId={placeIdFromUrl(reviewUrl)} mapsKey={mapsKey} />
+                <Link href="/api/auth/gbp/initiate"
+                  className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/[0.04] p-4 hover:bg-primary/[0.07] transition-colors">
+                  <span className="grid place-items-center w-10 h-10 rounded-xl bg-primary/15 text-primary flex-shrink-0"><Star className="w-5 h-5" /></span>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-marine">Connecter Google Business</p>
+                    <p className="text-xs text-gray-500">Voir TOUS vos avis et y répondre directement depuis l&apos;app.</p>
+                  </div>
+                </Link>
+              </div>
+            )}
           </div>
           <ReviewLinkGuide initialUrl={reviewUrl} collapsible companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} biasLat={bias?.lat} biasLng={bias?.lon} />
         </>
