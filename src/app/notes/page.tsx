@@ -1,11 +1,14 @@
 import { createClient } from '@/lib/supabase/server'
 import { clientDisplayName } from '@/lib/chantiers'
+import { getOwnerName } from '@/lib/profile'
 import NotesClient, { type AdminNote, type NoteProject } from './NotesClient'
 
 export default async function NotesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
+
+  const authorName = await getOwnerName(supabase, user)
 
   const [{ data: notes }, { data: projects }] = await Promise.all([
     supabase.from('notes')
@@ -25,7 +28,7 @@ export default async function NotesPage() {
   return (
     <NotesClient
       ownerId={user.id}
-      authorName={user.email?.split('@')[0] || 'Admin'}
+      authorName={authorName}
       projects={projectRows}
       initial={(notes || []) as AdminNote[]}
     />

@@ -11,6 +11,7 @@ import {
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Project, ProjectStatus } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
+import { getOwnerName } from '@/lib/profile'
 import StatusSelect from '../StatusSelect'
 import MateriauxSection, { type MaterialRow } from './MateriauxSection'
 import AchatsSection, { type AchatDoc } from './AchatsSection'
@@ -33,6 +34,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     .eq('id', id).eq('user_id', user.id).single()
 
   if (!project) return notFound()
+  const ownerName = await getOwnerName(supabase, user)
   type LinkedClient = { id: string; type: string; first_name: string | null; last_name: string | null; company_name: string | null }
   const p = project as Project & { clients?: LinkedClient | null }
 
@@ -431,7 +433,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       <AchatsSection projectId={id} docs={achatDocs} />
 
       {/* Notes du chantier (admin + salariés) */}
-      <NotesSection projectId={id} ownerId={user.id} authorName={user.email?.split('@')[0] || 'Admin'} initial={(notes || []) as NoteRow[]} />
+      <NotesSection projectId={id} ownerId={user.id} authorName={ownerName} initial={(notes || []) as NoteRow[]} />
 
       {/* Plans liés */}
       {!!plans?.length && (

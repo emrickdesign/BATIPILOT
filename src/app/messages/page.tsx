@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
+import { getOwnerName } from '@/lib/profile'
 import MessagesView from './MessagesView'
 import type { Employee } from '@/types'
 
@@ -7,6 +8,8 @@ export default async function MessagesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
+
+  const currentAdminName = await getOwnerName(supabase, user)
 
   const [{ data: conversations }, { data: participants }, { data: employees }, { data: messages }] = await Promise.all([
     supabase.from('conversations').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
@@ -29,7 +32,7 @@ export default async function MessagesPage() {
 
   return (
     <MessagesView
-      currentAdminName={user.email?.split('@')[0] || 'Vous'}
+      currentAdminName={currentAdminName}
       conversations={conversations || []}
       participants={participants || []}
       employees={(employees as Employee[]) || []}
