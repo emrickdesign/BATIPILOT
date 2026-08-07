@@ -6,7 +6,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Star, RefreshCw, MessageSquareQuote, Send, Info, Clock, CornerDownRight, Loader2 } from 'lucide-react'
+import { Star, RefreshCw, MessageSquareQuote, Send, Info, Clock, CornerDownRight, Loader2, RefreshCcwDot } from 'lucide-react'
 import { toast } from 'sonner'
 
 type Review = { name: string; author: string; photo: string | null; rating: number; text: string; when: string; reply: string | null }
@@ -151,6 +151,12 @@ export default function GoogleBusinessReviews() {
             )}
           </>
         ) : null}
+
+        {/* Changer de compte : utile si la fiche est gérée par un autre compte Google */}
+        <a href="/api/auth/gbp/initiate"
+          className="flex items-center gap-1.5 pt-1 text-[11px] text-gray-400 hover:text-primary transition-colors">
+          <RefreshCcwDot className="w-3.5 h-3.5" /> Changer de compte Google
+        </a>
       </CardContent>
     </Card>
   )
