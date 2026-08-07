@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import StatCard from '@/components/charts/StatCard'
-import RepartitionDonut from '@/components/charts/RepartitionDonut'
+import DonutMetricCard from '@/components/charts/DonutMetricCard'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
@@ -202,9 +202,13 @@ export default async function RelancesPage() {
       </Section>
 
       {/* Répartition financière (remplace l'ancienne section avis, gérée dans l'onglet Avis) */}
-      <RepartitionDonut
+      <DonutMetricCard
         title="Répartition"
+        subtitle="Devis & factures"
+        centerLabel="Total"
+        total={formatCurrency(d.donut.encaisse + d.donut.openNotOverdue + d.donut.overdueAmount + d.donut.devisEnAttente)}
         format={formatCurrency}
+        emptyMessage="Aucun montant à répartir pour le moment."
         segments={[
           { label: 'Encaissé', value: d.donut.encaisse, color: '#4E9331' },
           { label: 'À encaisser', value: d.donut.openNotOverdue, color: '#C9820F' },
