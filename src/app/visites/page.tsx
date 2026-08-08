@@ -1,9 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
-import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Plus, Camera } from 'lucide-react'
+import { Camera } from 'lucide-react'
 import VisitesGallery, { type VisitItem } from './VisitesGallery'
+import NouvelleVisiteDialog from './NouvelleVisiteDialog'
 
 type VisitRow = {
   id: string; title: string; address: string | null; status: string; created_at: string
@@ -63,7 +62,7 @@ export default async function VisitesPage() {
           <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Visites de repérage</h1>
           <p className="text-gray-500 mt-1 text-sm">Sur place : photos + notes vocales, à rattacher au chantier.</p>
         </div>
-        <Link href="/visites/nouveau"><Button className="gap-1.5"><Plus className="w-4 h-4" /> Nouvelle visite</Button></Link>
+        <NouvelleVisiteDialog />
       </div>
 
       {items.length === 0 ? (
@@ -71,8 +70,8 @@ export default async function VisitesPage() {
           <CardContent className="py-14 text-center text-gray-500">
             <Camera className="w-12 h-12 mx-auto mb-3 text-gray-300" />
             <p className="font-medium text-marine">Aucune visite pour l&apos;instant</p>
-            <p className="text-sm mt-1 max-w-md mx-auto">Chez un client, démarrez une visite : prenez des photos, dictez vos notes, puis rattachez le tout au chantier.</p>
-            <Link href="/visites/nouveau"><Button className="mt-4 gap-1.5"><Plus className="w-4 h-4" /> Démarrer une visite</Button></Link>
+            <p className="text-sm mt-1 max-w-md mx-auto">Chez un prospect, démarrez une visite : prenez des photos, dictez vos notes, puis rattachez le tout au chantier.</p>
+            <div className="mt-4 flex justify-center"><NouvelleVisiteDialog variant="empty" /></div>
           </CardContent>
         </Card>
       ) : (
