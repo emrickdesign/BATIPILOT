@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -301,7 +300,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       <DottedCard>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /> Devis ({quotes?.length || 0})</CardTitle>
-          <Link href={devisLink}><Button variant="outline" size="sm">+ Devis</Button></Link>
+          <Link href={devisLink} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Devis</Link>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           {!quotes?.length ? <p className="text-sm text-gray-400 py-2">Aucun devis rattaché</p> : (
@@ -323,7 +322,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       <DottedCard>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><Receipt className="w-4 h-4 text-gray-400" /> Factures ({invoices?.length || 0})</CardTitle>
-          <Link href={factureLink}><Button variant="outline" size="sm">+ Facture</Button></Link>
+          <Link href={factureLink} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Facture</Link>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           {!invoices?.length ? <p className="text-sm text-gray-400 py-2">Aucune facture rattachée</p> : (
@@ -345,7 +344,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       <DottedCard>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><ReceiptText className="w-4 h-4 text-gray-400" /> Dépenses ({expenses?.length || 0}){totalDepenses > 0 && <span className="text-sm font-normal text-gray-500">· {formatCurrency(totalDepenses)}</span>}</CardTitle>
-          <Link href={`/tickets?project=${id}`}><Button variant="outline" size="sm">+ Ticket</Button></Link>
+          <Link href={`/tickets?project=${id}`} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Ticket</Link>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           {!expenses?.length ? <p className="text-sm text-gray-400 py-2">Aucune dépense rattachée</p> : (
@@ -371,7 +370,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       <DottedCard>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><FolderOpen className="w-4 h-4 text-gray-400" /> Documents ({documents?.length || 0})</CardTitle>
-          <Link href={`/documents?project=${id}`}><Button variant="outline" size="sm"><Plus className="w-3.5 h-3.5" /> Document</Button></Link>
+          <Link href={`/documents?project=${id}`} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Document</Link>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           {!documents?.length ? <p className="text-sm text-gray-400 py-2">Aucun document rattaché</p> : (
