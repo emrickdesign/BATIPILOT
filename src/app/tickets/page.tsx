@@ -1,6 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import type { Expense } from '@/types'
-import TicketsManager from './TicketsManager'
+import TicketsManager, { type SupplierDocLite } from './TicketsManager'
 
 export default async function TicketsPage({
   searchParams,
@@ -10,7 +10,7 @@ export default async function TicketsPage({
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
 
-  const [{ data: expenses }, { data: projects }] = await Promise.all([
+  const [{ data: expenses }, { data: projects }, { data: supplierDocs }] = await Promise.all([
     supabase
       .from('expenses')
       .select('*, projects(title)')
@@ -19,6 +19,11 @@ export default async function TicketsPage({
       .neq('status', 'archive')
       .order('created_at', { ascending: false }),
     supabase.from('projects').select('id, title').eq('user_id', user.id).neq('status', 'archive').order('created_at', { ascending: false }),
+    supabase
+      .from('supplier_documents')
+      .select('id, doc_type, supplier, doc_number, doc_date, total_ht, total_ttc, is_selected, storage_path, project_id, created_at, projects(title)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false }),
   ])
 
   const list = expenses || []
@@ -29,10 +34,20 @@ export default async function TicketsPage({
   )
   const withUrls = list.map((e, i) => ({ ...e, signedUrl: signed[i].data?.signedUrl })) as (Expense & { signedUrl?: string })[]
 
+  // Docs fournisseurs (BL / factures / devis) — miniatures signées
+  const docs = supplierDocs || []
+  const docSigned = await Promise.all(
+    docs.map(d => d.storage_path
+      ? supabase.storage.from('documents').createSignedUrl(d.storage_path as string, 3600)
+      : Promise.resolve({ data: null })),
+  )
+  const docsWithUrls = docs.map((d, i) => ({ ...d, signedUrl: docSigned[i].data?.signedUrl }))
+
   return (
     <TicketsManager
       expenses={withUrls}
       projects={projects || []}
+      supplierDocs={docsWithUrls as unknown as SupplierDocLite[]}
       preselectProject={sp.project}
       initialType={sp.type}
     />

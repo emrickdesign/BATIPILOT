@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
   ReceiptText, Camera, Upload, Trash2, Search, HardHat, FileText, Check, Send, Loader2, Download, Pencil,
+  ArrowLeft, FileStack,
 } from 'lucide-react'
 import type { Expense, ExpenseStatus, SupplierDocType } from '@/types'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -19,7 +20,15 @@ import {
   expenseStatusLabels, expenseStatusColors, expenseCategoryOptions, paymentMethodOptions, expensesToCsv,
 } from '@/lib/depenses'
 import { supplierDocTypeLabels } from '@/lib/achats'
+import StatCard from '@/components/charts/StatCard'
 import AchatsScanner from '@/components/achats/AchatsScanner'
+
+export type SupplierDocLite = {
+  id: string; doc_type: SupplierDocType; supplier: string | null; doc_number: string | null
+  doc_date: string | null; total_ht: number | null; total_ttc: number | null; is_selected: boolean
+  project_id: string | null; created_at: string; signedUrl?: string
+  projects?: { title: string } | null
+}
 
 type ScanMode = 'ticket' | SupplierDocType
 const scanTabs: { key: ScanMode; label: string }[] = [
@@ -47,8 +56,8 @@ const selectClass =
 const str = (v: unknown) => (v === null || v === undefined ? '' : String(v))
 
 export default function TicketsManager({
-  expenses, projects, preselectProject, initialType,
-}: { expenses: Exp[]; projects: ProjectOption[]; preselectProject?: string; initialType?: string }) {
+  expenses, projects, supplierDocs = [], preselectProject, initialType,
+}: { expenses: Exp[]; projects: ProjectOption[]; supplierDocs?: SupplierDocLite[]; preselectProject?: string; initialType?: string }) {
   const router = useRouter()
   const cameraRef = useRef<HTMLInputElement>(null)
   const importRef = useRef<HTMLInputElement>(null)
@@ -193,8 +202,14 @@ export default function TicketsManager({
     toast.success(`${filtered.length} ticket(s) exporté(s)`)
   }
 
+  const backHref = preselectProject ? `/chantiers/${preselectProject}` : '/depenses'
+  const backLabel = preselectProject ? 'Retour à la fiche chantier' : 'Retour aux dépenses'
+
   return (
     <div className="space-y-5 animate-fade-up">
+      <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700">
+        <ArrowLeft className="w-4 h-4" /> {backLabel}
+      </Link>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Scan tickets &amp; achats</h1>
@@ -233,28 +248,62 @@ export default function TicketsManager({
       </div>
 
       {mode !== 'ticket' ? (
-        <div className="space-y-2">
+        <div className="space-y-4">
           <AchatsScanner docType={mode} projects={projects} preselectProject={preselectProject} />
           <p className="text-xs text-gray-400">
-            Retrouvez et comparez ces documents dans la fiche du chantier concerné (section Achats &amp; fournisseurs).
+            Ces documents servent au rapprochement dans la fiche du chantier (section Achats &amp; fournisseurs).
           </p>
+
+          {/* Documents déjà enregistrés de ce type */}
+          {(() => {
+            const docsForMode = supplierDocs.filter(d => d.doc_type === mode)
+            if (docsForMode.length === 0) return (
+              <p className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">Aucun {supplierDocTypeLabels[mode].toLowerCase()} enregistré pour l&apos;instant.</p>
+            )
+            return (
+              <div className="space-y-2">
+                <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">{supplierDocTypeLabels[mode]} enregistrés · {docsForMode.length}</h2>
+                {docsForMode.map(d => (
+                  <div key={d.id} className="card-interactive rounded-xl border border-gray-200/80 bg-white p-3 flex items-center gap-3">
+                    {d.signedUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <a href={d.signedUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0"><img src={d.signedUrl} alt="" className="w-11 h-11 rounded-lg object-cover bg-gray-100" /></a>
+                    ) : (
+                      <span className="grid place-items-center w-11 h-11 rounded-lg bg-gray-50 text-gray-400 flex-shrink-0"><FileStack className="w-5 h-5" /></span>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-gray-900 truncate">{d.supplier || 'Fournisseur inconnu'}{d.doc_number && <span className="font-mono text-xs text-gray-400 ml-2">{d.doc_number}</span>}</div>
+                      <div className="flex items-center flex-wrap gap-2 mt-1 text-xs text-gray-500">
+                        {d.doc_date && <span>{formatDate(d.doc_date)}</span>}
+                        {d.is_selected && <Badge className="bg-[#E9F2DB] text-[#3F7A2E] border-0 text-[10px]">retenu</Badge>}
+                        {d.projects
+                          ? <Link href={`/chantiers/${d.project_id}`} className="flex items-center gap-1 hover:text-[#C14E33]"><HardHat className="w-3 h-3" />{d.projects.title}</Link>
+                          : <span className="text-amber-600">non rattaché à un chantier</span>}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0 font-semibold text-gray-900 tabular-nums">{formatCurrency(Number(d.total_ttc || d.total_ht || 0))}</div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       ) : (
       <>
-      {/* Totaux + export */}
+      {/* KPI colorés + export */}
       {expenses.length > 0 && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <MiniStat label="Total tickets" value={formatCurrency(totalTTC)} tile="bg-accent text-primary" icon={<ReceiptText className="w-4 h-4" />} />
-          <MiniStat label="À vérifier" value={String(aVerifier)} tile="bg-amber-100 text-amber-600" icon={<Search className="w-4 h-4" />} />
-          <MiniStat label="Tickets" value={String(expenses.length)} tile="bg-[#F3E5D6] text-[#8A4B24]" icon={<FileText className="w-4 h-4" />} />
-          <button onClick={handleExport} className="text-left">
-            <Card className="card-interactive border border-gray-200/80 h-full">
-              <CardContent className="p-3">
-                <span className="grid place-items-center w-8 h-8 rounded-lg bg-[#E9F2DB] text-[#3F7A2E]"><Download className="w-4 h-4" /></span>
-                <div className="text-sm font-bold text-[#0F172A] mt-2 leading-tight">Exporter</div>
-                <div className="text-[11px] text-gray-500 mt-1">CSV pour la comptable</div>
-              </CardContent>
-            </Card>
+          <StatCard label="Total tickets" value={formatCurrency(totalTTC)} icon={ReceiptText} tone="coral" note="montant TTC" />
+          <StatCard label="À vérifier" value={String(aVerifier)} icon={Search} tone="amber" note="en attente" />
+          <StatCard label="Tickets" value={String(expenses.length)} icon={FileText} tone="blue" note="au total" />
+          <button onClick={handleExport} className="text-left group relative h-full min-h-[152px] overflow-hidden rounded-xl p-4 text-white transition-all duration-200 hover:-translate-y-1"
+            style={{ background: 'linear-gradient(140deg, #4E9331 0%, #356420 100%)', boxShadow: '0 16px 34px -16px rgba(76,111,24,.35)' }}>
+            <div aria-hidden className="absolute -top-12 -right-10 w-40 h-40 rounded-full pointer-events-none" style={{ background: 'radial-gradient(circle, rgba(255,255,255,.22), transparent 70%)' }} />
+            <div className="relative">
+              <span className="grid place-items-center w-9 h-9 rounded-lg bg-white/20 text-white backdrop-blur-sm"><Download className="w-[18px] h-[18px]" /></span>
+              <div className="text-[20px] font-bold text-white mt-3 leading-none">Exporter</div>
+              <div className="text-[13px] text-white/90 mt-1.5 font-medium">CSV comptable</div>
+            </div>
           </button>
         </div>
       )}
@@ -350,15 +399,15 @@ export default function TicketsManager({
           {filtered.map(exp => {
             const pr = exp.projects
             return (
-              <Card key={exp.id} className="card-interactive border border-gray-200/80">
+              <Card key={exp.id} className="card-interactive border border-gray-200/80 shadow-[var(--shadow-sm)]">
                 <CardContent className="p-3 flex items-center gap-3">
                   {exp.signedUrl ? (
                     <a href={exp.signedUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={exp.signedUrl} alt="" className="w-10 h-10 rounded-lg object-cover bg-gray-100" />
+                      <img src={exp.signedUrl} alt="" className="w-12 h-12 rounded-lg object-cover bg-gray-100" />
                     </a>
                   ) : (
-                    <span className="grid place-items-center w-10 h-10 rounded-lg bg-gray-50 text-gray-400 flex-shrink-0">
+                    <span className="grid place-items-center w-12 h-12 rounded-lg bg-gray-50 text-gray-400 flex-shrink-0">
                       <ReceiptText className="w-5 h-5" />
                     </span>
                   )}
@@ -407,18 +456,6 @@ export default function TicketsManager({
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="space-y-1"><Label className="text-xs text-gray-500">{label}</Label>{children}</div>
-}
-
-function MiniStat({ label, value, tile, icon }: { label: string; value: string; tile: string; icon: React.ReactNode }) {
-  return (
-    <Card className="border border-gray-200/80">
-      <CardContent className="p-3">
-        <span className={`grid place-items-center w-8 h-8 rounded-lg ${tile}`}>{icon}</span>
-        <div className="text-xl font-bold text-[#0F172A] mt-2 leading-none">{value}</div>
-        <div className="text-[11px] text-gray-500 mt-1">{label}</div>
-      </CardContent>
-    </Card>
-  )
 }
 
 function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {

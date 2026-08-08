@@ -55,6 +55,7 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
     items: [
       { href: '/banque', label: 'Paiements', icon: CreditCard },
       { href: '/depenses', label: 'Dépenses', icon: Wallet },
+      { href: '/tickets', label: 'Scan tickets', icon: ScanLine },
       { href: '/comptable', label: 'Comptable', icon: Calculator },
       { href: '/documents', label: 'Documents', icon: FolderOpen },
     ],
