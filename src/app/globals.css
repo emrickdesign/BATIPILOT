@@ -248,6 +248,15 @@
 .animate-logo-breathe { animation: bp-logo-breathe 2.4s ease-in-out infinite; }
 .animate-logo-ring    { animation: bp-logo-ring 2s ease-out infinite; }
 
+/* Bandeau hero : dégradé animé (panoramique lent) */
+@keyframes bp-hero-pan {
+  0%   { background-position: 0% 50%; }
+  50%  { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.animate-hero-pan { background-size: 200% 200%; animation: bp-hero-pan 14s ease infinite; }
+@media (prefers-reduced-motion: reduce) { .animate-hero-pan { animation: none; } }
+
 /* Carte interactive : élévation + léger soulèvement au survol */
 .card-interactive {
   transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease, border-color 0.2s ease;

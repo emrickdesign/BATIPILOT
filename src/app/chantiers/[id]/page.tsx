@@ -12,6 +12,8 @@ import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Project, ProjectStatus } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
 import { getOwnerName } from '@/lib/profile'
+import DottedPage from '@/components/PageDottedBg'
+import ChantierFinancePanel from './ChantierFinancePanel'
 import StatusSelect from '../StatusSelect'
 import MateriauxSection, { type MaterialRow } from './MateriauxSection'
 import AchatsSection, { type AchatDoc } from './AchatsSection'
@@ -99,9 +101,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
 
   // Bloc financier (admin)
   const revenuSigne = (quotes || []).filter(q => isSigned(q.status)).reduce((s, q) => s + num(q.subtotal_ht), 0)
-  const montantDevis = (quotes || []).filter(q => isSigned(q.status)).reduce((s, q) => s + num(q.total_ttc), 0)
-    || (quotes || []).reduce((s, q) => s + num(q.total_ttc), 0)
-  const facture = (invoices || []).filter(i => i.status !== 'brouillon' && i.status !== 'annulee').reduce((s, i) => s + num(i.total_ttc), 0)
+  const facture =(invoices || []).filter(i => i.status !== 'brouillon' && i.status !== 'annulee').reduce((s, i) => s + num(i.total_ttc), 0)
   const encaisse = (invoices || []).filter(i => i.status !== 'annulee').reduce((s, i) => s + (num(i.total_ttc) - num(i.amount_due)), 0)
   const reste = (invoices || []).filter(i => isOpen(i.status)).reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
   const coutDepensesHt = (expenses || []).reduce((s, e) => s + (num(e.amount_ht) || num(e.amount_ttc)), 0)
@@ -171,14 +171,28 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
   const factureLink = p.client_id ? `/factures/nouveau?client=${p.client_id}` : '/factures/nouveau'
 
   return (
-    <div className="space-y-4">
-      {/* En-tête */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <Link href="/chantiers"><Button variant="ghost" size="sm" className="gap-1"><ArrowLeft className="w-4 h-4" /> Retour</Button></Link>
-          <h1 className="text-2xl font-bold text-gray-900 truncate">{p.title}</h1>
+    <DottedPage className="space-y-4">
+      {/* Hero animé */}
+      <div className="relative overflow-hidden rounded-2xl shadow-[var(--shadow-lg)] animate-hero-pan p-5 sm:p-6"
+        style={{ backgroundImage: 'linear-gradient(120deg, #FF9440 0%, #E0674C 35%, #C14E33 65%, #FF7A1A 100%)' }}>
+        <div aria-hidden className="absolute inset-0 pointer-events-none"
+          style={{ backgroundImage: 'radial-gradient(rgba(255,255,255,0.14) 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
+        <div className="relative flex items-start justify-between gap-3 flex-wrap">
+          <div className="flex items-start gap-3 min-w-0">
+            <Link href="/chantiers" className="grid place-items-center w-9 h-9 rounded-xl bg-white/20 text-white hover:bg-white/30 transition-colors flex-shrink-0 mt-0.5 backdrop-blur-sm">
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
+            <div className="min-w-0">
+              {p.project_type && <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-white/90 bg-white/15 px-2 py-0.5 rounded-full mb-1.5"><HardHat className="w-3 h-3" /> {p.project_type}</span>}
+              <h1 className="text-2xl sm:text-[28px] font-bold font-heading text-white leading-tight truncate">{p.title}</h1>
+              <div className="flex items-center gap-3 mt-1 text-white/85 text-sm flex-wrap">
+                {p.clients && <Link href={`/clients/${p.client_id}`} className="inline-flex items-center gap-1.5 hover:text-white"><User className="w-3.5 h-3.5" /> {clientDisplayName(p.clients)}</Link>}
+                {addr && <span className="inline-flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5" /> {p.address}</span>}
+              </div>
+            </div>
+          </div>
+          <StatusSelect projectId={id} current={p.status as ProjectStatus} clientId={p.client_id} />
         </div>
-        <StatusSelect projectId={id} current={p.status as ProjectStatus} clientId={p.client_id} />
       </div>
 
       {/* Actions (§10.3) */}
@@ -196,46 +210,22 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
       <div className="lg:col-span-2 space-y-4">
       {/* Infos */}
-      <Card>
+      <Card className="shadow-[var(--shadow-sm)]">
         <CardContent className="p-4 space-y-3">
-          {p.project_type
-            ? <Badge variant="outline" className="gap-1 w-fit"><HardHat className="w-3 h-3" />{p.project_type}</Badge>
-            : <span className="text-xs text-gray-400">Type à définir</span>}
-          {p.clients && (
-            <div className="flex items-center gap-2 text-sm">
-              <User className="w-4 h-4 text-gray-400" />
-              <Link href={`/clients/${p.client_id}`} className="text-[#C14E33] hover:underline">{clientDisplayName(p.clients)}</Link>
-            </div>
-          )}
-          {addr && (
-            <div className="flex items-start gap-2 text-sm"><MapPin className="w-4 h-4 text-gray-400 mt-0.5" /><span className="text-gray-700 whitespace-pre-line">{p.address}</span></div>
-          )}
           {(p.start_date || p.end_date) && (
             <div className="flex items-center gap-2 text-sm"><Calendar className="w-4 h-4 text-gray-400" /><span className="text-gray-700">{p.start_date ? formatDate(p.start_date) : '?'} → {p.end_date ? formatDate(p.end_date) : '?'}</span></div>
           )}
-          {p.description && <div className="pt-2 border-t border-gray-100"><p className="text-sm text-gray-700 whitespace-pre-line">{p.description}</p></div>}
+          {p.description && <p className="text-sm text-gray-700 whitespace-pre-line">{p.description}</p>}
           <AvancementControl projectId={id} startDate={p.start_date ?? null} endDate={p.end_date ?? null} status={p.status} />
         </CardContent>
       </Card>
 
-      {/* Bloc financier (admin) */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base">Financier {margePct !== null && <span className={`text-sm font-semibold ${marge >= 0 ? 'text-[#3F7A2E]' : 'text-rose-600'}`}>· marge {margePct} %</span>}</CardTitle></CardHeader>
-        <CardContent className="px-4 pb-4">
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-center">
-            <Fin label="Devis" value={montantDevis} />
-            <Fin label="Facturé" value={facture} />
-            <Fin label="Encaissé" value={encaisse} tone="emerald" />
-            <Fin label="Reste à encaisser" value={reste} tone={reste > 0 ? 'amber' : undefined} />
-            <Fin label="Dépenses" value={totalDepenses} tone="rose" />
-            {coutSousTraitance > 0 && <Fin label="Sous-traitance" value={coutSousTraitance} tone="rose" />}
-            <Fin label="Marge estimée" value={marge} tone={marge >= 0 ? 'emerald' : 'rose'} />
-          </div>
-          <p className="text-[11px] text-gray-400 mt-2.5 leading-snug">
-            Marge = signé HT ({formatCurrency(revenuSigne)}) − dépenses HT ({formatCurrency(coutDepensesHt)}) − main-d&apos;œuvre ({formatCurrency(coutMainOeuvre)}){coutSousTraitance > 0 ? ` − sous-traitance (${formatCurrency(coutSousTraitance)})` : ''}. {totalHeures > 0 && `${totalHeures.toFixed(1).replace('.0', '')} h déclarées.`}
-          </p>
-        </CardContent>
-      </Card>
+      {/* Bloc financier (admin) — donut de répartition */}
+      <ChantierFinancePanel
+        margePct={margePct} marge={marge} facture={facture} encaisse={encaisse} reste={reste}
+        revenuSigne={revenuSigne} coutMainOeuvre={coutMainOeuvre} coutDepensesHt={coutDepensesHt}
+        coutSousTraitance={coutSousTraitance} totalHeures={totalHeures}
+      />
 
       {/* Bloc équipe */}
       <Card>
@@ -307,11 +297,11 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       <div className="space-y-4">
       {/* Bloc localisation */}
       {addr && (
-        <Card>
+        <Card className="shadow-[var(--shadow-sm)] flex flex-col">
           <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" /> Localisation</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-4 space-y-3">
-            <div className="rounded-xl overflow-hidden border border-gray-200">
-              <iframe title="Carte du chantier" src={mapSrc} width="100%" height="200" loading="lazy" className="block" referrerPolicy="no-referrer-when-downgrade" />
+          <CardContent className="px-4 pb-4 space-y-3 flex-1 flex flex-col">
+            <div className="rounded-xl overflow-hidden border border-gray-200 flex-1 min-h-[340px]">
+              <iframe title="Carte du chantier" src={mapSrc} loading="lazy" className="block w-full h-full min-h-[340px]" referrerPolicy="no-referrer-when-downgrade" />
             </div>
             <div className="flex flex-wrap gap-2">
               <a href={itineraire} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1"><Navigation className="w-4 h-4" /> Itinéraire (Google)</Button></a>
@@ -451,17 +441,6 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           </CardContent>
         </Card>
       )}
-    </div>
-  )
-}
-
-function Fin({ label, value, tone }: { label: string; value: number; tone?: 'emerald' | 'rose' | 'amber' }) {
-  const color = tone === 'emerald' ? 'text-[#3F7A2E]' : tone === 'rose' ? 'text-rose-600' : tone === 'amber' ? 'text-amber-600' : 'text-marine'
-  const bg = tone === 'emerald' ? 'bg-[#F1F6E9]' : tone === 'rose' ? 'bg-rose-50' : tone === 'amber' ? 'bg-amber-50' : 'bg-gray-50'
-  return (
-    <div className={`rounded-lg ${bg} p-3`}>
-      <p className="text-[11px] text-gray-400 mb-1">{label}</p>
-      <p className={`text-sm font-semibold tabular-nums ${color}`}>{formatCurrency(value)}</p>
-    </div>
+    </DottedPage>
   )
 }
