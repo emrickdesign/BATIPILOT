@@ -77,7 +77,7 @@ export default function ChantierFinancePanel(p: Props) {
                 </div>
               ))}
             </div>
-            <div className="relative w-[150px] h-[150px] flex-shrink-0">
+            <div className="relative w-[168px] h-[168px] flex-shrink-0">
               <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
                 <circle cx="100" cy="100" r={R} fill="none" stroke="rgba(138,75,36,0.10)" strokeWidth={STROKE} />
                 {arcs.map(a => (

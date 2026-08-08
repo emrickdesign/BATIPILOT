@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ArrowLeft, MapPin, User, Calendar, FileText, Receipt, ScanLine, Edit, HardHat,
   FolderOpen, ReceiptText, Clock, Navigation, Camera, Users2, Truck, Plus,
@@ -13,6 +13,7 @@ import type { Project, ProjectStatus } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
 import { getOwnerName } from '@/lib/profile'
 import DottedPage from '@/components/PageDottedBg'
+import DottedCard from '@/components/charts/DottedCard'
 import ChantierFinancePanel from './ChantierFinancePanel'
 import StatusSelect from '../StatusSelect'
 import MateriauxSection, { type MaterialRow } from './MateriauxSection'
@@ -23,6 +24,9 @@ import ReceptionSection, { type Reception } from './ReceptionSection'
 import { buildNeeds, type QuoteLineLite } from '@/lib/materiaux'
 
 const num = (v: unknown) => Number(v) || 0
+
+// Pastille d'action style Apple (verre dépoli, arrondi, ombre douce)
+const pillCls = 'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.06)] text-sm font-medium text-gray-700 hover:bg-white hover:shadow-[0_4px_12px_rgba(0,0,0,0.10)] transition-all'
 
 export default async function ChantierPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -195,30 +199,30 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Actions (§10.3) */}
+      {/* Actions — pastilles style Apple */}
       <div className="flex flex-wrap gap-2">
-        {addr && <a href={itineraire} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1"><Navigation className="w-4 h-4" /> Itinéraire</Button></a>}
-        <Link href={devisLink}><Button variant="outline" size="sm" className="gap-1"><FileText className="w-4 h-4" /> Devis</Button></Link>
-        <Link href={factureLink}><Button variant="outline" size="sm" className="gap-1"><Receipt className="w-4 h-4" /> Facture</Button></Link>
-        <Link href={`/tickets?project=${id}`}><Button variant="outline" size="sm" className="gap-1"><ReceiptText className="w-4 h-4" /> Ticket</Button></Link>
-        <Link href={`/documents?project=${id}`}><Button variant="outline" size="sm" className="gap-1"><Camera className="w-4 h-4" /> Photo / doc</Button></Link>
-        <Link href="/planning"><Button variant="outline" size="sm" className="gap-1"><Users2 className="w-4 h-4" /> Affecter équipe</Button></Link>
-        <Link href={`/chantiers/${id}/modifier`}><Button variant="outline" size="sm" className="gap-1"><Edit className="w-4 h-4" /> Modifier</Button></Link>
+        {addr && <a href={itineraire} target="_blank" rel="noopener noreferrer" className={pillCls}><Navigation className="w-4 h-4 text-primary" /> Itinéraire</a>}
+        <Link href={devisLink} className={pillCls}><FileText className="w-4 h-4 text-[#8A3FA0]" /> Devis</Link>
+        <Link href={factureLink} className={pillCls}><Receipt className="w-4 h-4 text-[#C14E33]" /> Facture</Link>
+        <Link href={`/tickets?project=${id}`} className={pillCls}><ReceiptText className="w-4 h-4 text-[#B5811E]" /> Ticket</Link>
+        <Link href={`/documents?project=${id}`} className={pillCls}><Camera className="w-4 h-4 text-[#1F7A6E]" /> Photo / doc</Link>
+        <Link href="/planning" className={pillCls}><Users2 className="w-4 h-4 text-[#2F6BE8]" /> Affecter équipe</Link>
+        <Link href={`/chantiers/${id}/modifier`} className={pillCls}><Edit className="w-4 h-4 text-gray-500" /> Modifier</Link>
       </div>
 
       {/* Deux colonnes : détails du chantier (principal) + carte & magasins (latéral) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
       <div className="lg:col-span-2 space-y-4">
       {/* Infos */}
-      <Card className="shadow-[var(--shadow-sm)]">
-        <CardContent className="p-4 space-y-3">
+      <DottedCard>
+        <div className="p-4 space-y-3">
           {(p.start_date || p.end_date) && (
             <div className="flex items-center gap-2 text-sm"><Calendar className="w-4 h-4 text-gray-400" /><span className="text-gray-700">{p.start_date ? formatDate(p.start_date) : '?'} → {p.end_date ? formatDate(p.end_date) : '?'}</span></div>
           )}
           {p.description && <p className="text-sm text-gray-700 whitespace-pre-line">{p.description}</p>}
           <AvancementControl projectId={id} startDate={p.start_date ?? null} endDate={p.end_date ?? null} status={p.status} />
-        </CardContent>
-      </Card>
+        </div>
+      </DottedCard>
 
       {/* Bloc financier (admin) — donut de répartition */}
       <ChantierFinancePanel
@@ -227,82 +231,17 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         coutSousTraitance={coutSousTraitance} totalHeures={totalHeures}
       />
 
-      {/* Bloc équipe */}
-      <Card>
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2"><Users2 className="w-4 h-4 text-gray-400" /> Équipe ({team.length})</CardTitle>
-          <Link href="/planning"><Button variant="outline" size="sm">Affecter</Button></Link>
-        </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-3">
-          {team.length === 0 ? (
-            <p className="text-sm text-gray-400 py-1">Aucun salarié affecté. <Link href="/planning" className="text-primary hover:underline">Affecter une équipe</Link></p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {team.map(e => (
-                <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-gray-50 border border-gray-200 pl-1.5 pr-2.5 py-1 text-sm">
-                  <span className="w-5 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: e.color || '#94A3B8' }} />
-                  {e.full_name}
-                  {e.id === chef?.id && <Badge className="bg-[#F3E5D6] text-[#7A4220] border-0 text-[10px]">chef</Badge>}
-                </span>
-              ))}
-            </div>
-          )}
-          <div className="flex flex-wrap gap-4 text-sm pt-1">
-            <span className="flex items-center gap-1.5 text-gray-600"><Clock className="w-4 h-4 text-gray-400" />{totalHeures.toFixed(1).replace('.0', '')} h pointées</span>
-            {heuresPlanifiees > 0 && (
-              <span className="flex items-center gap-1.5 text-gray-600">
-                {heuresPlanifiees.toFixed(1).replace('.0', '')} h planifiées
-                <span className={`font-semibold ${derive > 0 ? 'text-rose-600' : 'text-[#3F7A2E]'}`}>
-                  ({derive > 0 ? '+' : ''}{derive.toFixed(1).replace('.0', '')} h)
-                </span>
-              </span>
-            )}
-            {projVehicles.length > 0 && (
-              <span className="flex items-center gap-1.5 text-gray-600"><Truck className="w-4 h-4 text-gray-400" />{projVehicles.map(v => v!.name + (v!.plate ? ` (${v!.plate})` : '')).join(', ')}</span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Réception de chantier (PV signable + réserves) */}
-      <ReceptionSection
-        projectId={id}
-        clientName={p.clients ? clientDisplayName(p.clients) : 'Client'}
-        initial={reception as Reception | null}
-        signatureId={receptionSig?.id ?? null}
-      />
-
-      {/* Album photo (documents images + pointages) */}
-      {photoUrls.length > 0 && (
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2"><Camera className="w-4 h-4 text-gray-400" /> Album photo <span className="text-sm font-normal text-gray-400">· {photoUrls.length}</span></CardTitle>
-            <Link href={`/documents?project=${id}`}><Button variant="ghost" size="sm">Tout voir</Button></Link>
-          </CardHeader>
-          <CardContent className="px-4 pb-4">
-            <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-              {photoUrls.map((u, i) => (
-                <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="block aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={u} alt={`Photo ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
-                </a>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      )}
       </div>
 
-      {/* Colonne latérale : localisation + magasins + notes */}
-      <div className="space-y-4">
-      {/* Bloc localisation */}
+      {/* Colonne latérale : localisation */}
+      <div>
       {addr && (
-        <Card className="shadow-[var(--shadow-sm)] flex flex-col">
-          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" /> Localisation</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-4 flex-1 flex flex-col">
-            <div className="relative rounded-xl overflow-hidden border border-gray-200 flex-1 min-h-[340px]">
+        <DottedCard>
+          <div className="p-4">
+            <h3 className="font-heading font-semibold text-marine flex items-center gap-2 mb-3"><MapPin className="w-4 h-4 text-gray-400" /> Localisation</h3>
+            <div className="relative rounded-xl overflow-hidden border border-white/60 min-h-[420px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
               <iframe title="Carte du chantier" src={mapSrc} loading="lazy" className="absolute inset-0 block w-full h-full" referrerPolicy="no-referrer-when-downgrade" />
-              {/* Boutons flottants façon Apple (verre dépoli) par-dessus la carte */}
+              {/* Boutons flottants façon Apple par-dessus la carte */}
               <div className="absolute bottom-3 right-3 flex flex-col gap-2 items-end z-10">
                 <a href={itineraire} target="_blank" rel="noopener noreferrer"
                   className="inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full bg-[#C14E33] text-white border border-white/25 backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.28)] text-[13px] font-semibold hover:bg-[#a8402a] transition-colors">
@@ -314,17 +253,62 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
                 </a>
               </div>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </DottedCard>
       )}
-
       </div>
+      </div>
+
+      {/* Équipe (moitié) + Réception (moitié) */}
+      <div className="grid lg:grid-cols-2 gap-4 items-start">
+        <DottedCard>
+          <div className="p-4 sm:p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-heading font-semibold text-marine flex items-center gap-2"><Users2 className="w-4 h-4 text-gray-400" /> Équipe ({team.length})</h3>
+              <Link href="/planning" className={pillCls + ' h-8 px-3 text-[13px]'}>Affecter</Link>
+            </div>
+            {team.length === 0 ? (
+              <p className="text-sm text-gray-400 py-1">Aucun salarié affecté. <Link href="/planning" className="text-primary hover:underline">Affecter une équipe</Link></p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {team.map(e => (
+                  <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-white/70 border border-[#EBD9CE] pl-1.5 pr-2.5 py-1 text-sm">
+                    <span className="w-5 h-5 rounded-full flex-shrink-0" style={{ backgroundColor: e.color || '#94A3B8' }} />
+                    {e.full_name}
+                    {e.id === chef?.id && <Badge className="bg-[#F3E5D6] text-[#7A4220] border-0 text-[10px]">chef</Badge>}
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-4 text-sm pt-3">
+              <span className="flex items-center gap-1.5 text-gray-600"><Clock className="w-4 h-4 text-gray-400" />{totalHeures.toFixed(1).replace('.0', '')} h pointées</span>
+              {heuresPlanifiees > 0 && (
+                <span className="flex items-center gap-1.5 text-gray-600">
+                  {heuresPlanifiees.toFixed(1).replace('.0', '')} h planifiées
+                  <span className={`font-semibold ${derive > 0 ? 'text-rose-600' : 'text-[#3F7A2E]'}`}>
+                    ({derive > 0 ? '+' : ''}{derive.toFixed(1).replace('.0', '')} h)
+                  </span>
+                </span>
+              )}
+              {projVehicles.length > 0 && (
+                <span className="flex items-center gap-1.5 text-gray-600"><Truck className="w-4 h-4 text-gray-400" />{projVehicles.map(v => v!.name + (v!.plate ? ` (${v!.plate})` : '')).join(', ')}</span>
+              )}
+            </div>
+          </div>
+        </DottedCard>
+
+        <ReceptionSection
+          projectId={id}
+          clientName={p.clients ? clientDisplayName(p.clients) : 'Client'}
+          initial={reception as Reception | null}
+          signatureId={receptionSig?.id ?? null}
+        />
       </div>
 
       {/* Ligne de 4 : Devis · Factures · Dépenses · Documents */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
       {/* Devis liés */}
-      <Card>
+      <DottedCard>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /> Devis ({quotes?.length || 0})</CardTitle>
           <Link href={devisLink}><Button variant="outline" size="sm">+ Devis</Button></Link>
@@ -343,10 +327,10 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
             </div>
           )}
         </CardContent>
-      </Card>
+      </DottedCard>
 
       {/* Factures liées */}
-      <Card>
+      <DottedCard>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><Receipt className="w-4 h-4 text-gray-400" /> Factures ({invoices?.length || 0})</CardTitle>
           <Link href={factureLink}><Button variant="outline" size="sm">+ Facture</Button></Link>
@@ -365,10 +349,10 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
             </div>
           )}
         </CardContent>
-      </Card>
+      </DottedCard>
 
       {/* Dépenses liées */}
-      <Card>
+      <DottedCard>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><ReceiptText className="w-4 h-4 text-gray-400" /> Dépenses ({expenses?.length || 0}){totalDepenses > 0 && <span className="text-sm font-normal text-gray-500">· {formatCurrency(totalDepenses)}</span>}</CardTitle>
           <Link href={`/tickets?project=${id}`}><Button variant="outline" size="sm">+ Ticket</Button></Link>
@@ -391,10 +375,10 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
             </div>
           )}
         </CardContent>
-      </Card>
+      </DottedCard>
 
       {/* Documents liés */}
-      <Card>
+      <DottedCard>
         <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
           <CardTitle className="text-base flex items-center gap-2"><FolderOpen className="w-4 h-4 text-gray-400" /> Documents ({documents?.length || 0})</CardTitle>
           <Link href={`/documents?project=${id}`}><Button variant="outline" size="sm"><Plus className="w-3.5 h-3.5" /> Document</Button></Link>
@@ -413,7 +397,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
             </div>
           )}
         </CardContent>
-      </Card>
+      </DottedCard>
       </div>
 
       {/* Achats/fournisseurs (gauche, moitié) + Besoins matériaux (droite, moitié) */}
@@ -425,9 +409,29 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       {/* Notes du chantier (admin + salariés) */}
       <NotesSection projectId={id} ownerId={user.id} authorName={ownerName} initial={(notes || []) as NoteRow[]} />
 
+      {/* Album photo (documents images + pointages) */}
+      {photoUrls.length > 0 && (
+        <DottedCard>
+          <div className="p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-heading font-semibold text-marine flex items-center gap-2"><Camera className="w-4 h-4 text-gray-400" /> Album photo <span className="text-sm font-normal text-gray-400">· {photoUrls.length}</span></h3>
+              <Link href={`/documents?project=${id}`} className={pillCls + ' h-8 px-3 text-[13px]'}>Tout voir</Link>
+            </div>
+            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+              {photoUrls.map((u, i) => (
+                <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="block aspect-square rounded-lg overflow-hidden bg-gray-100 border border-white/60">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={u} alt={`Photo ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
+                </a>
+              ))}
+            </div>
+          </div>
+        </DottedCard>
+      )}
+
       {/* Plans liés */}
       {!!plans?.length && (
-        <Card>
+        <DottedCard>
           <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><ScanLine className="w-4 h-4 text-gray-400" /> Plans ({plans.length})</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="space-y-2">
@@ -439,7 +443,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
               ))}
             </div>
           </CardContent>
-        </Card>
+        </DottedCard>
       )}
     </DottedPage>
   )
