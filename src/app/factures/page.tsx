@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import DottedPage from '@/components/PageDottedBg'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, Receipt, Send, Coins, AlertTriangle, Banknote } from 'lucide-react'
@@ -62,7 +63,7 @@ export default async function FacturesPage() {
   ]
 
   return (
-    <div className="space-y-4">
+    <DottedPage className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Mes factures</h1>
         <Link href="/factures/nouveau">
@@ -101,6 +102,6 @@ export default async function FacturesPage() {
           cta: ctaFor(inv),
         }))} />
       )}
-    </div>
+    </DottedPage>
   )
 }

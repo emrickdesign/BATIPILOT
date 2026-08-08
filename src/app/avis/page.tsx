@@ -4,7 +4,8 @@ import { HardHat } from 'lucide-react'
 import { clientDisplayName } from '@/lib/chantiers'
 import { geocodeAddress } from '@/lib/meteo'
 import Link from 'next/link'
-import { Star } from 'lucide-react'
+import { Star, Send } from 'lucide-react'
+import GoogleG from '@/components/icons/GoogleG'
 import AvisClient, { type AvisRow } from './AvisClient'
 import ReviewLinkGuide from './ReviewLinkGuide'
 import ReviewsReport from './ReviewsReport'
@@ -74,14 +75,26 @@ export default async function AvisPage() {
       {!reviewUrl ? (
         <ReviewLinkGuide initialUrl="" companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} biasLat={bias?.lat} biasLng={bias?.lon} />
       ) : (
-        <>
-          {/* PC : demandes à gauche (moitié), rapport d'avis à droite */}
-          <div className="grid lg:grid-cols-2 gap-5 items-start">
+        <div className="grid lg:grid-cols-2 gap-5 items-start">
+          {/* Colonne gauche — demander des avis à ses clients */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="grid place-items-center w-6 h-6 rounded-md bg-primary/10 text-primary flex-shrink-0"><Send className="w-3.5 h-3.5" /></span>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Demander des avis à mes clients</h2>
+            </div>
             <AvisClient companyName={companyName} reviewUrl={reviewUrl} toAsk={toAsk} done={done} />
+          </div>
+
+          {/* Colonne droite — ma fiche Google (avis reçus + connexion) */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="grid place-items-center w-6 h-6 rounded-md bg-white border border-gray-200 flex-shrink-0"><GoogleG className="w-3.5 h-3.5" /></span>
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-500">Ma fiche Google {gbpConnected ? '· connectée' : ''}</h2>
+            </div>
             {gbpConnected ? (
               <GoogleBusinessReviews />
             ) : (
-              <div className="space-y-4">
+              <>
                 <ReviewsReport placeId={placeIdFromUrl(reviewUrl)} mapsKey={mapsKey} />
                 <Link href="/api/auth/gbp/initiate"
                   className="flex items-center gap-3 rounded-2xl border border-primary/30 bg-primary/[0.04] p-4 hover:bg-primary/[0.07] transition-colors">
@@ -91,11 +104,11 @@ export default async function AvisPage() {
                     <p className="text-xs text-gray-500">Voir TOUS vos avis et y répondre directement depuis l&apos;app.</p>
                   </div>
                 </Link>
-              </div>
+              </>
             )}
+            <ReviewLinkGuide initialUrl={reviewUrl} collapsible companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} biasLat={bias?.lat} biasLng={bias?.lon} />
           </div>
-          <ReviewLinkGuide initialUrl={reviewUrl} collapsible companyName={companyName || ''} companyAddress={companyAddress} mapsKey={mapsKey} biasLat={bias?.lat} biasLng={bias?.lon} />
-        </>
+        </div>
       )}
 
       {reviewUrl && toAsk.length === 0 && done.length === 0 && (

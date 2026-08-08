@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import DottedPage from '@/components/PageDottedBg'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, User, HardHat, Users2, Banknote, Coins } from 'lucide-react'
@@ -113,7 +114,7 @@ export default async function ClientsPage() {
   })
 
   return (
-    <div className="space-y-4">
+    <DottedPage className="space-y-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Mes clients</h1>
@@ -149,6 +150,6 @@ export default async function ClientsPage() {
       ) : (
         <ClientsKanban initialItems={kanbanItems} />
       )}
-    </div>
+    </DottedPage>
   )
 }

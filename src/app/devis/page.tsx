@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import DottedPage from '@/components/PageDottedBg'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, FileText, Clock, CheckCircle2, Percent } from 'lucide-react'
@@ -73,7 +74,7 @@ export default async function DevisPage() {
   const taux = (nbSignes + nbRefus) > 0 ? Math.round((nbSignes / (nbSignes + nbRefus)) * 100) : 0
 
   return (
-    <div className="space-y-4">
+    <DottedPage className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Mes devis</h1>
         <Link href="/devis/nouveau">
@@ -118,6 +119,6 @@ export default async function DevisPage() {
           }
         })} />
       )}
-    </div>
+    </DottedPage>
   )
 }

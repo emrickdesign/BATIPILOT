@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import DottedPage from '@/components/PageDottedBg'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Plus, UserPlus } from 'lucide-react'
@@ -86,18 +87,7 @@ export default async function ProspectsPage() {
   })
 
   return (
-    <div className="relative -m-4 md:-m-8 min-h-screen">
-      {/* Fond pointillé orangé, pleine page (derrière tout le contenu) */}
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0"
-        style={{
-          backgroundColor: '#FDF3EC',
-          backgroundImage: 'radial-gradient(rgba(138,75,36,0.07) 1px, transparent 1px), linear-gradient(160deg, #FFFDFB 0%, #FBEDE4 100%)',
-          backgroundSize: '18px 18px, 100% 100%',
-        }}
-      />
-      <div className="relative p-4 md:p-8 space-y-5">
+    <DottedPage className="space-y-5">
       <div className="flex items-start justify-between gap-4 animate-fade-up">
         <div>
           <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Suivi des prospects</h1>
@@ -146,7 +136,6 @@ export default async function ProspectsPage() {
           </div>
         </>
       )}
-      </div>
-    </div>
+    </DottedPage>
   )
 }
