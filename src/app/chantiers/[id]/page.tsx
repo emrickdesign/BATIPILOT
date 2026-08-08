@@ -305,12 +305,12 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
               {/* Boutons flottants façon Apple (verre dépoli) par-dessus la carte */}
               <div className="absolute bottom-3 right-3 flex flex-col gap-2 items-end z-10">
                 <a href={itineraire} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full bg-white/75 backdrop-blur-md border border-white/60 shadow-[0_4px_16px_rgba(0,0,0,0.18)] text-[13px] font-semibold text-gray-800 hover:bg-white transition-colors">
-                  <Navigation className="w-4 h-4 text-primary" /> Itinéraire
+                  className="inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full bg-[#C14E33] text-white border border-white/25 backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.28)] text-[13px] font-semibold hover:bg-[#a8402a] transition-colors">
+                  <Navigation className="w-4 h-4" /> Itinéraire
                 </a>
                 <a href={applePlans} target="_blank" rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full bg-white/75 backdrop-blur-md border border-white/60 shadow-[0_4px_16px_rgba(0,0,0,0.18)] text-[13px] font-semibold text-gray-800 hover:bg-white transition-colors">
-                  <MapPin className="w-4 h-4 text-[#0A84FF]" /> Plans
+                  className="inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full bg-[#0A84FF] text-white border border-white/25 backdrop-blur-sm shadow-[0_4px_16px_rgba(0,0,0,0.28)] text-[13px] font-semibold hover:bg-[#0a76e0] transition-colors">
+                  <MapPin className="w-4 h-4" /> Plans
                 </a>
               </div>
             </div>
