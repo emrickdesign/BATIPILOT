@@ -299,13 +299,20 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       {addr && (
         <Card className="shadow-[var(--shadow-sm)] flex flex-col">
           <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><MapPin className="w-4 h-4 text-gray-400" /> Localisation</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-4 space-y-3 flex-1 flex flex-col">
-            <div className="rounded-xl overflow-hidden border border-gray-200 flex-1 min-h-[340px]">
-              <iframe title="Carte du chantier" src={mapSrc} loading="lazy" className="block w-full h-full min-h-[340px]" referrerPolicy="no-referrer-when-downgrade" />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <a href={itineraire} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1"><Navigation className="w-4 h-4" /> Itinéraire (Google)</Button></a>
-              <a href={applePlans} target="_blank" rel="noopener noreferrer"><Button variant="outline" size="sm" className="gap-1"><MapPin className="w-4 h-4" /> Apple Plans</Button></a>
+          <CardContent className="px-4 pb-4 flex-1 flex flex-col">
+            <div className="relative rounded-xl overflow-hidden border border-gray-200 flex-1 min-h-[340px]">
+              <iframe title="Carte du chantier" src={mapSrc} loading="lazy" className="absolute inset-0 block w-full h-full" referrerPolicy="no-referrer-when-downgrade" />
+              {/* Boutons flottants façon Apple (verre dépoli) par-dessus la carte */}
+              <div className="absolute bottom-3 right-3 flex flex-col gap-2 items-end z-10">
+                <a href={itineraire} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full bg-white/75 backdrop-blur-md border border-white/60 shadow-[0_4px_16px_rgba(0,0,0,0.18)] text-[13px] font-semibold text-gray-800 hover:bg-white transition-colors">
+                  <Navigation className="w-4 h-4 text-primary" /> Itinéraire
+                </a>
+                <a href={applePlans} target="_blank" rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 h-9 pl-3 pr-3.5 rounded-full bg-white/75 backdrop-blur-md border border-white/60 shadow-[0_4px_16px_rgba(0,0,0,0.18)] text-[13px] font-semibold text-gray-800 hover:bg-white transition-colors">
+                  <MapPin className="w-4 h-4 text-[#0A84FF]" /> Plans
+                </a>
+              </div>
             </div>
           </CardContent>
         </Card>
