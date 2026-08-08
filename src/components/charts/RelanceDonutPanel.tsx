@@ -45,22 +45,24 @@ export default function RelanceDonutPanel({
               ))}
             </div>
 
-            {/* Anneau — plus gros à droite */}
-            <div className="relative h-full aspect-square max-h-[220px] flex-shrink-0 self-center">
-              <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
-                <circle cx="100" cy="100" r={R} fill="none" stroke="rgba(138,75,36,0.10)" strokeWidth={STROKE} />
-                {arcs.map(a => (
-                  <circle key={a.id} cx="100" cy="100" r={R} fill="none" stroke={a.color} strokeWidth={STROKE}
-                    strokeDasharray={`${a.length} ${CIRC - a.length}`} strokeDashoffset={a.offset} />
-                ))}
-              </svg>
-              <div className="absolute inset-0 grid place-items-center text-center pointer-events-none">
-                <div className="max-w-[64%]">
-                  <p className="text-[9px] uppercase tracking-wider text-gray-400">Total</p>
-                  <p className="font-bold text-marine tabular-nums leading-tight whitespace-nowrap"
-                    style={{ fontSize: format(sum).length <= 9 ? 16 : format(sum).length <= 12 ? 14 : 12 }}>
-                    {format(sum)}
-                  </p>
+            {/* Anneau — centré dans la moitié droite (vertical + horizontal) */}
+            <div className="flex-1 h-full grid place-items-center min-w-0">
+              <div className="relative aspect-square h-full max-h-[220px]">
+                <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
+                  <circle cx="100" cy="100" r={R} fill="none" stroke="rgba(138,75,36,0.10)" strokeWidth={STROKE} />
+                  {arcs.map(a => (
+                    <circle key={a.id} cx="100" cy="100" r={R} fill="none" stroke={a.color} strokeWidth={STROKE}
+                      strokeDasharray={`${a.length} ${CIRC - a.length}`} strokeDashoffset={a.offset} />
+                  ))}
+                </svg>
+                <div className="absolute inset-0 grid place-items-center text-center pointer-events-none">
+                  <div className="max-w-[64%]">
+                    <p className="text-[9px] uppercase tracking-wider text-gray-400">Total</p>
+                    <p className="font-bold text-marine tabular-nums leading-tight whitespace-nowrap"
+                      style={{ fontSize: format(sum).length <= 9 ? 16 : format(sum).length <= 12 ? 14 : 12 }}>
+                      {format(sum)}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
