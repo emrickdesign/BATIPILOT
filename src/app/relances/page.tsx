@@ -3,9 +3,9 @@ import Link from 'next/link'
 import {
   Clock, FileText, Receipt, AlertTriangle, TrendingUp, Wallet, CalendarClock, CheckCircle2,
 } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
 import StatCard from '@/components/charts/StatCard'
-import DonutMetricCard from '@/components/charts/DonutMetricCard'
+import DottedCard from '@/components/charts/DottedCard'
+import RelanceDonutPanel from '@/components/charts/RelanceDonutPanel'
 import { Badge } from '@/components/ui/badge'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { clientDisplayName } from '@/lib/clients'
@@ -72,13 +72,18 @@ async function getData(userId: string) {
   }
 }
 
-function Section({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+function Section({ title, subtitle, count, children }: { title: string; subtitle?: string; count: number; children: React.ReactNode }) {
   return (
-    <div className="animate-fade-up flex flex-col">
-      <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">{title} {count > 0 && <span className="text-gray-300">· {count}</span>}</h2>
-      {/* Hauteur fixe → 4 cases identiques qui ne se referment pas si vides ; scroll interne au-delà */}
-      <Card className="border border-gray-200/80 bg-white"><CardContent className="p-2 sm:p-4 h-[300px] overflow-y-auto">{children}</CardContent></Card>
-    </div>
+    <DottedCard className="h-[320px] animate-fade-up">
+      <div className="p-4 sm:p-5 h-full flex flex-col">
+        <div className="mb-3">
+          <h3 className="font-heading font-semibold text-marine">{title} {count > 0 && <span className="text-gray-400 font-normal">· {count}</span>}</h3>
+          {subtitle && <p className="text-xs text-gray-500 mt-0.5">{subtitle}</p>}
+        </div>
+        {/* Contenu scrollable → 4 cases identiques qui ne se referment pas si vides */}
+        <div className="flex-1 overflow-y-auto min-h-0 -mx-1 px-1">{children}</div>
+      </div>
+    </DottedCard>
   )
 }
 
@@ -113,7 +118,7 @@ export default async function RelancesPage() {
 
       <div className="grid lg:grid-cols-2 gap-4 animate-fade-up">
       {/* Devis à relancer (§9.1) */}
-      <Section title="Devis sans réponse" count={d.aRelancer.length}>
+      <Section title="Devis sans réponse" subtitle="À relancer" count={d.aRelancer.length}>
         {d.aRelancer.length === 0 ? empty('Aucun devis en attente de relance. 👌') : (
           <div className="divide-y divide-gray-50">
             {d.aRelancer.map(q => {
@@ -145,7 +150,7 @@ export default async function RelancesPage() {
       </Section>
 
       {/* Factures à encaisser (§9.1) */}
-      <Section title="Factures non payées" count={d.aEncaisser.length}>
+      <Section title="Factures non payées" subtitle="À encaisser" count={d.aEncaisser.length}>
         {d.aEncaisser.length === 0 ? empty('Aucune facture en attente de paiement.') : (
           <div className="divide-y divide-gray-50">
             {d.aEncaisser.map(inv => {
@@ -177,7 +182,7 @@ export default async function RelancesPage() {
       </Section>
 
       {/* Chantiers à confirmer (§9.1) */}
-      <Section title="Chantiers à confirmer / planifier" count={d.aConfirmer.length}>
+      <Section title="Chantiers à planifier" subtitle="À confirmer" count={d.aConfirmer.length}>
         {d.aConfirmer.length === 0 ? empty('Aucun chantier en attente de planification.') : (
           <div className="divide-y divide-gray-50">
             {d.aConfirmer.map(p => {
@@ -202,13 +207,10 @@ export default async function RelancesPage() {
       </Section>
 
       {/* Répartition financière (remplace l'ancienne section avis, gérée dans l'onglet Avis) */}
-      <DonutMetricCard
+      <RelanceDonutPanel
         title="Répartition"
         subtitle="Devis & factures"
-        centerLabel="Total"
-        total={formatCurrency(d.donut.encaisse + d.donut.openNotOverdue + d.donut.overdueAmount + d.donut.devisEnAttente)}
         format={formatCurrency}
-        emptyMessage="Aucun montant à répartir pour le moment."
         segments={[
           { label: 'Encaissé', value: d.donut.encaisse, color: '#4E9331' },
           { label: 'À encaisser', value: d.donut.openNotOverdue, color: '#C9820F' },
