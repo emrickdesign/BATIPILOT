@@ -4,7 +4,8 @@ import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import DottedCard from '@/components/charts/DottedCard'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
@@ -58,7 +59,7 @@ export default function AchatsSection({
   const scanLink = (type: string) => `/tickets?project=${projectId}&type=${type}`
 
   return (
-    <Card className="border-0 shadow-[var(--shadow-sm)]">
+    <DottedCard>
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 pt-4 px-4">
         <CardTitle className="text-base flex items-center gap-2">
           <ShoppingCart className="w-4 h-4 text-gray-400" /> Achats &amp; fournisseurs
@@ -137,7 +138,7 @@ export default function AchatsSection({
           <Rapprochement projectId={projectId} canRun={!!selected && factures.length > 0} hasSelected={!!selected} hasFactures={factures.length > 0} />
         </section>
       </CardContent>
-    </Card>
+    </DottedCard>
   )
 }
 

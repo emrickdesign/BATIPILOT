@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import DottedCard from '@/components/charts/DottedCard'
 import { Button } from '@/components/ui/button'
 import DictationButton from '@/components/DictationButton'
 import { StickyNote, Trash2, Send } from 'lucide-react'
@@ -54,7 +55,7 @@ export default function NotesSection({
   }
 
   return (
-    <Card>
+    <DottedCard>
       <CardHeader className="pb-2 pt-4 px-4">
         <CardTitle className="text-base flex items-center gap-2"><StickyNote className="w-4 h-4 text-gray-400" /> Notes du chantier {notes.length > 0 && <span className="text-sm font-normal text-gray-400">({notes.length})</span>}</CardTitle>
       </CardHeader>
@@ -94,6 +95,6 @@ export default function NotesSection({
           </div>
         )}
       </CardContent>
-    </Card>
+    </DottedCard>
   )
 }

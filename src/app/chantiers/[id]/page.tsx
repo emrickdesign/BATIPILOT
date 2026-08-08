@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
-  ArrowLeft, MapPin, User, Calendar, FileText, Receipt, ScanLine, Edit, HardHat,
+  ArrowLeft, MapPin, User, Calendar, FileText, Receipt, ScanLine, HardHat,
   FolderOpen, ReceiptText, Clock, Navigation, Camera, Users2, Truck, Plus,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -199,16 +199,6 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* Actions — pastilles style Apple */}
-      <div className="flex flex-wrap gap-2">
-        {addr && <a href={itineraire} target="_blank" rel="noopener noreferrer" className={pillCls}><Navigation className="w-4 h-4 text-primary" /> Itinéraire</a>}
-        <Link href={devisLink} className={pillCls}><FileText className="w-4 h-4 text-[#8A3FA0]" /> Devis</Link>
-        <Link href={factureLink} className={pillCls}><Receipt className="w-4 h-4 text-[#C14E33]" /> Facture</Link>
-        <Link href={`/tickets?project=${id}`} className={pillCls}><ReceiptText className="w-4 h-4 text-[#B5811E]" /> Ticket</Link>
-        <Link href={`/documents?project=${id}`} className={pillCls}><Camera className="w-4 h-4 text-[#1F7A6E]" /> Photo / doc</Link>
-        <Link href="/planning" className={pillCls}><Users2 className="w-4 h-4 text-[#2F6BE8]" /> Affecter équipe</Link>
-        <Link href={`/chantiers/${id}/modifier`} className={pillCls}><Edit className="w-4 h-4 text-gray-500" /> Modifier</Link>
-      </div>
 
       {/* Deux colonnes : détails du chantier (principal) + carte & magasins (latéral) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
@@ -400,14 +390,14 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       </DottedCard>
       </div>
 
-      {/* Achats/fournisseurs (gauche, moitié) + Besoins matériaux (droite, moitié) */}
+      {/* Achats (gauche) · Besoins matériaux + Notes de chantier (droite) */}
       <div className="grid lg:grid-cols-2 gap-4 items-start">
         <AchatsSection projectId={id} docs={achatDocs} />
-        <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
+        <div className="space-y-4">
+          <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
+          <NotesSection projectId={id} ownerId={user.id} authorName={ownerName} initial={(notes || []) as NoteRow[]} />
+        </div>
       </div>
-
-      {/* Notes du chantier (admin + salariés) */}
-      <NotesSection projectId={id} ownerId={user.id} authorName={ownerName} initial={(notes || []) as NoteRow[]} />
 
       {/* Album photo (documents images + pointages) */}
       {photoUrls.length > 0 && (

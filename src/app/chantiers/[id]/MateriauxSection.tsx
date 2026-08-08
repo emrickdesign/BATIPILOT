@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import DottedCard from '@/components/charts/DottedCard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
@@ -141,7 +142,7 @@ export default function MateriauxSection({
   const empty = rows.length === 0
 
   return (
-    <Card className="border-0 shadow-[var(--shadow-sm)]">
+    <DottedCard>
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 pt-4 px-4">
         <CardTitle className="text-base flex items-center gap-2">
           <Package className="w-4 h-4 text-gray-400" /> Besoins matériaux
@@ -177,7 +178,7 @@ export default function MateriauxSection({
           </>
         )}
       </CardContent>
-    </Card>
+    </DottedCard>
   )
 }
 
