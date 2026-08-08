@@ -3,7 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import DottedCard from '@/components/charts/DottedCard'
 import { Button } from '@/components/ui/button'
 import { Mail, MessageSquare, Check, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
@@ -68,7 +69,7 @@ export default function AvisClient({
   return (
     <div className="space-y-5">
       {/* À demander */}
-      <Card className="border-0 shadow-[var(--shadow-sm)]">
+      <DottedCard>
         <CardHeader className="pb-2 pt-4 px-4">
           <CardTitle className="text-base flex items-center gap-2">
             <GoogleG className="w-4 h-4" /> À demander
@@ -105,11 +106,11 @@ export default function AvisClient({
             </div>
           )}
         </CardContent>
-      </Card>
+      </DottedCard>
 
       {/* Déjà demandés */}
       {history.length > 0 && (
-        <Card className="border-0 shadow-[var(--shadow-sm)]">
+        <DottedCard>
           <CardHeader className="pb-2 pt-4 px-4">
             <CardTitle className="text-base flex items-center gap-2"><Check className="w-4 h-4 text-emerald-500" /> Déjà demandés <span className="text-sm font-normal text-gray-500">· {history.length}</span></CardTitle>
           </CardHeader>
@@ -130,7 +131,7 @@ export default function AvisClient({
               ))}
             </div>
           </CardContent>
-        </Card>
+        </DottedCard>
       )}
     </div>
   )

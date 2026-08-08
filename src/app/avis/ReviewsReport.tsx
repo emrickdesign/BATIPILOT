@@ -6,7 +6,8 @@
 // L'historique complet nécessiterait l'API Google Business Profile (OAuth).
 
 import { useCallback, useEffect, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import { CardContent } from '@/components/ui/card'
+import DottedCard from '@/components/charts/DottedCard'
 import { Button } from '@/components/ui/button'
 import { Star, RefreshCw, ExternalLink, Info, MessageSquareQuote } from 'lucide-react'
 import { loadGoogleMaps } from '@/lib/googleMaps'
@@ -69,7 +70,7 @@ export default function ReviewsReport({
   useEffect(() => { fetchReport() }, [fetchReport])
 
   return (
-    <Card className="border-0 shadow-[var(--shadow-sm)]">
+    <DottedCard>
       <CardContent className="p-4 space-y-4">
         {/* En-tête */}
         <div className="flex items-start justify-between gap-2">
@@ -139,6 +140,6 @@ export default function ReviewsReport({
           </>
         ) : null}
       </CardContent>
-    </Card>
+    </DottedCard>
   )
 }

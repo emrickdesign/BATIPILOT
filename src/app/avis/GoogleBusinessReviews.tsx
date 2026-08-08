@@ -4,7 +4,8 @@
 // Actif une fois la fiche connectée ET l'accès API accordé par Google.
 
 import { useCallback, useEffect, useState } from 'react'
-import { Card, CardContent } from '@/components/ui/card'
+import { CardContent } from '@/components/ui/card'
+import DottedCard from '@/components/charts/DottedCard'
 import { Button } from '@/components/ui/button'
 import { Star, RefreshCw, MessageSquareQuote, Send, Info, Clock, CornerDownRight, Loader2, RefreshCcwDot } from 'lucide-react'
 import { toast } from 'sonner'
@@ -85,7 +86,7 @@ export default function GoogleBusinessReviews() {
   )
 
   return (
-    <Card className="border-0 shadow-[var(--shadow-sm)]">
+    <DottedCard>
       <CardContent className="p-4 space-y-4">
         {header}
 
@@ -191,6 +192,6 @@ export default function GoogleBusinessReviews() {
           <RefreshCcwDot className="w-3.5 h-3.5" /> Changer de compte Google
         </a>
       </CardContent>
-    </Card>
+    </DottedCard>
   )
 }
