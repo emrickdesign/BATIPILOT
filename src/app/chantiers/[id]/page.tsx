@@ -318,13 +318,6 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         </Card>
       )}
 
-      {/* Notes & accès chantier */}
-      {p.notes && (
-        <Card>
-          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base">Notes &amp; accès chantier</CardTitle></CardHeader>
-          <CardContent className="px-4 pb-4"><p className="text-sm text-gray-600 whitespace-pre-line">{p.notes}</p></CardContent>
-        </Card>
-      )}
       </div>
       </div>
 
@@ -423,11 +416,11 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       </Card>
       </div>
 
-      {/* Besoins matériaux (dérivés des devis acceptés) */}
-      <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
-
-      {/* Achats & fournisseurs : comparatif devis + rapprochement Devis↔BL↔Facture */}
-      <AchatsSection projectId={id} docs={achatDocs} />
+      {/* Achats/fournisseurs (gauche, moitié) + Besoins matériaux (droite, moitié) */}
+      <div className="grid lg:grid-cols-2 gap-4 items-start">
+        <AchatsSection projectId={id} docs={achatDocs} />
+        <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
+      </div>
 
       {/* Notes du chantier (admin + salariés) */}
       <NotesSection projectId={id} ownerId={user.id} authorName={ownerName} initial={(notes || []) as NoteRow[]} />
