@@ -78,8 +78,9 @@ export default function NouvelleVisiteDialog({ variant = 'default' }: { variant?
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="flex flex-col gap-0 w-screen h-[100dvh] max-w-none max-h-[100dvh] rounded-none border-0 ring-0 p-0">
+          {/* En-tête fixe */}
+          <DialogHeader className="flex-shrink-0 border-b border-gray-100 px-5 py-4 sm:px-6">
             <DialogTitle className="flex items-center gap-3">
               <span className="grid place-items-center w-11 h-11 rounded-2xl bg-gradient-to-br from-[#FF8A2B] to-[#FF6A00] text-white shadow-[var(--shadow-brand)] flex-shrink-0">
                 <Binoculars className="w-5 h-5" />
@@ -91,66 +92,74 @@ export default function NouvelleVisiteDialog({ variant = 'default' }: { variant?
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5 mt-1">
-            {/* Explication prospect → client */}
-            <div className="flex gap-2.5 rounded-xl bg-primary/[0.05] border border-primary/15 p-3 text-xs text-marine/80">
-              <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
-              <span>Une visite se fait chez un <span className="font-semibold">prospect</span>. Il deviendra <span className="font-semibold">client</span> automatiquement dès qu&apos;un devis sera signé.</span>
-            </div>
-
-            {/* Prospect : existant / nouveau */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-gray-400" /> Prospect</Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button type="button" onClick={() => setMode('existant')}
-                  className={`h-10 rounded-lg text-sm font-medium border transition-colors inline-flex items-center justify-center gap-1.5 ${mode === 'existant' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/40'}`}>
-                  <Search className="w-4 h-4" /> Existant
-                </button>
-                <button type="button" onClick={() => setMode('nouveau')}
-                  className={`h-10 rounded-lg text-sm font-medium border transition-colors inline-flex items-center justify-center gap-1.5 ${mode === 'nouveau' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/40'}`}>
-                  <UserPlus className="w-4 h-4" /> Nouveau
-                </button>
+          {/* Corps scrollable — contenu centré et confortable sur grand écran */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="mx-auto w-full max-w-xl px-5 py-6 sm:px-6 space-y-5">
+              {/* Explication prospect → client */}
+              <div className="flex gap-2.5 rounded-xl bg-primary/[0.05] border border-primary/15 p-3 text-xs text-marine/80">
+                <Info className="w-4 h-4 text-primary flex-shrink-0 mt-0.5" />
+                <span>Une visite se fait chez un <span className="font-semibold">prospect</span>. Il deviendra <span className="font-semibold">client</span> automatiquement dès qu&apos;un devis sera signé.</span>
               </div>
 
-              {mode === 'existant' ? (
-                <>
-                  <ClientCombobox
-                    options={prospects.map(c => ({ id: c.id, label: clientDisplayName(c) }))}
-                    value={clientId}
-                    onChange={id => {
-                      setClientId(id)
-                      const addr = clientAddress(prospects.find(c => c.id === id))
-                      if (id && addr && !address.trim()) setAddress(addr)
-                    }}
-                    placeholder="Rechercher un prospect…"
-                  />
-                  {prospects.length === 0 && <p className="text-xs text-gray-400">Aucun prospect enregistré — créez-en un via « Nouveau ».</p>}
-                </>
-              ) : (
-                <div className="space-y-2">
-                  <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nom du prospect (ex : M. Martin)" className="h-11" />
-                  <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="Téléphone (optionnel)" className="h-11" inputMode="tel" />
-                  <p className="text-xs text-gray-400">Le prospect sera créé dans votre pipeline (statut « Nouveau »).</p>
+              {/* Prospect : existant / nouveau */}
+              <div className="space-y-2">
+                <Label className="flex items-center gap-1.5"><User className="w-3.5 h-3.5 text-gray-400" /> Prospect</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button type="button" onClick={() => setMode('existant')}
+                    className={`h-10 rounded-lg text-sm font-medium border transition-colors inline-flex items-center justify-center gap-1.5 ${mode === 'existant' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/40'}`}>
+                    <Search className="w-4 h-4" /> Existant
+                  </button>
+                  <button type="button" onClick={() => setMode('nouveau')}
+                    className={`h-10 rounded-lg text-sm font-medium border transition-colors inline-flex items-center justify-center gap-1.5 ${mode === 'nouveau' ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/40'}`}>
+                    <UserPlus className="w-4 h-4" /> Nouveau
+                  </button>
                 </div>
-              )}
-            </div>
 
-            {/* Adresse */}
-            <div className="space-y-1.5">
-              <Label htmlFor="visit-address" className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400" /> Adresse du chantier</Label>
-              <Input id="visit-address" value={address} onChange={e => setAddress(e.target.value)} placeholder="12 rue de la Paix, 75001 Paris" className="h-11" />
-            </div>
+                {mode === 'existant' ? (
+                  <>
+                    <ClientCombobox
+                      options={prospects.map(c => ({ id: c.id, label: clientDisplayName(c) }))}
+                      value={clientId}
+                      onChange={id => {
+                        setClientId(id)
+                        const addr = clientAddress(prospects.find(c => c.id === id))
+                        if (id && addr && !address.trim()) setAddress(addr)
+                      }}
+                      placeholder="Rechercher un prospect…"
+                    />
+                    {prospects.length === 0 && <p className="text-xs text-gray-400">Aucun prospect enregistré — créez-en un via « Nouveau ».</p>}
+                  </>
+                ) : (
+                  <div className="space-y-2">
+                    <Input value={newName} onChange={e => setNewName(e.target.value)} placeholder="Nom du prospect (ex : M. Martin)" className="h-11" />
+                    <Input value={newPhone} onChange={e => setNewPhone(e.target.value)} placeholder="Téléphone (optionnel)" className="h-11" inputMode="tel" />
+                    <p className="text-xs text-gray-400">Le prospect sera créé dans votre pipeline (statut « Nouveau »).</p>
+                  </div>
+                )}
+              </div>
 
-            {/* Nom de la visite */}
-            <div className="space-y-1.5">
-              <Label htmlFor="visit-title">Nom de la visite <span className="text-gray-400 font-normal">(optionnel)</span></Label>
-              <Input id="visit-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex : Réno SDB — M. Martin" className="h-11" />
-              <p className="text-xs text-gray-400">Laissez vide pour un nom automatique (date du jour).</p>
-            </div>
+              {/* Adresse */}
+              <div className="space-y-1.5">
+                <Label htmlFor="visit-address" className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-gray-400" /> Adresse du chantier</Label>
+                <Input id="visit-address" value={address} onChange={e => setAddress(e.target.value)} placeholder="12 rue de la Paix, 75001 Paris" className="h-11" />
+              </div>
 
-            <Button onClick={start} disabled={busy || !canStart} className="w-full h-12 text-base gap-2">
-              <Camera className="w-5 h-5" /> {busy ? 'Démarrage…' : 'Démarrer la visite'}
-            </Button>
+              {/* Nom de la visite */}
+              <div className="space-y-1.5">
+                <Label htmlFor="visit-title">Nom de la visite <span className="text-gray-400 font-normal">(optionnel)</span></Label>
+                <Input id="visit-title" value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex : Réno SDB — M. Martin" className="h-11" />
+                <p className="text-xs text-gray-400">Laissez vide pour un nom automatique (date du jour).</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Pied fixe : CTA toujours visible */}
+          <div className="flex-shrink-0 border-t border-gray-100 bg-white/90 supports-backdrop-filter:backdrop-blur px-5 py-4 sm:px-6">
+            <div className="mx-auto w-full max-w-xl">
+              <Button onClick={start} disabled={busy || !canStart} className="w-full h-12 text-base gap-2">
+                <Camera className="w-5 h-5" /> {busy ? 'Démarrage…' : 'Démarrer la visite'}
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
