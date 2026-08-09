@@ -60,7 +60,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     supabase.from('expenses').select('id,supplier,amount_ttc,amount_ht,category,expense_date').eq('project_id', id).neq('status', 'archive').order('created_at', { ascending: false }),
     supabase.from('time_entries').select('hours,employee_id').eq('project_id', id),
     supabase.from('employees').select('id,full_name,role,color,hourly_cost').eq('user_id', user.id),
-    supabase.from('assignments').select('employee_id,start_hour,end_hour').eq('project_id', id),
+    supabase.from('assignments').select('employee_id,start_hour,end_hour').eq('project_id', id).eq('user_id', user.id),
     supabase.from('vehicle_logs').select('vehicle_id').eq('project_id', id),
     supabase.from('vehicles').select('id,name,plate').eq('user_id', user.id),
     supabase.from('subcontractor_invoices').select('amount_ht,amount_ttc,status').eq('project_id', id).eq('user_id', user.id),
@@ -205,8 +205,8 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
 
       {/* Haut : Financier (gauche) · Devis/Factures/Dépenses/Documents (milieu) · Localisation (droite) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
-      {/* Colonne gauche : infos + financier */}
-      <div className="space-y-4">
+      {/* Colonne gauche : infos + financier (le financier s'étire pour aligner son bas sur Documents) */}
+      <div className="flex flex-col gap-4">
         {/* Infos */}
         <DottedCard>
           <div className="p-4 space-y-3">
@@ -218,12 +218,14 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           </div>
         </DottedCard>
 
-        {/* Financier — donut de répartition */}
-        <ChantierFinancePanel
-          margePct={margePct} marge={marge} facture={facture} encaisse={encaisse} reste={reste}
-          revenuSigne={revenuSigne} coutMainOeuvre={coutMainOeuvre} coutDepensesHt={coutDepensesHt}
-          coutSousTraitance={coutSousTraitance} totalHeures={totalHeures}
-        />
+        {/* Financier — donut de répartition (s'étire pour aligner son bas) */}
+        <div className="flex-1 [&>*]:h-full">
+          <ChantierFinancePanel
+            margePct={margePct} marge={marge} facture={facture} encaisse={encaisse} reste={reste}
+            revenuSigne={revenuSigne} coutMainOeuvre={coutMainOeuvre} coutDepensesHt={coutDepensesHt}
+            coutSousTraitance={coutSousTraitance} totalHeures={totalHeures}
+          />
+        </div>
       </div>
 
       {/* Colonne milieu : Devis · Factures · Dépenses · Documents */}
@@ -328,7 +330,8 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           <div className="p-4">
             <h3 className={titleCls + ' mb-3'}><span className="grid place-items-center w-7 h-7 rounded-lg bg-[#C14E33]/12 text-[#C14E33]"><MapPin className="w-4 h-4" /></span> Localisation</h3>
             <div className="relative rounded-xl overflow-hidden border border-white/60 min-h-[420px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
-              <iframe title="Carte du chantier" src={mapSrc} loading="lazy" className="absolute inset-0 block w-full h-full" referrerPolicy="no-referrer-when-downgrade" />
+              {/* Décalé vers le haut : le conteneur (overflow-hidden) masque le petit encart blanc « Agrandir le plan » de Google en haut à gauche */}
+              <iframe title="Carte du chantier" src={mapSrc} loading="lazy" className="absolute -top-[58px] left-0 block w-full h-[calc(100%+58px)]" referrerPolicy="no-referrer-when-downgrade" />
               {/* Boutons flottants façon Apple par-dessus la carte */}
               <div className="absolute bottom-3 right-3 flex flex-col gap-2 items-end z-10">
                 <a href={itineraire} target="_blank" rel="noopener noreferrer"
