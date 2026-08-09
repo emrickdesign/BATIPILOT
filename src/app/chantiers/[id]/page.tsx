@@ -26,6 +26,10 @@ const num = (v: unknown) => Number(v) || 0
 
 // Pastille d'action style Apple (verre dépoli, arrondi, ombre douce)
 const pillCls = 'inline-flex items-center gap-1.5 h-9 px-3.5 rounded-full bg-white/80 backdrop-blur-sm border border-gray-200/80 shadow-[0_2px_8px_rgba(0,0,0,0.06)] text-sm font-medium text-gray-700 hover:bg-white hover:shadow-[0_4px_12px_rgba(0,0,0,0.10)] transition-all'
+// Bouton d'action coloré (pill plein) — utilisé pour les CTA « + » des sections
+const pillColor = 'inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-primary text-white text-[13px] font-semibold shadow-[0_2px_8px_rgba(193,78,51,0.28)] hover:bg-[#a8402a] transition-colors'
+// Chip d'icône coloré pour les titres de section
+const titleCls = 'text-[17px] font-bold font-heading text-marine flex items-center gap-2'
 
 export default async function ChantierPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -200,7 +204,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
 
 
       {/* Haut : Financier (gauche) · Devis/Factures/Dépenses/Documents (milieu) · Localisation (droite) */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-stretch">
       {/* Colonne gauche : infos + financier */}
       <div className="space-y-4">
         {/* Infos */}
@@ -227,8 +231,8 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         {/* Devis liés */}
         <DottedCard>
           <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /> Devis ({quotes?.length || 0})</CardTitle>
-            <Link href={devisLink} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Devis</Link>
+            <CardTitle className={titleCls}><span className="grid place-items-center w-7 h-7 rounded-lg bg-[#8A3FA0]/12 text-[#8A3FA0]"><FileText className="w-4 h-4" /></span> Devis ({quotes?.length || 0})</CardTitle>
+            <Link href={devisLink} className={pillColor}><Plus className="w-3.5 h-3.5" /> Devis</Link>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             {!quotes?.length ? <p className="text-sm text-gray-400 py-2">Aucun devis rattaché</p> : (
@@ -249,8 +253,8 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         {/* Factures liées */}
         <DottedCard>
           <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2"><Receipt className="w-4 h-4 text-gray-400" /> Factures ({invoices?.length || 0})</CardTitle>
-            <Link href={factureLink} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Facture</Link>
+            <CardTitle className={titleCls}><span className="grid place-items-center w-7 h-7 rounded-lg bg-[#C14E33]/12 text-[#C14E33]"><Receipt className="w-4 h-4" /></span> Factures ({invoices?.length || 0})</CardTitle>
+            <Link href={factureLink} className={pillColor}><Plus className="w-3.5 h-3.5" /> Facture</Link>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             {!invoices?.length ? <p className="text-sm text-gray-400 py-2">Aucune facture rattachée</p> : (
@@ -271,8 +275,8 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         {/* Dépenses liées */}
         <DottedCard>
           <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2"><ReceiptText className="w-4 h-4 text-gray-400" /> Dépenses ({expenses?.length || 0}){totalDepenses > 0 && <span className="text-sm font-normal text-gray-500">· {formatCurrency(totalDepenses)}</span>}</CardTitle>
-            <Link href={`/tickets?project=${id}`} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Ticket</Link>
+            <CardTitle className={titleCls}><span className="grid place-items-center w-7 h-7 rounded-lg bg-[#B5811E]/12 text-[#B5811E]"><ReceiptText className="w-4 h-4" /></span> Dépenses ({expenses?.length || 0}){totalDepenses > 0 && <span className="text-[13px] font-normal text-gray-500">· {formatCurrency(totalDepenses)}</span>}</CardTitle>
+            <Link href={`/tickets?project=${id}`} className={pillColor}><Plus className="w-3.5 h-3.5" /> Ticket</Link>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             {!expenses?.length ? <p className="text-sm text-gray-400 py-2">Aucune dépense rattachée</p> : (
@@ -297,8 +301,8 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         {/* Documents liés */}
         <DottedCard>
           <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2"><FolderOpen className="w-4 h-4 text-gray-400" /> Documents ({documents?.length || 0})</CardTitle>
-            <Link href={`/documents?project=${id}`} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Document</Link>
+            <CardTitle className={titleCls}><span className="grid place-items-center w-7 h-7 rounded-lg bg-[#1F7A6E]/12 text-[#1F7A6E]"><FolderOpen className="w-4 h-4" /></span> Documents ({documents?.length || 0})</CardTitle>
+            <Link href={`/documents?project=${id}`} className={pillColor}><Plus className="w-3.5 h-3.5" /> Document</Link>
           </CardHeader>
           <CardContent className="px-4 pb-4">
             {!documents?.length ? <p className="text-sm text-gray-400 py-2">Aucun document rattaché</p> : (
@@ -322,7 +326,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       {addr && (
         <DottedCard>
           <div className="p-4">
-            <h3 className="font-heading font-semibold text-marine flex items-center gap-2 mb-3"><MapPin className="w-4 h-4 text-gray-400" /> Localisation</h3>
+            <h3 className={titleCls + ' mb-3'}><span className="grid place-items-center w-7 h-7 rounded-lg bg-[#C14E33]/12 text-[#C14E33]"><MapPin className="w-4 h-4" /></span> Localisation</h3>
             <div className="relative rounded-xl overflow-hidden border border-white/60 min-h-[420px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
               <iframe title="Carte du chantier" src={mapSrc} loading="lazy" className="absolute inset-0 block w-full h-full" referrerPolicy="no-referrer-when-downgrade" />
               {/* Boutons flottants façon Apple par-dessus la carte */}
@@ -343,13 +347,13 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       </div>
       </div>
 
-      {/* Équipe (moitié) + Réception (moitié) */}
-      <div className="grid lg:grid-cols-2 gap-4 items-start">
+      {/* Équipe (moitié) + Notes de chantier (moitié) */}
+      <div className="grid lg:grid-cols-2 gap-4 items-stretch">
         <DottedCard>
           <div className="p-4 sm:p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-heading font-semibold text-marine flex items-center gap-2"><Users2 className="w-4 h-4 text-gray-400" /> Équipe ({team.length})</h3>
-              <Link href="/planning" className={pillCls + ' h-8 px-3 text-[13px]'}>Affecter</Link>
+              <h3 className={titleCls}><span className="grid place-items-center w-7 h-7 rounded-lg bg-[#2F6BE8]/12 text-[#2F6BE8]"><Users2 className="w-4 h-4" /></span> Équipe ({team.length})</h3>
+              <Link href="/planning" className={pillColor}>Affecter</Link>
             </div>
             {team.length === 0 ? (
               <p className="text-sm text-gray-400 py-1">Aucun salarié affecté. <Link href="/planning" className="text-primary hover:underline">Affecter une équipe</Link></p>
@@ -381,14 +385,18 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           </div>
         </DottedCard>
 
-        <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
+        <NotesSection projectId={id} ownerId={user.id} authorName={ownerName} initial={(notes || []) as NoteRow[]} />
       </div>
 
-      {/* Notes du chantier (admin + salariés) */}
-      <NotesSection projectId={id} ownerId={user.id} authorName={ownerName} initial={(notes || []) as NoteRow[]} />
-
-      {/* Achats & fournisseurs — affiché seulement s'il y a des documents fournisseurs */}
-      {achatDocs.length > 0 && <AchatsSection projectId={id} docs={achatDocs} />}
+      {/* Achats & fournisseurs (gauche) + Besoins matériaux (droite) — côte à côte */}
+      {achatDocs.length > 0 ? (
+        <div className="grid lg:grid-cols-2 gap-4 items-stretch">
+          <AchatsSection projectId={id} docs={achatDocs} />
+          <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
+        </div>
+      ) : (
+        <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
+      )}
 
       {/* Réception de chantier — en fin de chantier (ou si un PV a déjà été démarré) */}
       {(['termine', 'a_facturer', 'facture', 'paye'].includes(p.status) || reception) && (
@@ -403,7 +411,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       {/* Plans liés */}
       {!!plans?.length && (
         <DottedCard>
-          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className="text-base flex items-center gap-2"><ScanLine className="w-4 h-4 text-gray-400" /> Plans ({plans.length})</CardTitle></CardHeader>
+          <CardHeader className="pb-2 pt-4 px-4"><CardTitle className={titleCls}><span className="grid place-items-center w-7 h-7 rounded-lg bg-gray-200/70 text-gray-500"><ScanLine className="w-4 h-4" /></span> Plans ({plans.length})</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4">
             <div className="space-y-2">
               {plans.map(pl => (

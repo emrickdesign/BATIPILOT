@@ -136,13 +136,13 @@ export default function MateriauxSection({
   return (
     <DottedCard>
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 pt-4 px-4">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Package className="w-4 h-4 text-gray-400" /> Besoins matériaux
+        <CardTitle className="text-[17px] font-bold font-heading text-marine flex items-center gap-2">
+          <span className="grid place-items-center w-7 h-7 rounded-lg bg-[#3F7A2E]/12 text-[#3F7A2E]"><Package className="w-4 h-4" /></span> Besoins matériaux
           {!empty && <span className="text-sm font-normal text-gray-500">· {nbRecus}/{rows.length} reçus</span>}
         </CardTitle>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => setAdding(a => !a)}><Plus className="w-4 h-4 mr-1" /> Matériau</Button>
-          {!empty && <Button variant="outline" size="sm" onClick={printBonCommande}><FileText className="w-4 h-4 mr-1" /> Bon de commande</Button>}
+          <Button size="sm" className="gap-1" onClick={() => setAdding(a => !a)}><Plus className="w-4 h-4" /> Matériau</Button>
+          {!empty && <Button size="sm" className="gap-1 bg-[#2F6BE8] hover:bg-[#2559c2] text-white" onClick={printBonCommande}><FileText className="w-4 h-4" /> Bon de commande</Button>}
           {!empty && <Button variant="ghost" size="sm" onClick={exportCsv} title="Export CSV"><Download className="w-4 h-4" /></Button>}
         </div>
       </CardHeader>

@@ -61,8 +61,8 @@ export default function AchatsSection({
   return (
     <DottedCard>
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 pt-4 px-4">
-        <CardTitle className="text-base flex items-center gap-2">
-          <ShoppingCart className="w-4 h-4 text-gray-400" /> Achats &amp; fournisseurs
+        <CardTitle className="text-[17px] font-bold font-heading text-marine flex items-center gap-2">
+          <span className="grid place-items-center w-7 h-7 rounded-lg bg-[#C14E33]/12 text-[#C14E33]"><ShoppingCart className="w-4 h-4" /></span> Achats &amp; fournisseurs
         </CardTitle>
       </CardHeader>
       <CardContent className="px-4 pb-4 space-y-6">
@@ -70,8 +70,8 @@ export default function AchatsSection({
         {/* ── BLOC 1 : Consultation / comparatif des devis fournisseurs ── */}
         <section className="space-y-3">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><FileText className="w-4 h-4 text-sky-500" /> Consultation — devis fournisseurs ({devis.length})</h3>
-            <Link href={scanLink('devis')}><Button variant="outline" size="sm"><ScanLine className="w-4 h-4 mr-1" /> Scanner un devis</Button></Link>
+            <h3 className="text-[15px] font-bold text-marine flex items-center gap-1.5"><FileText className="w-4 h-4 text-sky-500" /> Consultation — devis fournisseurs ({devis.length})</h3>
+            <Link href={scanLink('devis')}><Button size="sm" className="gap-1 bg-sky-600 hover:bg-sky-700 text-white"><ScanLine className="w-4 h-4" /> Scanner un devis</Button></Link>
           </div>
 
           {devis.length === 0 ? (
@@ -88,14 +88,14 @@ export default function AchatsSection({
 
         {/* ── BLOC 2 : Suivi & contrôle (BL + facture + rapprochement) ── */}
         <section className="space-y-3">
-          <h3 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5"><Award className="w-4 h-4 text-violet-500" /> Suivi &amp; contrôle de fin de mois</h3>
+          <h3 className="text-[15px] font-bold text-marine flex items-center gap-1.5"><Award className="w-4 h-4 text-violet-500" /> Suivi &amp; contrôle de fin de mois</h3>
 
           <div className="grid sm:grid-cols-2 gap-3">
             {/* Bons de livraison */}
             <div className="rounded-lg border border-gray-100 p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><Truck className="w-4 h-4 text-amber-500" /> Bons de livraison ({bls.length})</span>
-                <Link href={scanLink('bl')}><Button variant="ghost" size="sm">+ BL</Button></Link>
+                <Link href={scanLink('bl')}><Button size="sm" className="h-7 px-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs">+ BL</Button></Link>
               </div>
               {bls.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucun BL. Scannés au fil du mois (terrain, bureau ou email).</p>
@@ -118,7 +118,7 @@ export default function AchatsSection({
             <div className="rounded-lg border border-gray-100 p-3">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><ReceiptText className="w-4 h-4 text-violet-500" /> Factures fournisseurs ({factures.length})</span>
-                <Link href={scanLink('facture')}><Button variant="ghost" size="sm">+ Facture</Button></Link>
+                <Link href={scanLink('facture')}><Button size="sm" className="h-7 px-2.5 bg-violet-500 hover:bg-violet-600 text-white text-xs">+ Facture</Button></Link>
               </div>
               {factures.length === 0 ? (
                 <p className="text-xs text-gray-400">Aucune facture. Scanne la facture de fin de mois pour la comparer au devis.</p>
