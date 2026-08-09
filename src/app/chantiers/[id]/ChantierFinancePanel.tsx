@@ -52,32 +52,32 @@ export default function ChantierFinancePanel(p: Props) {
         </div>
 
         {/* Chips cashflow */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
+        <div className="grid grid-cols-3 gap-1.5 mb-3">
           {chips.map(c => (
-            <div key={c.label} className="rounded-xl bg-white/70 border border-[#EBD9CE] px-3 py-2 text-center">
-              <div className={`text-sm font-bold tabular-nums leading-tight ${c.cls}`}>{formatCurrency(c.value)}</div>
+            <div key={c.label} className="rounded-lg bg-white/70 border border-[#EBD9CE] px-2 py-1.5 text-center">
+              <div className={`text-[13px] font-bold tabular-nums leading-tight ${c.cls}`}>{formatCurrency(c.value)}</div>
               <div className="text-[10px] uppercase tracking-wide text-gray-400 mt-0.5">{c.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Répartition (donut) */}
+        {/* Répartition (donut) — légende collée au donut */}
         {sum <= 0 ? (
           <p className="text-sm text-gray-400 text-center py-6">Pas encore de coûts enregistrés.</p>
         ) : (
-          <div className="flex items-center gap-4">
-            <div className="flex-1 min-w-0 space-y-2.5">
+          <div className="flex items-center gap-2">
+            <div className="flex-1 min-w-0 space-y-2">
               {segments.map((s, i) => (
                 <div key={i} className="min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
                     <span className="text-[11px] text-gray-500 truncate">{s.label}</span>
                   </div>
-                  <p className="text-[14px] font-bold text-marine tabular-nums leading-tight pl-[18px]">{formatCurrency(s.value)}</p>
+                  <p className="text-[13px] font-bold text-marine tabular-nums leading-tight pl-[16px]">{formatCurrency(s.value)}</p>
                 </div>
               ))}
             </div>
-            <div className="relative w-[168px] h-[168px] flex-shrink-0">
+            <div className="relative w-[132px] h-[132px] flex-shrink-0">
               <svg viewBox="0 0 200 200" className="w-full h-full -rotate-90">
                 <circle cx="100" cy="100" r={R} fill="none" stroke="rgba(138,75,36,0.10)" strokeWidth={STROKE} />
                 {arcs.map(a => (

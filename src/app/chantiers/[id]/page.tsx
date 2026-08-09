@@ -199,30 +199,125 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       </div>
 
 
-      {/* Deux colonnes : détails du chantier (principal) + carte & magasins (latéral) */}
+      {/* Haut : Financier (gauche) · Devis/Factures/Dépenses/Documents (milieu) · Localisation (droite) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-      <div className="lg:col-span-2 space-y-4">
-      {/* Infos */}
-      <DottedCard>
-        <div className="p-4 space-y-3">
-          {(p.start_date || p.end_date) && (
-            <div className="flex items-center gap-2 text-sm"><Calendar className="w-4 h-4 text-gray-400" /><span className="text-gray-700">{p.start_date ? formatDate(p.start_date) : '?'} → {p.end_date ? formatDate(p.end_date) : '?'}</span></div>
-          )}
-          {p.description && <p className="text-sm text-gray-700 whitespace-pre-line">{p.description}</p>}
-          <AvancementControl projectId={id} startDate={p.start_date ?? null} endDate={p.end_date ?? null} status={p.status} />
-        </div>
-      </DottedCard>
+      {/* Colonne gauche : infos + financier */}
+      <div className="space-y-4">
+        {/* Infos */}
+        <DottedCard>
+          <div className="p-4 space-y-3">
+            {(p.start_date || p.end_date) && (
+              <div className="flex items-center gap-2 text-sm"><Calendar className="w-4 h-4 text-gray-400" /><span className="text-gray-700">{p.start_date ? formatDate(p.start_date) : '?'} → {p.end_date ? formatDate(p.end_date) : '?'}</span></div>
+            )}
+            {p.description && <p className="text-sm text-gray-700 whitespace-pre-line">{p.description}</p>}
+            <AvancementControl projectId={id} startDate={p.start_date ?? null} endDate={p.end_date ?? null} status={p.status} />
+          </div>
+        </DottedCard>
 
-      {/* Bloc financier (admin) — donut de répartition */}
-      <ChantierFinancePanel
-        margePct={margePct} marge={marge} facture={facture} encaisse={encaisse} reste={reste}
-        revenuSigne={revenuSigne} coutMainOeuvre={coutMainOeuvre} coutDepensesHt={coutDepensesHt}
-        coutSousTraitance={coutSousTraitance} totalHeures={totalHeures}
-      />
-
+        {/* Financier — donut de répartition */}
+        <ChantierFinancePanel
+          margePct={margePct} marge={marge} facture={facture} encaisse={encaisse} reste={reste}
+          revenuSigne={revenuSigne} coutMainOeuvre={coutMainOeuvre} coutDepensesHt={coutDepensesHt}
+          coutSousTraitance={coutSousTraitance} totalHeures={totalHeures}
+        />
       </div>
 
-      {/* Colonne latérale : localisation */}
+      {/* Colonne milieu : Devis · Factures · Dépenses · Documents */}
+      <div className="space-y-4">
+        {/* Devis liés */}
+        <DottedCard>
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /> Devis ({quotes?.length || 0})</CardTitle>
+            <Link href={devisLink} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Devis</Link>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {!quotes?.length ? <p className="text-sm text-gray-400 py-2">Aucun devis rattaché</p> : (
+              <div className="space-y-2">
+                {quotes.map(q => (
+                  <Link key={q.id} href={`/devis/${q.id}`}>
+                    <div className="flex items-center justify-between py-2 hover:bg-white/60 rounded px-2 -mx-2">
+                      <div><span className="font-mono text-xs text-gray-400">{q.quote_number}</span><span className="ml-2 text-sm text-gray-700">{formatDate(q.issue_date)}</span></div>
+                      <span className="text-sm font-semibold">{formatCurrency(q.total_ttc)}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </DottedCard>
+
+        {/* Factures liées */}
+        <DottedCard>
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><Receipt className="w-4 h-4 text-gray-400" /> Factures ({invoices?.length || 0})</CardTitle>
+            <Link href={factureLink} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Facture</Link>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {!invoices?.length ? <p className="text-sm text-gray-400 py-2">Aucune facture rattachée</p> : (
+              <div className="space-y-2">
+                {invoices.map(inv => (
+                  <Link key={inv.id} href={`/factures/${inv.id}`}>
+                    <div className="flex items-center justify-between py-2 hover:bg-white/60 rounded px-2 -mx-2">
+                      <span className="font-mono text-xs text-gray-400">{inv.invoice_number}</span>
+                      <span className="text-sm font-semibold">{formatCurrency(num(inv.amount_due) || num(inv.total_ttc))}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </DottedCard>
+
+        {/* Dépenses liées */}
+        <DottedCard>
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><ReceiptText className="w-4 h-4 text-gray-400" /> Dépenses ({expenses?.length || 0}){totalDepenses > 0 && <span className="text-sm font-normal text-gray-500">· {formatCurrency(totalDepenses)}</span>}</CardTitle>
+            <Link href={`/tickets?project=${id}`} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Ticket</Link>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {!expenses?.length ? <p className="text-sm text-gray-400 py-2">Aucune dépense rattachée</p> : (
+              <div className="space-y-2">
+                {expenses.map(exp => (
+                  <Link key={exp.id} href="/depenses">
+                    <div className="flex items-center justify-between py-2 hover:bg-white/60 rounded px-2 -mx-2">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <ReceiptText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                        <span className="text-sm text-gray-700 truncate">{exp.supplier || 'Dépense'}</span>
+                        {exp.category && <Badge variant="outline" className="text-xs flex-shrink-0">{exp.category}</Badge>}
+                      </div>
+                      <span className="text-sm font-semibold flex-shrink-0">{formatCurrency(num(exp.amount_ttc))}</span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </DottedCard>
+
+        {/* Documents liés */}
+        <DottedCard>
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><FolderOpen className="w-4 h-4 text-gray-400" /> Documents ({documents?.length || 0})</CardTitle>
+            <Link href={`/documents?project=${id}`} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Document</Link>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {!documents?.length ? <p className="text-sm text-gray-400 py-2">Aucun document rattaché</p> : (
+              <div className="space-y-2">
+                {documents.map(doc => (
+                  <Link key={doc.id} href={`/documents?project=${id}`}>
+                    <div className="flex items-center justify-between py-2 hover:bg-white/60 rounded px-2 -mx-2">
+                      <div className="flex items-center gap-2 min-w-0"><FileText className="w-4 h-4 text-gray-400 flex-shrink-0" /><span className="text-sm text-gray-700 truncate">{doc.name}</span></div>
+                      {doc.category && <Badge variant="outline" className="text-xs flex-shrink-0">{doc.category}</Badge>}
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </DottedCard>
+      </div>
+
+      {/* Colonne droite : localisation */}
       <div>
       {addr && (
         <DottedCard>
@@ -292,101 +387,6 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           initial={reception as Reception | null}
           signatureId={receptionSig?.id ?? null}
         />
-      </div>
-
-      {/* Ligne de 4 : Devis · Factures · Dépenses · Documents */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
-      {/* Devis liés */}
-      <DottedCard>
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /> Devis ({quotes?.length || 0})</CardTitle>
-          <Link href={devisLink} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Devis</Link>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {!quotes?.length ? <p className="text-sm text-gray-400 py-2">Aucun devis rattaché</p> : (
-            <div className="space-y-2">
-              {quotes.map(q => (
-                <Link key={q.id} href={`/devis/${q.id}`}>
-                  <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <div><span className="font-mono text-xs text-gray-400">{q.quote_number}</span><span className="ml-2 text-sm text-gray-700">{formatDate(q.issue_date)}</span></div>
-                    <span className="text-sm font-semibold">{formatCurrency(q.total_ttc)}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </DottedCard>
-
-      {/* Factures liées */}
-      <DottedCard>
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2"><Receipt className="w-4 h-4 text-gray-400" /> Factures ({invoices?.length || 0})</CardTitle>
-          <Link href={factureLink} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Facture</Link>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {!invoices?.length ? <p className="text-sm text-gray-400 py-2">Aucune facture rattachée</p> : (
-            <div className="space-y-2">
-              {invoices.map(inv => (
-                <Link key={inv.id} href={`/factures/${inv.id}`}>
-                  <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <span className="font-mono text-xs text-gray-400">{inv.invoice_number}</span>
-                    <span className="text-sm font-semibold">{formatCurrency(num(inv.amount_due) || num(inv.total_ttc))}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </DottedCard>
-
-      {/* Dépenses liées */}
-      <DottedCard>
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2"><ReceiptText className="w-4 h-4 text-gray-400" /> Dépenses ({expenses?.length || 0}){totalDepenses > 0 && <span className="text-sm font-normal text-gray-500">· {formatCurrency(totalDepenses)}</span>}</CardTitle>
-          <Link href={`/tickets?project=${id}`} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Ticket</Link>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {!expenses?.length ? <p className="text-sm text-gray-400 py-2">Aucune dépense rattachée</p> : (
-            <div className="space-y-2">
-              {expenses.map(exp => (
-                <Link key={exp.id} href="/depenses">
-                  <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <ReceiptText className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                      <span className="text-sm text-gray-700 truncate">{exp.supplier || 'Dépense'}</span>
-                      {exp.category && <Badge variant="outline" className="text-xs flex-shrink-0">{exp.category}</Badge>}
-                    </div>
-                    <span className="text-sm font-semibold flex-shrink-0">{formatCurrency(num(exp.amount_ttc))}</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </DottedCard>
-
-      {/* Documents liés */}
-      <DottedCard>
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2"><FolderOpen className="w-4 h-4 text-gray-400" /> Documents ({documents?.length || 0})</CardTitle>
-          <Link href={`/documents?project=${id}`} className={pillCls + ' h-8 px-3 text-[13px]'}><Plus className="w-3.5 h-3.5" /> Document</Link>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {!documents?.length ? <p className="text-sm text-gray-400 py-2">Aucun document rattaché</p> : (
-            <div className="space-y-2">
-              {documents.map(doc => (
-                <Link key={doc.id} href={`/documents?project=${id}`}>
-                  <div className="flex items-center justify-between py-2 hover:bg-gray-50 rounded px-2 -mx-2">
-                    <div className="flex items-center gap-2 min-w-0"><FileText className="w-4 h-4 text-gray-400 flex-shrink-0" /><span className="text-sm text-gray-700 truncate">{doc.name}</span></div>
-                    {doc.category && <Badge variant="outline" className="text-xs flex-shrink-0">{doc.category}</Badge>}
-                  </div>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </DottedCard>
       </div>
 
       {/* Achats (gauche) · Besoins matériaux + Notes de chantier (droite) */}
