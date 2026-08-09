@@ -157,103 +157,109 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
   const linkedClient = clients.find(c => c.id === clientId)
 
   return (
-    <div className="space-y-5 max-w-2xl animate-fade-up pb-24">
+    <div className="animate-fade-up pb-24 space-y-4">
       <div className="flex items-center gap-3">
         <Link href="/visites"><Button variant="ghost" size="sm" className="gap-1"><ArrowLeft className="w-4 h-4" /> Visites</Button></Link>
       </div>
 
-      {/* En-tête éditable */}
-      <Card className="border-0 shadow-[var(--shadow-sm)]">
-        <CardContent className="p-4 space-y-3">
-          <Input value={title} onChange={e => setTitle(e.target.value)} onBlur={() => title.trim() && patch({ title: title.trim() })}
-            className="h-11 text-base font-semibold" placeholder="Nom de la visite" />
-          <div className="grid sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Client / prospect</Label>
-              <ClientCombobox
-                options={clients.map(c => ({ id: c.id, label: clientDisplayName(c) }))}
-                value={clientId}
-                onChange={id => {
-                  setClientId(id); patch({ client_id: id || null })
-                  const addr = clientAddress(clients.find(c => c.id === id))
-                  if (id && addr && !address.trim()) { setAddress(addr); patch({ address: addr }) }
-                }}
-                placeholder="Rechercher un client / prospect…"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-gray-500">Adresse</Label>
-              <Input value={address} onChange={e => setAddress(e.target.value)} onBlur={() => patch({ address: address.trim() || null })}
-                className="h-10" placeholder="Adresse du chantier" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Photos */}
-      <Card className="border-0 shadow-[var(--shadow-sm)]">
-        <CardHeader className="pb-2 pt-4 px-4">
-          <CardTitle className="text-base flex items-center gap-2"><Camera className="w-4 h-4 text-gray-400" /> Photos {photos.length > 0 && <span className="text-sm font-normal text-gray-500">· {photos.length}</span>}</CardTitle>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          {/* Caméra live (webcam MacBook ou mobile) + import fichier/galerie */}
-          <input ref={photoRef} type="file" accept="image/*" multiple className="hidden"
-            onChange={e => { if (e.target.files?.length) addPhotos(e.target.files); if (photoRef.current) photoRef.current.value = '' }} />
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <CameraCapture onCapture={f => addPhotos([f])} disabled={uploading} />
-            <Button variant="outline" size="sm" className="gap-1.5" disabled={uploading} onClick={() => photoRef.current?.click()}>
-              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />} Importer
-            </Button>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {photos.map(p => (
-              <div key={p.id} className="group relative">
-                <div className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  {p.url ? <img src={p.url} alt={p.caption || 'Photo de visite'} className="w-full h-full object-cover" /> : null}
-                  <button onClick={() => removePhoto(p)} className="absolute top-1.5 right-1.5 grid place-items-center w-7 h-7 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity" title="Supprimer">
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+      <div className="grid lg:grid-cols-2 gap-5 items-start">
+        {/* Colonne gauche : infos + notes + validation */}
+        <div className="space-y-5">
+          {/* En-tête éditable */}
+          <Card className="border-0 shadow-[var(--shadow-sm)]">
+            <CardContent className="p-4 space-y-3">
+              <Input value={title} onChange={e => setTitle(e.target.value)} onBlur={() => title.trim() && patch({ title: title.trim() })}
+                className="h-11 text-base font-semibold" placeholder="Nom de la visite" />
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Client / prospect</Label>
+                  <ClientCombobox
+                    options={clients.map(c => ({ id: c.id, label: clientDisplayName(c) }))}
+                    value={clientId}
+                    onChange={id => {
+                      setClientId(id); patch({ client_id: id || null })
+                      const addr = clientAddress(clients.find(c => c.id === id))
+                      if (id && addr && !address.trim()) { setAddress(addr); patch({ address: addr }) }
+                    }}
+                    placeholder="Rechercher un client / prospect…"
+                  />
                 </div>
-                <Input defaultValue={p.caption || ''} onBlur={e => e.target.value !== (p.caption || '') && saveCaption(p, e.target.value)}
-                  placeholder="Légende…" className="h-8 mt-1.5 text-xs" />
+                <div className="space-y-1">
+                  <Label className="text-xs text-gray-500">Adresse</Label>
+                  <Input value={address} onChange={e => setAddress(e.target.value)} onBlur={() => patch({ address: address.trim() || null })}
+                    className="h-10" placeholder="Adresse du chantier" />
+                </div>
               </div>
-            ))}
-            <button onClick={() => photoRef.current?.click()} disabled={uploading}
-              className="aspect-square rounded-xl border-2 border-dashed border-gray-300 grid place-items-center text-gray-400 hover:border-primary hover:text-primary transition-colors disabled:opacity-60">
-              {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <div className="text-center"><Camera className="w-7 h-7 mx-auto" /><span className="text-xs font-medium">Ajouter</span></div>}
+            </CardContent>
+          </Card>
+
+          {/* Notes + dictée */}
+          <Card className="border-0 shadow-[var(--shadow-sm)]">
+            <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
+              <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /> Notes de visite</CardTitle>
+              <div className="flex items-center gap-1.5">
+                <Button variant="outline" size="sm" className="gap-1.5" onClick={resume} disabled={summarizing || !notes.trim()} title="Clarifier la note (sans rien changer au fond)">
+                  {summarizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Résumé
+                </Button>
+                <DictationButton value={notes} onChange={setNotes} size="sm" title="Dicter vos observations" />
+              </div>
+            </CardHeader>
+            <CardContent className="px-4 pb-4">
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} onBlur={() => patch({ transcript: notes.trim() || null })}
+                rows={6} placeholder="Parlez ou écrivez : état existant, dimensions, contraintes d'accès, souhaits du client…" />
+              <p className="text-xs text-gray-400 mt-1.5">Astuce : appuyez sur le micro et décrivez à voix haute pendant que vous visitez.</p>
+            </CardContent>
+          </Card>
+
+          {/* Validation → rattache photos + note au chantier */}
+          <div className="space-y-2">
+            <Button onClick={openValidate} className="w-full h-12 text-base gap-2">
+              <CheckCircle2 className="w-5 h-5" /> Valider la visite
+            </Button>
+            <p className="text-xs text-gray-400 text-center">Rattache les photos et la note au prospect (ou à un chantier si déjà créé).</p>
+            <button onClick={archive} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 transition-colors py-1">
+              Archiver la visite (garde les photos et notes dans le chantier)
             </button>
           </div>
-        </CardContent>
-      </Card>
+        </div>
 
-      {/* Notes + dictée */}
-      <Card className="border-0 shadow-[var(--shadow-sm)]">
-        <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /> Notes de visite</CardTitle>
-          <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={resume} disabled={summarizing || !notes.trim()} title="Clarifier la note (sans rien changer au fond)">
-              {summarizing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />} Résumé
-            </Button>
-            <DictationButton value={notes} onChange={setNotes} size="sm" title="Dicter vos observations" />
-          </div>
-        </CardHeader>
-        <CardContent className="px-4 pb-4">
-          <Textarea value={notes} onChange={e => setNotes(e.target.value)} onBlur={() => patch({ transcript: notes.trim() || null })}
-            rows={5} placeholder="Parlez ou écrivez : état existant, dimensions, contraintes d'accès, souhaits du client…" />
-          <p className="text-xs text-gray-400 mt-1.5">Astuce : appuyez sur le micro et décrivez à voix haute pendant que vous visitez.</p>
-        </CardContent>
-      </Card>
-
-      {/* Validation → rattache photos + note au chantier */}
-      <Button onClick={openValidate} className="w-full h-12 text-base gap-2">
-        <CheckCircle2 className="w-5 h-5" /> Valider la visite
-      </Button>
-      <p className="text-xs text-gray-400 text-center -mt-2">Rattache les photos et la note au prospect (ou à un chantier si déjà créé).</p>
-
-      <button onClick={archive} className="w-full text-center text-xs text-gray-400 hover:text-gray-600 transition-colors py-1">
-        Archiver la visite (garde les photos et notes dans le chantier)
-      </button>
+        {/* Colonne droite : photos */}
+        <Card className="border-0 shadow-[var(--shadow-sm)]">
+          <CardHeader className="pb-2 pt-4 px-4">
+            <CardTitle className="text-base flex items-center gap-2"><Camera className="w-4 h-4 text-gray-400" /> Photos {photos.length > 0 && <span className="text-sm font-normal text-gray-500">· {photos.length}</span>}</CardTitle>
+          </CardHeader>
+          <CardContent className="px-4 pb-4">
+            {/* Caméra live (webcam MacBook ou mobile) + import fichier/galerie */}
+            <input ref={photoRef} type="file" accept="image/*" multiple className="hidden"
+              onChange={e => { if (e.target.files?.length) addPhotos(e.target.files); if (photoRef.current) photoRef.current.value = '' }} />
+            <div className="flex flex-wrap items-center gap-2 mb-3">
+              <CameraCapture onCapture={f => addPhotos([f])} disabled={uploading} />
+              <Button variant="outline" size="sm" className="gap-1.5" disabled={uploading} onClick={() => photoRef.current?.click()}>
+                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />} Importer
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {photos.map(p => (
+                <div key={p.id} className="group relative">
+                  <div className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {p.url ? <img src={p.url} alt={p.caption || 'Photo de visite'} className="w-full h-full object-cover" /> : null}
+                    <button onClick={() => removePhoto(p)} className="absolute top-1.5 right-1.5 grid place-items-center w-7 h-7 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity" title="Supprimer">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <Input defaultValue={p.caption || ''} onBlur={e => e.target.value !== (p.caption || '') && saveCaption(p, e.target.value)}
+                    placeholder="Légende…" className="h-8 mt-1.5 text-xs" />
+                </div>
+              ))}
+              <button onClick={() => photoRef.current?.click()} disabled={uploading}
+                className="aspect-square rounded-xl border-2 border-dashed border-gray-300 grid place-items-center text-gray-400 hover:border-primary hover:text-primary transition-colors disabled:opacity-60">
+                {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <div className="text-center"><Camera className="w-7 h-7 mx-auto" /><span className="text-xs font-medium">Ajouter</span></div>}
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Dialog open={validateOpen} onOpenChange={setValidateOpen}>
         <DialogContent className="max-w-md">
