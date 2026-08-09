@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ArrowLeft, MapPin, User, Calendar, FileText, Receipt, ScanLine, HardHat,
-  FolderOpen, ReceiptText, Clock, Navigation, Camera, Users2, Truck, Plus,
+  FolderOpen, ReceiptText, Clock, Navigation, Users2, Truck, Plus,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Project, ProjectStatus } from '@/types'
@@ -64,21 +64,6 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       .select('id,doc_type,supplier,doc_number,doc_date,total_ht,total_ttc,is_selected,consultation_label,storage_path,source,created_at, supplier_document_lines(id,designation,quantity,unit,unit_price_ht,total_ht,quality,sort_order)')
       .eq('project_id', id).eq('user_id', user.id).order('created_at', { ascending: false }),
   ])
-
-  // Album photo : images des documents + photos de pointage, URLs signées.
-  const [{ data: photoDocs }, { data: presPhotos }] = await Promise.all([
-    supabase.from('documents').select('storage_path,created_at').eq('project_id', id).or('file_type.ilike.image/%,category.eq.photo').order('created_at', { ascending: false }).limit(30),
-    supabase.from('presence_events').select('photo_path,occurred_at').eq('project_id', id).not('photo_path', 'is', null).order('occurred_at', { ascending: false }).limit(30),
-  ])
-  const photoPaths = [
-    ...((photoDocs || []) as { storage_path: string }[]).map(d => d.storage_path),
-    ...((presPhotos || []) as { photo_path: string }[]).map(p => p.photo_path),
-  ].filter(Boolean)
-  let photoUrls: string[] = []
-  if (photoPaths.length) {
-    const { data: signed } = await supabase.storage.from('documents').createSignedUrls(photoPaths, 3600)
-    photoUrls = (signed || []).map(s => s.signedUrl).filter(Boolean) as string[]
-  }
 
   const { data: notes } = await supabase.from('notes')
     .select('id, body, author_name, author_employee_id, created_at')
@@ -381,41 +366,23 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
           </div>
         </DottedCard>
 
+        <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
+      </div>
+
+      {/* Notes du chantier (admin + salariés) */}
+      <NotesSection projectId={id} ownerId={user.id} authorName={ownerName} initial={(notes || []) as NoteRow[]} />
+
+      {/* Achats & fournisseurs — affiché seulement s'il y a des documents fournisseurs */}
+      {achatDocs.length > 0 && <AchatsSection projectId={id} docs={achatDocs} />}
+
+      {/* Réception de chantier — en fin de chantier (ou si un PV a déjà été démarré) */}
+      {(['termine', 'a_facturer', 'facture', 'paye'].includes(p.status) || reception) && (
         <ReceptionSection
           projectId={id}
           clientName={p.clients ? clientDisplayName(p.clients) : 'Client'}
           initial={reception as Reception | null}
           signatureId={receptionSig?.id ?? null}
         />
-      </div>
-
-      {/* Achats (gauche) · Besoins matériaux + Notes de chantier (droite) */}
-      <div className="grid lg:grid-cols-2 gap-4 items-start">
-        <AchatsSection projectId={id} docs={achatDocs} />
-        <div className="space-y-4">
-          <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
-          <NotesSection projectId={id} ownerId={user.id} authorName={ownerName} initial={(notes || []) as NoteRow[]} />
-        </div>
-      </div>
-
-      {/* Album photo (documents images + pointages) */}
-      {photoUrls.length > 0 && (
-        <DottedCard>
-          <div className="p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-heading font-semibold text-marine flex items-center gap-2"><Camera className="w-4 h-4 text-gray-400" /> Album photo <span className="text-sm font-normal text-gray-400">· {photoUrls.length}</span></h3>
-              <Link href={`/documents?project=${id}`} className={pillCls + ' h-8 px-3 text-[13px]'}>Tout voir</Link>
-            </div>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
-              {photoUrls.map((u, i) => (
-                <a key={i} href={u} target="_blank" rel="noopener noreferrer" className="block aspect-square rounded-lg overflow-hidden bg-gray-100 border border-white/60">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={u} alt={`Photo ${i + 1}`} className="w-full h-full object-cover hover:scale-105 transition-transform" />
-                </a>
-              ))}
-            </div>
-          </div>
-        </DottedCard>
       )}
 
       {/* Plans liés */}
