@@ -8,9 +8,11 @@ import DottedCard from '@/components/charts/DottedCard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Package, Download, Plus, HelpCircle, Check, FileText } from 'lucide-react'
+import { Package, Download, Plus, HelpCircle, FileText, Info } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { fmtUnit, labelKey } from '@/lib/materiaux'
+
+export type MatchStatus = 'livre' | 'facture' | 'devise' | 'a_commander'
 
 export type MaterialRow = {
   key: string
@@ -20,72 +22,62 @@ export type MaterialRow = {
   estCostHt: number
   quotes: string[]
   uncertain: boolean
-  purchased: boolean
-  supplier: string | null
-  cost_ht: number | null
   manual: boolean
+  // Rapprochement automatique avec les documents fournisseurs scannés du chantier
+  autoStatus: MatchStatus
+  autoSupplier: string | null
+  autoCost: number | null
 }
+
+const STATUS_META: Record<MatchStatus, { label: string; cls: string }> = {
+  livre: { label: 'Livré', cls: 'bg-[#E9F2DB] text-[#3F7A2E]' },
+  facture: { label: 'Facturé', cls: 'bg-[#E3ECFB] text-[#1F5FAE]' },
+  devise: { label: 'Devisé', cls: 'bg-[#FBEED6] text-[#8A5A08]' },
+  a_commander: { label: 'À commander', cls: 'bg-gray-100 text-gray-500' },
+}
+const isReceived = (s: MatchStatus) => s === 'livre' || s === 'facture'
 
 export default function MateriauxSection({
   projectId, projectTitle, initial,
 }: { projectId: string; projectTitle: string; initial: MaterialRow[] }) {
   const router = useRouter()
   const [rows, setRows] = useState<MaterialRow[]>(initial)
-  const [busy, setBusy] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
 
-  const nbAchetes = rows.filter(r => r.purchased).length
+  const nbRecus = rows.filter(r => isReceived(r.autoStatus)).length
   const budgetEst = rows.reduce((s, r) => s + (r.estCostHt || 0), 0)
-  const coutReel = rows.reduce((s, r) => s + (r.purchased ? Number(r.cost_ht) || 0 : 0), 0)
-
-  async function upsert(row: MaterialRow, patch: Partial<MaterialRow>) {
-    const next = { ...row, ...patch }
-    setRows(prev => prev.map(r => (r.key === row.key ? next : r)))
-    setBusy(row.key)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setBusy(null); return }
-    const { error } = await supabase.from('procurement_items').upsert({
-      user_id: user.id,
-      project_id: projectId,
-      label_key: row.key,
-      label: next.label,
-      unit: next.unit,
-      quantity: next.quantity,
-      supplier: next.supplier,
-      cost_ht: next.cost_ht,
-      purchased: next.purchased,
-      purchased_at: next.purchased ? new Date().toISOString() : null,
-      manual: next.manual,
-    }, { onConflict: 'project_id,label_key' })
-    setBusy(null)
-    if (error) { toast.error('Enregistrement impossible'); return }
-    router.refresh()
-  }
+  const coutReel = rows.reduce((s, r) => s + (isReceived(r.autoStatus) ? Number(r.autoCost) || 0 : 0), 0)
 
   async function addManual(label: string, quantity: number, unit: string) {
     const key = labelKey(label)
     if (!key) return
     if (rows.some(r => r.key === key)) { toast.error('Ce matériau est déjà dans la liste'); setAdding(false); return }
-    const row: MaterialRow = { key, label: label.trim(), unit: unit || 'u', quantity, estCostHt: 0, quotes: [], uncertain: false, purchased: false, supplier: null, cost_ht: null, manual: true }
+    const row: MaterialRow = { key, label: label.trim(), unit: unit || 'u', quantity, estCostHt: 0, quotes: [], uncertain: false, manual: true, autoStatus: 'a_commander', autoSupplier: null, autoCost: null }
     setRows(prev => [...prev, row].sort((a, b) => a.label.localeCompare(b.label, 'fr')))
     setAdding(false)
-    await upsert(row, {})
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    const { error } = await supabase.from('procurement_items').upsert({
+      user_id: user.id, project_id: projectId, label_key: key, label: row.label, unit: row.unit, quantity: row.quantity, manual: true,
+    }, { onConflict: 'project_id,label_key' })
+    if (error) { toast.error('Enregistrement impossible'); return }
+    router.refresh()
   }
 
   function exportCsv() {
     const esc = (v: string | number) => `"${String(v).replace(/"/g, '""')}"`
-    const header = ['Matériau', 'Quantité', 'Unité', 'Fournisseur', 'Coût HT', 'Acheté', 'Devis']
+    const header = ['Matériau', 'Quantité', 'Unité', 'Statut', 'Fournisseur', 'Coût HT', 'Devis']
     const lines = rows.map(r => [
       esc(r.label), esc(r.quantity), esc(fmtUnit(r.unit)),
-      esc(r.supplier || ''), esc(r.cost_ht ?? ''), esc(r.purchased ? 'Oui' : 'Non'), esc(r.quotes.join(' ')),
+      esc(STATUS_META[r.autoStatus].label), esc(r.autoSupplier || ''), esc(r.autoCost ?? ''), esc(r.quotes.join(' ')),
     ].join(';'))
     const csv = '﻿' + [header.join(';'), ...lines].join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `bon-commande-${projectTitle.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`
+    a.download = `materiaux-${projectTitle.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -97,12 +89,12 @@ export default function MateriauxSection({
       ? await supabase.from('companies').select('trade_name,address,phone,email,siret').eq('user_id', user.id).single()
       : { data: null }
 
-    // À commander = ce qui n'est pas encore acheté (sinon tout). Groupé par fournisseur.
-    const toOrder = rows.filter(r => !r.purchased)
+    // À commander = tout ce qui n'est pas encore livré/facturé. Groupé par fournisseur.
+    const toOrder = rows.filter(r => r.autoStatus === 'a_commander' || r.autoStatus === 'devise')
     const list = toOrder.length ? toOrder : rows
     const groups = new Map<string, MaterialRow[]>()
     for (const r of list) {
-      const k = r.supplier?.trim() || 'Fournisseur à définir'
+      const k = r.autoSupplier?.trim() || 'Fournisseur à définir'
       groups.set(k, [...(groups.get(k) || []), r])
     }
     const esc = (v: unknown) => String(v ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -146,7 +138,7 @@ export default function MateriauxSection({
       <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 pt-4 px-4">
         <CardTitle className="text-base flex items-center gap-2">
           <Package className="w-4 h-4 text-gray-400" /> Besoins matériaux
-          {!empty && <span className="text-sm font-normal text-gray-500">· {nbAchetes}/{rows.length} achetés</span>}
+          {!empty && <span className="text-sm font-normal text-gray-500">· {nbRecus}/{rows.length} reçus</span>}
         </CardTitle>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={() => setAdding(a => !a)}><Plus className="w-4 h-4 mr-1" /> Matériau</Button>
@@ -163,17 +155,16 @@ export default function MateriauxSection({
           </p>
         ) : (
           <>
-            <div className="space-y-1.5 mt-1">
-              {rows.map(r => (
-                <MatRow key={r.key} row={r} busy={busy === r.key}
-                  onToggle={() => upsert(r, { purchased: !r.purchased })}
-                  onSupplier={v => upsert(r, { supplier: v })}
-                  onCost={v => upsert(r, { cost_ht: v })} />
-              ))}
+            <div className="flex gap-2 rounded-lg bg-primary/[0.04] border border-primary/10 px-3 py-2 mb-3 text-[11px] text-marine/70">
+              <Info className="w-3.5 h-3.5 text-primary flex-shrink-0 mt-0.5" />
+              <span>Statut mis à jour <span className="font-medium">automatiquement</span> d&apos;après vos documents fournisseurs scannés (BL / factures / devis). Le rapprochement se fait par mots-clés — vérifiez en cas de doute.</span>
+            </div>
+            <div className="space-y-1.5">
+              {rows.map(r => <MatRow key={r.key} row={r} />)}
             </div>
             <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-xs text-gray-500 border-t border-gray-100 pt-2.5">
               {budgetEst > 0 && <span>Budget matériaux estimé (devis) : <span className="font-semibold text-marine">{formatCurrency(budgetEst)}</span></span>}
-              {coutReel > 0 && <span>Coût réel saisi : <span className="font-semibold text-marine">{formatCurrency(coutReel)}</span></span>}
+              {coutReel > 0 && <span>Coût réel (BL/factures) : <span className="font-semibold text-marine">{formatCurrency(coutReel)}</span></span>}
             </div>
           </>
         )}
@@ -182,37 +173,25 @@ export default function MateriauxSection({
   )
 }
 
-function MatRow({ row, busy, onToggle, onSupplier, onCost }: {
-  row: MaterialRow; busy: boolean
-  onToggle: () => void; onSupplier: (v: string) => void; onCost: (v: number | null) => void
-}) {
-  const [supplier, setSupplier] = useState(row.supplier || '')
-  const [cost, setCost] = useState(row.cost_ht != null ? String(row.cost_ht) : '')
+function MatRow({ row }: { row: MaterialRow }) {
+  const meta = STATUS_META[row.autoStatus]
+  const received = isReceived(row.autoStatus)
   return (
-    <div className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 transition-colors ${row.purchased ? 'border-emerald-200 bg-emerald-50/40' : 'border-gray-100 hover:border-gray-200'}`}>
-      <button onClick={onToggle} disabled={busy}
-        className={`grid place-items-center w-5 h-5 rounded-md border-2 flex-shrink-0 transition-colors ${row.purchased ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-gray-300 hover:border-emerald-400'}`}
-        title={row.purchased ? 'Marquer comme à acheter' : 'Marquer comme acheté'}>
-        {row.purchased && <Check className="w-3 h-3" strokeWidth={3} />}
-      </button>
+    <div className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 ${received ? 'border-emerald-200 bg-emerald-50/40' : 'border-gray-100'}`}>
       <div className="min-w-0 flex-1">
-        <p className={`text-sm font-medium truncate ${row.purchased ? 'text-gray-500 line-through' : 'text-gray-800'}`}>
+        <p className={`text-sm font-medium truncate ${received ? 'text-gray-600' : 'text-gray-800'}`}>
           {row.label}
           {row.uncertain && <span title="Ligne libre — à vérifier" className="inline-flex ml-1.5 align-middle text-amber-500"><HelpCircle className="w-3.5 h-3.5" /></span>}
         </p>
-        <p className="text-[11px] text-gray-400">
+        <p className="text-[11px] text-gray-400 truncate">
           {row.quantity} {fmtUnit(row.unit)}
+          {row.autoSupplier && <> · {row.autoSupplier}</>}
           {row.quotes.length > 0 && <> · {row.quotes.join(', ')}</>}
           {row.manual && <> · ajout manuel</>}
         </p>
       </div>
-      <Input value={supplier} onChange={e => setSupplier(e.target.value)} onBlur={() => supplier !== (row.supplier || '') && onSupplier(supplier)}
-        placeholder="Fournisseur" className="h-8 w-[130px] text-xs hidden sm:block" />
-      <div className="relative">
-        <Input value={cost} onChange={e => setCost(e.target.value)}
-          onBlur={() => { const n = cost === '' ? null : Number(cost.replace(',', '.')); if (n !== (row.cost_ht ?? null)) onCost(Number.isNaN(n as number) ? null : n) }}
-          placeholder="€ HT" inputMode="decimal" className="h-8 w-[80px] text-xs pr-5" />
-      </div>
+      {row.autoCost != null && <span className="text-xs font-semibold text-marine tabular-nums flex-shrink-0">{formatCurrency(row.autoCost)}</span>}
+      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${meta.cls}`}>{meta.label}</span>
     </div>
   )
 }

@@ -116,14 +116,12 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
   const needs = buildNeeds(acceptedQuotes.map(q => ({ id: q.id, quote_number: q.quote_number, status: q.status })), lines)
   type ProcRow = { label_key: string; label: string; unit: string | null; quantity: number | null; supplier: string | null; cost_ht: number | null; purchased: boolean; manual: boolean }
   const procRows = (procRaw || []) as ProcRow[]
-  const procByKey = new Map(procRows.map(r => [r.label_key, r]))
-  const materialRows: MaterialRow[] = needs.map(n => {
-    const st = procByKey.get(n.key)
-    return { ...n, purchased: st?.purchased ?? false, supplier: st?.supplier ?? null, cost_ht: st?.cost_ht ?? null, manual: false }
-  })
+  const materialRows: MaterialRow[] = needs.map(n => ({
+    ...n, manual: false, autoStatus: 'a_commander' as const, autoSupplier: null, autoCost: null,
+  }))
   for (const r of procRows) {
     if (r.manual && !needs.some(n => n.key === r.label_key)) {
-      materialRows.push({ key: r.label_key, label: r.label, unit: r.unit, quantity: Number(r.quantity) || 0, estCostHt: 0, quotes: [], uncertain: false, purchased: r.purchased, supplier: r.supplier, cost_ht: r.cost_ht, manual: true })
+      materialRows.push({ key: r.label_key, label: r.label, unit: r.unit, quantity: Number(r.quantity) || 0, estCostHt: 0, quotes: [], uncertain: false, manual: true, autoStatus: 'a_commander', autoSupplier: null, autoCost: null })
     }
   }
   materialRows.sort((a, b) => a.label.localeCompare(b.label, 'fr'))
@@ -140,6 +138,23 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       .map(l => ({ id: l.id, designation: l.designation, quantity: toNum(l.quantity), unit: l.unit, unit_price_ht: toNum(l.unit_price_ht), total_ht: toNum(l.total_ht), quality: l.quality, sort_order: l.sort_order }))
       .sort((a, b) => a.sort_order - b.sort_order),
   }))
+
+  // ── Rapprochement auto : statut de chaque matériau selon les docs fournisseurs scannés ──
+  // (BL = livré > facture = facturé > devis = devisé ; sinon à commander). Match par mots-clés (approximatif).
+  const normLbl = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
+  const supLines = achatDocs.flatMap(d => (d.lines || []).map(l => ({ desig: normLbl(l.designation || ''), type: d.doc_type, supplier: d.supplier, cost: l.total_ht })))
+  const rankType = (t: string) => (t === 'bl' ? 3 : t === 'facture' ? 2 : 1)
+  for (const row of materialRows) {
+    const tokens = normLbl(row.label).split(' ').filter(t => t.length >= 4 || /\d/.test(t))
+    if (!tokens.length) continue
+    const hits = supLines.filter(sl => sl.desig && tokens.some(t => sl.desig.includes(t)))
+    if (!hits.length) continue
+    hits.sort((a, b) => rankType(b.type) - rankType(a.type))
+    const best = hits[0]
+    row.autoStatus = best.type === 'bl' ? 'livre' : best.type === 'facture' ? 'facture' : 'devise'
+    row.autoSupplier = best.supplier
+    row.autoCost = best.cost ?? null
+  }
 
   // Bloc équipe
   const assignedIds = [...new Set((assignments || []).map(a => a.employee_id))]
