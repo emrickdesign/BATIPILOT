@@ -78,7 +78,7 @@ export default function NotesSection({
         {notes.length === 0 ? (
           <p className="text-sm text-gray-400 text-center py-3">Aucune note pour ce chantier.</p>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-2 max-h-[340px] overflow-y-auto pr-1">
             {notes.map(n => (
               <div key={n.id} className="group rounded-xl bg-[#FBF7F0] border border-[#F0E7D8] p-3">
                 <p className="text-sm text-gray-800 whitespace-pre-line">{n.body}</p>

@@ -15,12 +15,10 @@ import DottedPage from '@/components/PageDottedBg'
 import DottedCard from '@/components/charts/DottedCard'
 import ChantierFinancePanel from './ChantierFinancePanel'
 import StatusSelect from '../StatusSelect'
-import MateriauxSection, { type MaterialRow } from './MateriauxSection'
 import AchatsSection, { type AchatDoc } from './AchatsSection'
 import AvancementControl from './AvancementControl'
 import NotesSection, { type NoteRow } from './NotesSection'
 import ReceptionSection, { type Reception } from './ReceptionSection'
-import { buildNeeds, type QuoteLineLite } from '@/lib/materiaux'
 
 const num = (v: unknown) => Number(v) || 0
 
@@ -60,7 +58,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
     supabase.from('expenses').select('id,supplier,amount_ttc,amount_ht,category,expense_date').eq('project_id', id).neq('status', 'archive').order('created_at', { ascending: false }),
     supabase.from('time_entries').select('hours,employee_id').eq('project_id', id),
     supabase.from('employees').select('id,full_name,role,color,hourly_cost').eq('user_id', user.id),
-    supabase.from('assignments').select('employee_id,start_hour,end_hour').eq('project_id', id).eq('user_id', user.id),
+    supabase.from('assignments').select('employee_id,start_hour,end_hour,date').eq('project_id', id).eq('user_id', user.id),
     supabase.from('vehicle_logs').select('vehicle_id').eq('project_id', id),
     supabase.from('vehicles').select('id,name,plate').eq('user_id', user.id),
     supabase.from('subcontractor_invoices').select('amount_ht,amount_ttc,status').eq('project_id', id).eq('user_id', user.id),
@@ -103,33 +101,6 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
   const marge = revenuSigne - coutDepensesHt - coutMainOeuvre - coutSousTraitance
   const margePct = revenuSigne > 0 ? Math.round((marge / revenuSigne) * 100) : null
 
-  // ── Besoins matériaux : dérivés des lignes de devis acceptés + suivi d'achat ──
-  const acceptedQuotes = (quotes || []).filter(q => isSigned(q.status))
-  type QLRaw = { id: string; quote_id: string; price_item_id: string | null; designation: string; quantity: number | null; unit: string | null; price_items: { supply_included: boolean; supplier_cost: number | null } | null }
-  const [{ data: quoteLinesRaw }, { data: procRaw }] = await Promise.all([
-    acceptedQuotes.length
-      ? supabase.from('quote_lines').select('id,quote_id,price_item_id,designation,quantity,unit,price_items(supply_included,supplier_cost)').in('quote_id', acceptedQuotes.map(q => q.id))
-      : Promise.resolve({ data: [] }),
-    supabase.from('procurement_items').select('label_key,label,unit,quantity,supplier,cost_ht,purchased,manual').eq('project_id', id),
-  ])
-  const lines: QuoteLineLite[] = ((quoteLinesRaw || []) as unknown as QLRaw[]).map(l => ({
-    id: l.id, quote_id: l.quote_id, price_item_id: l.price_item_id, designation: l.designation,
-    quantity: l.quantity, unit: l.unit,
-    price_item: l.price_items ? { supply_included: l.price_items.supply_included, supplier_cost: l.price_items.supplier_cost } : null,
-  }))
-  const needs = buildNeeds(acceptedQuotes.map(q => ({ id: q.id, quote_number: q.quote_number, status: q.status })), lines)
-  type ProcRow = { label_key: string; label: string; unit: string | null; quantity: number | null; supplier: string | null; cost_ht: number | null; purchased: boolean; manual: boolean }
-  const procRows = (procRaw || []) as ProcRow[]
-  const materialRows: MaterialRow[] = needs.map(n => ({
-    ...n, manual: false, autoStatus: 'a_commander' as const, autoSupplier: null, autoCost: null,
-  }))
-  for (const r of procRows) {
-    if (r.manual && !needs.some(n => n.key === r.label_key)) {
-      materialRows.push({ key: r.label_key, label: r.label, unit: r.unit, quantity: Number(r.quantity) || 0, estCostHt: 0, quotes: [], uncertain: false, manual: true, autoStatus: 'a_commander', autoSupplier: null, autoCost: null })
-    }
-  }
-  materialRows.sort((a, b) => a.label.localeCompare(b.label, 'fr'))
-
   // ── Achats fournisseurs (devis / BL / factures scannés) ──
   const toNum = (v: unknown) => (v === null || v === undefined ? null : Number(v))
   type SDLineRaw = { id: string; designation: string; quantity: unknown; unit: string | null; unit_price_ht: unknown; total_ht: unknown; quality: string | null; sort_order: number }
@@ -143,29 +114,29 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       .sort((a, b) => a.sort_order - b.sort_order),
   }))
 
-  // ── Rapprochement auto : statut de chaque matériau selon les docs fournisseurs scannés ──
-  // (BL = livré > facture = facturé > devis = devisé ; sinon à commander). Match par mots-clés (approximatif).
-  const normLbl = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim()
-  const supLines = achatDocs.flatMap(d => (d.lines || []).map(l => ({ desig: normLbl(l.designation || ''), type: d.doc_type, supplier: d.supplier, cost: l.total_ht })))
-  const rankType = (t: string) => (t === 'bl' ? 3 : t === 'facture' ? 2 : 1)
-  for (const row of materialRows) {
-    const tokens = normLbl(row.label).split(' ').filter(t => t.length >= 4 || /\d/.test(t))
-    if (!tokens.length) continue
-    const hits = supLines.filter(sl => sl.desig && tokens.some(t => sl.desig.includes(t)))
-    if (!hits.length) continue
-    hits.sort((a, b) => rankType(b.type) - rankType(a.type))
-    const best = hits[0]
-    row.autoStatus = best.type === 'bl' ? 'livre' : best.type === 'facture' ? 'facture' : 'devise'
-    row.autoSupplier = best.supplier
-    row.autoCost = best.cost ?? null
-  }
-
   // Bloc équipe
   const assignedIds = [...new Set((assignments || []).map(a => a.employee_id))]
   const team = assignedIds.map(eid => empById.get(eid)).filter((e): e is NonNullable<typeof e> => !!e)
   const chef = team.find(e => e.role?.toLowerCase().includes('chef'))
   const vehById = new Map((vehicles || []).map(v => [v.id, v]))
   const projVehicles = [...new Set((vehicleLogs || []).map(l => l.vehicle_id))].map(vid => vehById.get(vid)).filter(Boolean)
+
+  // ── Aperçu planning de la semaine (lundi → dimanche) ──
+  const nowD = new Date()
+  const dowMon = (nowD.getDay() + 6) % 7 // 0 = lundi
+  const monday = new Date(nowD); monday.setDate(nowD.getDate() - dowMon)
+  const isoDay = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  const weekDays = Array.from({ length: 7 }, (_, i) => { const d = new Date(monday); d.setDate(monday.getDate() + i); return { iso: isoDay(d), label: ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'][i], dayNum: d.getDate(), isToday: isoDay(d) === isoDay(nowD) } })
+  const weekAssign = new Map<string, typeof team>()
+  for (const a of (assignments || []) as { employee_id: string; date: string | null }[]) {
+    if (!a.date) continue
+    const emp = empById.get(a.employee_id)
+    if (!emp) continue
+    const arr = weekAssign.get(a.date) || []
+    if (!arr.some(e => e.id === emp.id)) arr.push(emp)
+    weekAssign.set(a.date, arr)
+  }
+  const hasWeek = weekDays.some(d => (weekAssign.get(d.iso)?.length ?? 0) > 0)
 
   // Localisation
   const addr = p.address?.trim()
@@ -385,21 +356,42 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
                 <span className="flex items-center gap-1.5 text-gray-600"><Truck className="w-4 h-4 text-gray-400" />{projVehicles.map(v => v!.name + (v!.plate ? ` (${v!.plate})` : '')).join(', ')}</span>
               )}
             </div>
+
+            {/* Aperçu planning de la semaine */}
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5" /> Cette semaine</p>
+                <Link href="/planning" className="text-[11px] font-medium text-primary hover:underline">Planning complet</Link>
+              </div>
+              <div className="grid grid-cols-7 gap-1.5">
+                {weekDays.map(d => {
+                  const emps = weekAssign.get(d.iso) || []
+                  return (
+                    <div key={d.iso} className={`rounded-lg border p-1.5 text-center min-h-[60px] ${d.isToday ? 'border-primary/40 bg-primary/[0.05]' : 'border-gray-100 bg-white/50'}`}>
+                      <div className={`text-[10px] font-medium ${d.isToday ? 'text-primary' : 'text-gray-400'}`}>{d.label}</div>
+                      <div className={`text-[13px] font-bold leading-tight ${d.isToday ? 'text-primary' : 'text-marine'}`}>{d.dayNum}</div>
+                      <div className="flex flex-wrap justify-center gap-0.5 mt-1">
+                        {emps.slice(0, 4).map(e => (
+                          <span key={e.id} className="w-4 h-4 rounded-full text-[7px] font-bold text-white grid place-items-center flex-shrink-0" style={{ backgroundColor: e.color || '#94A3B8' }} title={e.full_name}>
+                            {(e.full_name || '').split(' ').map((w: string) => w[0]).slice(0, 2).join('')}
+                          </span>
+                        ))}
+                        {emps.length > 4 && <span className="text-[8px] text-gray-400 self-center">+{emps.length - 4}</span>}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+              {!hasWeek && <p className="text-[11px] text-gray-400 mt-2">Personne d&apos;affecté cette semaine. <Link href="/planning" className="text-primary hover:underline">Planifier</Link></p>}
+            </div>
           </div>
         </DottedCard>
 
         <NotesSection projectId={id} ownerId={user.id} authorName={ownerName} initial={(notes || []) as NoteRow[]} />
       </div>
 
-      {/* Achats & fournisseurs (gauche) + Besoins matériaux (droite) — côte à côte */}
-      {achatDocs.length > 0 ? (
-        <div className="grid lg:grid-cols-2 gap-4 items-stretch">
-          <AchatsSection projectId={id} docs={achatDocs} />
-          <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
-        </div>
-      ) : (
-        <MateriauxSection projectId={id} projectTitle={p.title} initial={materialRows} />
-      )}
+      {/* Achats & fournisseurs — pleine largeur (import devis → BL → facture → rapprochement) */}
+      <AchatsSection projectId={id} docs={achatDocs} />
 
       {/* Réception de chantier — en fin de chantier (ou si un PV a déjà été démarré) */}
       {(['termine', 'a_facturer', 'facture', 'paye'].includes(p.status) || reception) && (
