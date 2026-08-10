@@ -393,7 +393,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Achats & fournisseurs — pleine largeur (import devis → BL → facture → rapprochement) */}
-      <AchatsSection projectId={id} docs={achatDocs} />
+      <AchatsSection projectId={id} projectTitle={p.title} docs={achatDocs} />
 
       {/* Réception de chantier — en fin de chantier (ou si un PV a déjà été démarré) */}
       {(['termine', 'a_facturer', 'facture', 'paye'].includes(p.status) || reception) && (

@@ -1,20 +1,17 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { useState } from 'react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import DottedCard from '@/components/charts/DottedCard'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
-  ShoppingCart, FileText, Truck, ReceiptText, Check, Star, Loader2, ScanLine,
-  TrendingUp, TrendingDown, AlertTriangle, Award,
+  ShoppingCart, FileText, Truck, ReceiptText, ScanLine, Loader2,
+  TrendingUp, TrendingDown, AlertTriangle, ArrowRight, Mail, ChevronRight,
 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { matchKey } from '@/lib/achats'
+import AchatsScanner from '@/components/achats/AchatsScanner'
 
 export type AchatLine = {
   id: string; designation: string; quantity: number | null; unit: string | null
@@ -27,219 +24,93 @@ export type AchatDoc = {
   lines: AchatLine[]
 }
 
-const num = (v: number | null) => (typeof v === 'number' && Number.isFinite(v) ? v : null)
-const sourceLabel: Record<string, string> = { admin: 'Bureau', terrain: 'Terrain', email: 'Email' }
+type StepConf = { docType: 'devis' | 'bl' | 'facture'; n: number; title: string; scanLabel: string; empty: string; color: string; icon: typeof FileText }
+const STEPS: StepConf[] = [
+  { docType: 'devis', n: 1, title: 'Devis fournisseurs', scanLabel: 'Scanner un devis', empty: 'Scannez le(s) devis reçu(s) (Point P, Samsé…).', color: '#2F6BE8', icon: FileText },
+  { docType: 'bl', n: 2, title: 'Bons de livraison', scanLabel: 'Scanner un BL', empty: 'Scannez les BL au fil des livraisons.', color: '#B5811E', icon: Truck },
+  { docType: 'facture', n: 3, title: 'Factures fin de mois', scanLabel: 'Scanner une facture', empty: 'Scannez la facture de fin de mois.', color: '#8A3FA0', icon: ReceiptText },
+]
 
 export default function AchatsSection({
-  projectId, docs,
-}: { projectId: string; docs: AchatDoc[] }) {
-  const router = useRouter()
-  const devis = docs.filter(d => d.doc_type === 'devis')
-  const bls = docs.filter(d => d.doc_type === 'bl')
-  const factures = docs.filter(d => d.doc_type === 'facture')
-  const selected = devis.find(d => d.is_selected) || null
-
-  const [busy, setBusy] = useState(false)
-
-  async function chooseReference(docId: string) {
-    setBusy(true)
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) { setBusy(false); return }
-    // Un seul devis de référence par chantier.
-    await supabase.from('supplier_documents').update({ is_selected: false })
-      .eq('user_id', user.id).eq('project_id', projectId).eq('doc_type', 'devis')
-    const { error } = await supabase.from('supplier_documents').update({ is_selected: true }).eq('id', docId).eq('user_id', user.id)
-    setBusy(false)
-    if (error) { toast.error('Impossible de choisir ce devis'); return }
-    toast.success('Devis de référence choisi')
-    router.refresh()
-  }
-
-  const scanLink = (type: string) => `/tickets?project=${projectId}&type=${type}`
+  projectId, projectTitle, docs,
+}: { projectId: string; projectTitle: string; docs: AchatDoc[] }) {
+  const byType = (t: string) => docs.filter(d => d.doc_type === t)
+  const devis = byType('devis'), bls = byType('bl'), factures = byType('facture')
+  const countOf = (t: string) => (t === 'devis' ? devis : t === 'bl' ? bls : factures)
 
   return (
     <DottedCard>
-      <CardHeader className="flex flex-row items-center justify-between gap-2 pb-2 pt-4 px-4">
+      <CardHeader className="pb-2 pt-4 px-4">
         <CardTitle className="text-[17px] font-bold font-heading text-marine flex items-center gap-2">
           <span className="grid place-items-center w-7 h-7 rounded-lg bg-[#C14E33]/12 text-[#C14E33]"><ShoppingCart className="w-4 h-4" /></span> Achats &amp; fournisseurs
         </CardTitle>
       </CardHeader>
-      <CardContent className="px-4 pb-4 space-y-6">
-
-        {/* ── BLOC 1 : Consultation / comparatif des devis fournisseurs ── */}
-        <section className="space-y-3">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className="text-[15px] font-bold text-marine flex items-center gap-1.5"><FileText className="w-4 h-4 text-sky-500" /> Consultation — devis fournisseurs ({devis.length})</h3>
-            <Link href={scanLink('devis')}><Button size="sm" className="gap-1 bg-sky-600 hover:bg-sky-700 text-white"><ScanLine className="w-4 h-4" /> Scanner un devis</Button></Link>
-          </div>
-
-          {devis.length === 0 ? (
-            <p className="text-sm text-gray-400 py-1">Aucun devis fournisseur. Scanne les devis reçus (Samsé, Point P…) pour les comparer et choisir le moins cher.</p>
-          ) : (
-            <>
-              <DevisComparison devis={devis} selectedId={selected?.id ?? null} busy={busy} onChoose={chooseReference} />
-              {!selected && <p className="text-xs text-amber-600 flex items-center gap-1"><AlertTriangle className="w-3.5 h-3.5" /> Choisis le devis retenu : il devient la référence de prix pour le rapprochement de fin de mois.</p>}
-            </>
-          )}
-        </section>
-
-        <div className="border-t border-gray-100" />
-
-        {/* ── BLOC 2 : Suivi & contrôle (BL + facture + rapprochement) ── */}
-        <section className="space-y-3">
-          <h3 className="text-[15px] font-bold text-marine flex items-center gap-1.5"><Award className="w-4 h-4 text-violet-500" /> Suivi &amp; contrôle de fin de mois</h3>
-
-          <div className="grid sm:grid-cols-2 gap-3">
-            {/* Bons de livraison */}
-            <div className="rounded-lg border border-gray-100 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><Truck className="w-4 h-4 text-amber-500" /> Bons de livraison ({bls.length})</span>
-                <Link href={scanLink('bl')}><Button size="sm" className="h-7 px-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs">+ BL</Button></Link>
-              </div>
-              {bls.length === 0 ? (
-                <p className="text-xs text-gray-400">Aucun BL. Scannés au fil du mois (terrain, bureau ou email).</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {bls.map(b => (
-                    <div key={b.id} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700 truncate">{b.supplier || 'Fournisseur'} {b.doc_number && <span className="text-gray-400">· {b.doc_number}</span>}</span>
-                      <span className="flex items-center gap-1.5 flex-shrink-0">
-                        {b.doc_date && <span className="text-xs text-gray-400">{formatDate(b.doc_date)}</span>}
-                        <Badge variant="outline" className="text-[10px]">{sourceLabel[b.source] || b.source}</Badge>
-                      </span>
-                    </div>
-                  ))}
-                </div>
+      <CardContent className="px-4 pb-4">
+        {/* Pipeline : Devis → BL → Facture → Rapprochement */}
+        <div className="grid gap-3 lg:grid-cols-4">
+          {STEPS.map((s, i) => (
+            <div key={s.docType} className="relative">
+              <Step conf={s} docs={countOf(s.docType)} projectId={projectId} projectTitle={projectTitle} />
+              {i < STEPS.length && (
+                <span className="hidden lg:grid place-items-center absolute top-1/2 -right-[11px] -translate-y-1/2 w-5 h-5 rounded-full bg-white border border-[#EBD9CE] text-gray-400 z-10">
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </span>
               )}
             </div>
-
-            {/* Factures fournisseurs */}
-            <div className="rounded-lg border border-gray-100 p-3">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><ReceiptText className="w-4 h-4 text-violet-500" /> Factures fournisseurs ({factures.length})</span>
-                <Link href={scanLink('facture')}><Button size="sm" className="h-7 px-2.5 bg-violet-500 hover:bg-violet-600 text-white text-xs">+ Facture</Button></Link>
-              </div>
-              {factures.length === 0 ? (
-                <p className="text-xs text-gray-400">Aucune facture. Scanne la facture de fin de mois pour la comparer au devis.</p>
-              ) : (
-                <div className="space-y-1.5">
-                  {factures.map(f => (
-                    <div key={f.id} className="flex items-center justify-between text-sm">
-                      <span className="text-gray-700 truncate">{f.supplier || 'Fournisseur'} {f.doc_number && <span className="text-gray-400">· {f.doc_number}</span>}</span>
-                      <span className="font-semibold text-gray-800 flex-shrink-0">{f.total_ttc != null ? formatCurrency(f.total_ttc) : f.total_ht != null ? formatCurrency(f.total_ht) : '—'}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <Rapprochement projectId={projectId} canRun={!!selected && factures.length > 0} hasSelected={!!selected} hasFactures={factures.length > 0} />
-        </section>
+          ))}
+          <RapprochementStep projectId={projectId} devisCount={devis.length} factureCount={factures.length}
+            supplier={factures[0]?.supplier || devis[0]?.supplier || null} />
+        </div>
       </CardContent>
     </DottedCard>
   )
 }
 
-/* ── Comparatif des devis : grille prix unitaire par fournisseur, moins cher surligné ── */
-function DevisComparison({ devis, selectedId, busy, onChoose }: {
-  devis: AchatDoc[]; selectedId: string | null; busy: boolean; onChoose: (id: string) => void
-}) {
-  const cheapestTotalId = useMemo(() => {
-    const withTotal = devis.filter(d => num(d.total_ht) !== null)
-    if (!withTotal.length) return null
-    return withTotal.reduce((a, b) => (num(a.total_ht)! <= num(b.total_ht)! ? a : b)).id
-  }, [devis])
-
-  // Lignes agrégées : une par matériau (matchKey), colonne = fournisseur.
-  const grid = useMemo(() => {
-    const map = new Map<string, { label: string; prices: Map<string, { pu: number | null; quality: string | null }> }>()
-    for (const d of devis) {
-      for (const l of d.lines) {
-        const k = matchKey(l.designation)
-        if (!k) continue
-        if (!map.has(k)) map.set(k, { label: l.designation, prices: new Map() })
-        const row = map.get(k)!
-        if (!row.prices.has(d.id)) row.prices.set(d.id, { pu: num(l.unit_price_ht), quality: l.quality })
-      }
-    }
-    return [...map.values()].sort((a, b) => a.label.localeCompare(b.label, 'fr'))
-  }, [devis])
-
+/* ── Étapes 1-3 : liste + scan inline (pop-up) ── */
+function Step({ conf, docs, projectId, projectTitle }: { conf: StepConf; docs: AchatDoc[]; projectId: string; projectTitle: string }) {
+  const [open, setOpen] = useState(false)
+  const Icon = conf.icon
   return (
-    <div className="space-y-2">
-      {/* En-têtes fournisseurs + totaux */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="text-left text-xs text-gray-400">
-              <th className="py-1.5 pr-3 font-medium">Matériau</th>
-              {devis.map(d => (
-                <th key={d.id} className="py-1.5 px-2 font-medium whitespace-nowrap">
-                  <div className="flex items-center gap-1">
-                    {d.supplier || 'Fournisseur'}
-                    {d.id === selectedId && <Star className="w-3 h-3 fill-amber-400 text-amber-400" />}
-                  </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {grid.map((row, i) => {
-              const vals = devis.map(d => row.prices.get(d.id)?.pu ?? null)
-              const min = Math.min(...vals.filter((v): v is number => v !== null))
-              return (
-                <tr key={i} className="border-t border-gray-100">
-                  <td className="py-1.5 pr-3 text-gray-700">{row.label}</td>
-                  {devis.map(d => {
-                    const cell = row.prices.get(d.id)
-                    const isMin = cell?.pu != null && cell.pu === min && vals.filter(v => v !== null).length > 1
-                    return (
-                      <td key={d.id} className={`py-1.5 px-2 tabular-nums ${isMin ? 'text-emerald-600 font-semibold' : 'text-gray-600'}`}>
-                        {cell?.pu != null ? formatCurrency(cell.pu) : <span className="text-gray-300">—</span>}
-                        {cell?.quality && <span className="block text-[10px] text-gray-400 font-normal">{cell.quality}</span>}
-                        {isMin && <Check className="inline w-3 h-3 ml-0.5" />}
-                      </td>
-                    )
-                  })}
-                </tr>
-              )
-            })}
-            {/* Ligne total */}
-            <tr className="border-t-2 border-gray-200 font-semibold">
-              <td className="py-1.5 pr-3 text-gray-700">Total HT</td>
-              {devis.map(d => (
-                <td key={d.id} className={`py-1.5 px-2 tabular-nums ${d.id === cheapestTotalId ? 'text-emerald-600' : 'text-gray-700'}`}>
-                  {d.total_ht != null ? formatCurrency(d.total_ht) : '—'}
-                  {d.id === cheapestTotalId && <span className="block text-[10px] font-normal text-emerald-500">le moins cher</span>}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
+    <div className="rounded-xl border border-[#EBD9CE] bg-white/60 p-3 flex flex-col h-full">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="grid place-items-center w-6 h-6 rounded-full text-white text-[11px] font-bold flex-shrink-0" style={{ backgroundColor: conf.color }}>{conf.n}</span>
+        <h4 className="text-[13px] font-bold text-marine flex items-center gap-1.5 min-w-0"><Icon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: conf.color }} /><span className="truncate">{conf.title}</span></h4>
       </div>
-
-      {/* Choix de la référence */}
-      <div className="flex flex-wrap gap-2 pt-1">
-        {devis.map(d => (
-          <Button key={d.id} size="sm" variant={d.id === selectedId ? 'default' : 'outline'} disabled={busy}
-            onClick={() => onChoose(d.id)}>
-            {d.id === selectedId ? <><Star className="w-3.5 h-3.5 mr-1 fill-white" /> Référence : {d.supplier || 'ce devis'}</> : <>Choisir {d.supplier || 'ce devis'}</>}
-          </Button>
+      <div className="flex-1 space-y-1.5 min-h-[72px]">
+        {docs.length === 0 ? (
+          <p className="text-[11px] text-gray-400">{conf.empty}</p>
+        ) : docs.map(d => (
+          <div key={d.id} className="rounded-lg bg-white border border-gray-100 px-2 py-1.5">
+            <div className="flex items-center justify-between gap-1">
+              <span className="text-xs font-medium text-marine truncate">{d.supplier || 'Fournisseur'}</span>
+              <span className="text-xs font-semibold text-gray-700 tabular-nums flex-shrink-0">{d.total_ttc != null ? formatCurrency(d.total_ttc) : d.total_ht != null ? formatCurrency(d.total_ht) : '—'}</span>
+            </div>
+            <div className="text-[10px] text-gray-400 truncate">{d.doc_number || '—'}{d.doc_date ? ` · ${formatDate(d.doc_date)}` : ''}</div>
+          </div>
         ))}
       </div>
+      <button onClick={() => setOpen(true)}
+        className="mt-2 inline-flex items-center justify-center gap-1.5 h-8 rounded-full text-white text-[12px] font-semibold transition-opacity hover:opacity-90"
+        style={{ backgroundColor: conf.color }}>
+        <ScanLine className="w-3.5 h-3.5" /> {conf.scanLabel}
+      </button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-lg sm:max-w-lg max-h-[92vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Icon className="w-5 h-5" style={{ color: conf.color }} /> {conf.title}</DialogTitle></DialogHeader>
+          <AchatsScanner docType={conf.docType} projects={[{ id: projectId, title: projectTitle }]} preselectProject={projectId} onSaved={() => setOpen(false)} />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-/* ── Rapprochement 3 points ── */
+/* ── Étape 4 : rapprochement + contacter le fournisseur ── */
 type RappRow = {
-  designation: string; devis_pu: number | null; devis_qty: number | null; livre_qty: number | null
-  facture_pu: number | null; facture_qty: number | null; ecart_pu: number | null; ecart_pct: number | null
-  ecart_montant: number | null; flag: string
+  designation: string; devis_pu: number | null; facture_pu: number | null; livre_qty: number | null
+  facture_qty: number | null; ecart_montant: number | null; flag: string
 }
-type RappResult = { rows: RappRow[]; summary: { total_surcout: number; total_economie: number; anomalies: number }; counts: { bl: number; facture: number } }
+type RappResult = { rows: RappRow[]; summary: { total_surcout: number; total_economie: number; anomalies: number } }
 
 const flagMeta: Record<string, { label: string; cls: string }> = {
   ok: { label: 'OK', cls: 'text-emerald-600' },
@@ -250,94 +121,111 @@ const flagMeta: Record<string, { label: string; cls: string }> = {
   ecart_quantite: { label: 'Écart quantité', cls: 'text-amber-600' },
 }
 
-function Rapprochement({ projectId, canRun, hasSelected, hasFactures }: {
-  projectId: string; canRun: boolean; hasSelected: boolean; hasFactures: boolean
+function RapprochementStep({ projectId, devisCount, factureCount, supplier }: {
+  projectId: string; devisCount: number; factureCount: number; supplier: string | null
 }) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<RappResult | null>(null)
+  const [open, setOpen] = useState(false)
+  const canRun = devisCount > 0 && factureCount > 0
 
   async function run() {
-    setLoading(true)
+    setLoading(true); setOpen(true)
     try {
       const res = await fetch('/api/achats/rapprochement', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ project_id: projectId }),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project_id: projectId }),
       })
       const json = await res.json()
       if (!res.ok) { toast.error(json.error || 'Rapprochement impossible'); setLoading(false); return }
       setResult(json)
-      if (json.summary.anomalies === 0) toast.success('Rapprochement terminé — aucun écart détecté')
-      else toast.warning(`${json.summary.anomalies} écart(s) détecté(s)`)
-    } catch { toast.error('Erreur réseau') }
-    setLoading(false)
+    } catch { toast.error('Erreur réseau') } finally { setLoading(false) }
+  }
+
+  function contactSupplier() {
+    if (!result) return
+    const flagged = result.rows.filter(r => r.flag === 'surfacture' || r.flag === 'facture_non_devise')
+    const lignes = flagged.map(r => `- ${r.designation} : devisé ${r.devis_pu != null ? formatCurrency(r.devis_pu) : '—'} → facturé ${r.facture_pu != null ? formatCurrency(r.facture_pu) : '—'}`).join('\n')
+    const subject = `Écart facture / devis${supplier ? ` — ${supplier}` : ''}`
+    const body = `Bonjour,\n\nEn rapprochant votre facture avec le devis initial, je constate un écart de ${formatCurrency(result.summary.total_surcout)} en votre faveur.\n\n${lignes ? `Lignes concernées :\n${lignes}\n\n` : ''}Merci de vérifier et de me transmettre un avoir ou une facture corrigée.\n\nCordialement,`
+    window.open(`mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`, '_blank')
   }
 
   return (
-    <div className="rounded-lg border border-gray-100 p-3 space-y-3">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-sm font-medium text-gray-700 flex items-center gap-1.5"><ScanLine className="w-4 h-4 text-marine" /> Rapprochement Devis ↔ BL ↔ Facture</span>
-        <Button size="sm" disabled={!canRun || loading} onClick={run}>
-          {loading ? <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Analyse…</> : 'Lancer le rapprochement'}
-        </Button>
+    <div className="rounded-xl border border-[#EBD9CE] bg-white/60 p-3 flex flex-col h-full">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="grid place-items-center w-6 h-6 rounded-full bg-[#3F7A2E] text-white text-[11px] font-bold flex-shrink-0">4</span>
+        <h4 className="text-[13px] font-bold text-marine flex items-center gap-1.5"><ScanLine className="w-3.5 h-3.5 text-[#3F7A2E]" /> Rapprochement</h4>
       </div>
-
-      {!canRun && (
-        <p className="text-xs text-gray-400">
-          {!hasSelected && 'Choisis un devis de référence'} {!hasSelected && !hasFactures && ' et '} {!hasFactures && 'ajoute au moins une facture fournisseur'} pour lancer le contrôle.
-        </p>
-      )}
-
-      {result && (
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-3">
-            <Stat label="Surcoût détecté" value={formatCurrency(result.summary.total_surcout)} tone={result.summary.total_surcout > 0 ? 'rose' : 'gray'} icon={<TrendingUp className="w-4 h-4" />} />
-            {result.summary.total_economie < 0 && <Stat label="À votre avantage" value={formatCurrency(Math.abs(result.summary.total_economie))} tone="emerald" icon={<TrendingDown className="w-4 h-4" />} />}
-            <Stat label="Écarts" value={String(result.summary.anomalies)} tone={result.summary.anomalies > 0 ? 'amber' : 'emerald'} icon={<AlertTriangle className="w-4 h-4" />} />
+      <div className="flex-1 min-h-[72px] text-[11px] text-gray-400">
+        {!canRun ? 'Ajoutez au moins un devis et une facture pour comparer.' : 'Comparez devis ↔ BL ↔ facture et repérez les écarts.'}
+        {result && (
+          <div className="mt-2 space-y-1 text-marine">
+            <div className="flex items-center gap-1.5"><AlertTriangle className={`w-3.5 h-3.5 ${result.summary.anomalies > 0 ? 'text-rose-500' : 'text-emerald-500'}`} /> <span className="font-semibold">{result.summary.anomalies}</span> écart(s)</div>
+            {result.summary.total_surcout > 0 && <div className="text-rose-600 font-semibold">Surcoût : {formatCurrency(result.summary.total_surcout)}</div>}
           </div>
+        )}
+      </div>
+      <button onClick={run} disabled={!canRun || loading}
+        className="mt-2 inline-flex items-center justify-center gap-1.5 h-8 rounded-full bg-[#3F7A2E] text-white text-[12px] font-semibold hover:opacity-90 transition-opacity disabled:opacity-40">
+        {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ArrowRight className="w-3.5 h-3.5" />} Rapprocher
+      </button>
 
-          {result.summary.total_surcout > 0 && (
-            <div className="rounded-lg bg-rose-50 border border-rose-100 p-2.5 text-sm text-rose-700 flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              Le fournisseur a facturé <strong>{formatCurrency(result.summary.total_surcout)}</strong> de plus que le devis. À réclamer.
-            </div>
-          )}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-w-2xl sm:max-w-2xl max-h-[92vh] overflow-y-auto">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><ScanLine className="w-5 h-5 text-[#3F7A2E]" /> Rapprochement Devis ↔ BL ↔ Facture</DialogTitle></DialogHeader>
+          {loading ? (
+            <div className="py-10 text-center text-sm text-gray-400"><Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" /> Analyse en cours…</div>
+          ) : result ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap gap-3">
+                <Stat label="Surcoût détecté" value={formatCurrency(result.summary.total_surcout)} tone={result.summary.total_surcout > 0 ? 'rose' : 'gray'} icon={<TrendingUp className="w-4 h-4" />} />
+                {result.summary.total_economie < 0 && <Stat label="À votre avantage" value={formatCurrency(Math.abs(result.summary.total_economie))} tone="emerald" icon={<TrendingDown className="w-4 h-4" />} />}
+                <Stat label="Écarts" value={String(result.summary.anomalies)} tone={result.summary.anomalies > 0 ? 'amber' : 'emerald'} icon={<AlertTriangle className="w-4 h-4" />} />
+              </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm border-collapse">
-              <thead>
-                <tr className="text-left text-xs text-gray-400">
-                  <th className="py-1.5 pr-3 font-medium">Matériau</th>
-                  <th className="py-1.5 px-2 font-medium text-right">PU devis</th>
-                  <th className="py-1.5 px-2 font-medium text-right">PU facturé</th>
-                  <th className="py-1.5 px-2 font-medium text-right">Livré</th>
-                  <th className="py-1.5 px-2 font-medium text-right">Facturé</th>
-                  <th className="py-1.5 px-2 font-medium text-right">Écart</th>
-                  <th className="py-1.5 pl-2 font-medium">État</th>
-                </tr>
-              </thead>
-              <tbody>
-                {result.rows.map((r, i) => {
-                  const m = flagMeta[r.flag] || flagMeta.ok
-                  return (
-                    <tr key={i} className={`border-t border-gray-100 ${r.flag === 'surfacture' ? 'bg-rose-50/40' : ''}`}>
-                      <td className="py-1.5 pr-3 text-gray-700">{r.designation}</td>
-                      <td className="py-1.5 px-2 text-right tabular-nums text-gray-600">{r.devis_pu != null ? formatCurrency(r.devis_pu) : '—'}</td>
-                      <td className="py-1.5 px-2 text-right tabular-nums text-gray-600">{r.facture_pu != null ? formatCurrency(r.facture_pu) : '—'}</td>
-                      <td className="py-1.5 px-2 text-right tabular-nums text-gray-500">{r.livre_qty != null ? r.livre_qty : '—'}</td>
-                      <td className="py-1.5 px-2 text-right tabular-nums text-gray-500">{r.facture_qty != null ? r.facture_qty : '—'}</td>
-                      <td className={`py-1.5 px-2 text-right tabular-nums font-medium ${r.ecart_montant && r.ecart_montant > 0 ? 'text-rose-600' : r.ecart_montant && r.ecart_montant < 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
-                        {r.ecart_montant != null && r.ecart_montant !== 0 ? `${r.ecart_montant > 0 ? '+' : ''}${formatCurrency(r.ecart_montant)}` : '—'}
-                      </td>
-                      <td className={`py-1.5 pl-2 text-xs font-medium ${m.cls}`}>{m.label}</td>
+              {result.summary.total_surcout > 0 && (
+                <div className="rounded-lg bg-rose-50 border border-rose-100 p-2.5 text-sm text-rose-700 flex items-center justify-between gap-2 flex-wrap">
+                  <span className="flex items-center gap-2"><AlertTriangle className="w-4 h-4 flex-shrink-0" /> Le fournisseur a facturé <strong>{formatCurrency(result.summary.total_surcout)}</strong> de plus que le devis.</span>
+                  <Button size="sm" className="gap-1.5 flex-shrink-0" onClick={contactSupplier}><Mail className="w-4 h-4" /> Contacter le fournisseur</Button>
+                </div>
+              )}
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm border-collapse">
+                  <thead>
+                    <tr className="text-left text-xs text-gray-400">
+                      <th className="py-1.5 pr-3 font-medium">Matériau</th>
+                      <th className="py-1.5 px-2 font-medium text-right">PU devis</th>
+                      <th className="py-1.5 px-2 font-medium text-right">PU facturé</th>
+                      <th className="py-1.5 px-2 font-medium text-right">Écart</th>
+                      <th className="py-1.5 pl-2 font-medium">État</th>
                     </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-[11px] text-gray-400">Analyse assistée par IA à partir des documents scannés — vérifie les lignes signalées avant toute réclamation.</p>
-        </div>
-      )}
+                  </thead>
+                  <tbody>
+                    {result.rows.map((r, i) => {
+                      const m = flagMeta[r.flag] || flagMeta.ok
+                      return (
+                        <tr key={i} className={`border-t border-gray-100 ${r.flag === 'surfacture' ? 'bg-rose-50/40' : ''}`}>
+                          <td className="py-1.5 pr-3 text-gray-700">{r.designation}</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums text-gray-600">{r.devis_pu != null ? formatCurrency(r.devis_pu) : '—'}</td>
+                          <td className="py-1.5 px-2 text-right tabular-nums text-gray-600">{r.facture_pu != null ? formatCurrency(r.facture_pu) : '—'}</td>
+                          <td className={`py-1.5 px-2 text-right tabular-nums font-medium ${r.ecart_montant && r.ecart_montant > 0 ? 'text-rose-600' : r.ecart_montant && r.ecart_montant < 0 ? 'text-emerald-600' : 'text-gray-400'}`}>
+                            {r.ecart_montant != null && r.ecart_montant !== 0 ? `${r.ecart_montant > 0 ? '+' : ''}${formatCurrency(r.ecart_montant)}` : '—'}
+                          </td>
+                          <td className={`py-1.5 pl-2 text-xs font-medium ${m.cls}`}>{m.label}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-[11px] text-gray-400">Analyse assistée par IA à partir des documents scannés — vérifiez les lignes signalées avant toute réclamation.</p>
+            </div>
+          ) : (
+            <p className="py-8 text-center text-sm text-gray-400">Aucun résultat.</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
