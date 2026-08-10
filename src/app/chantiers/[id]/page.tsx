@@ -16,6 +16,8 @@ import DottedCard from '@/components/charts/DottedCard'
 import ChantierFinancePanel from './ChantierFinancePanel'
 import StatusSelect from '../StatusSelect'
 import AchatsSection, { type AchatDoc } from './AchatsSection'
+import AddTicketDialog from './AddTicketDialog'
+import AddDocumentDialog from './AddDocumentDialog'
 import AvancementControl from './AvancementControl'
 import NotesSection, { type NoteRow } from './NotesSection'
 import ReceptionSection, { type Reception } from './ReceptionSection'
@@ -249,7 +251,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         <DottedCard>
           <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
             <CardTitle className={titleCls}><span className="grid place-items-center w-7 h-7 rounded-lg bg-[#B5811E]/12 text-[#B5811E]"><ReceiptText className="w-4 h-4" /></span> Dépenses ({expenses?.length || 0}){totalDepenses > 0 && <span className="text-[13px] font-normal text-gray-500">· {formatCurrency(totalDepenses)}</span>}</CardTitle>
-            <Link href={`/tickets?project=${id}`} className={pillColor}><Plus className="w-3.5 h-3.5" /> Ticket</Link>
+            <AddTicketDialog projectId={id} pillClassName={pillColor} />
           </CardHeader>
           <CardContent className="px-4 pb-4">
             {!expenses?.length ? <p className="text-sm text-gray-400 py-2">Aucune dépense rattachée</p> : (
@@ -275,7 +277,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
         <DottedCard>
           <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
             <CardTitle className={titleCls}><span className="grid place-items-center w-7 h-7 rounded-lg bg-[#1F7A6E]/12 text-[#1F7A6E]"><FolderOpen className="w-4 h-4" /></span> Documents ({documents?.length || 0})</CardTitle>
-            <Link href={`/documents?project=${id}`} className={pillColor}><Plus className="w-3.5 h-3.5" /> Document</Link>
+            <AddDocumentDialog projectId={id} pillClassName={pillColor} />
           </CardHeader>
           <CardContent className="px-4 pb-4">
             {!documents?.length ? <p className="text-sm text-gray-400 py-2">Aucun document rattaché</p> : (
