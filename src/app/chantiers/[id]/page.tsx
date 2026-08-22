@@ -10,6 +10,7 @@ import {
 import { formatCurrency, formatDate } from '@/lib/utils'
 import type { Project, ProjectStatus } from '@/types'
 import { clientDisplayName } from '@/lib/chantiers'
+import { workedHours } from '@/lib/horaires'
 import { getOwnerName } from '@/lib/profile'
 import DottedPage from '@/components/PageDottedBg'
 import DottedCard from '@/components/charts/DottedCard'
@@ -86,7 +87,7 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
   const totalHeures = (timeEntries || []).reduce((s, t) => s + num(t.hours), 0)
   // Dérive prévu vs pointé : heures planifiées (affectations, défaut 8h–17h) vs heures pointées.
   const heuresPlanifiees = (assignments || []).reduce((s, a: { start_hour?: number | null; end_hour?: number | null }) =>
-    s + Math.max(0, (num(a.end_hour) || 17) - (num(a.start_hour) || 8)), 0) || num(p.planned_hours)
+    s + workedHours(num(a.start_hour) || 8, num(a.end_hour) || 17), 0) || num(p.planned_hours)
   const derive = totalHeures - heuresPlanifiees
   const empCost = new Map((employees || []).map(e => [e.id, num(e.hourly_cost)]))
   const empById = new Map((employees || []).map(e => [e.id, e]))
@@ -297,12 +298,12 @@ export default async function ChantierPage({ params }: { params: Promise<{ id: s
       </div>
 
       {/* Colonne droite : localisation */}
-      <div>
+      <div className="flex flex-col">
       {addr && (
-        <DottedCard>
-          <div className="p-4">
+        <DottedCard className="flex-1 flex flex-col">
+          <div className="p-4 flex flex-col h-full">
             <h3 className={titleCls + ' mb-3'}><span className="grid place-items-center w-7 h-7 rounded-lg bg-[#C14E33]/12 text-[#C14E33]"><MapPin className="w-4 h-4" /></span> Localisation</h3>
-            <div className="relative rounded-xl overflow-hidden border border-white/60 min-h-[420px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
+            <div className="relative flex-1 rounded-xl overflow-hidden border border-white/60 min-h-[420px] shadow-[inset_0_0_0_1px_rgba(0,0,0,0.04)]">
               {/* Décalé vers le haut : le conteneur (overflow-hidden) masque le petit encart blanc « Agrandir le plan » de Google en haut à gauche */}
               <iframe title="Carte du chantier" src={mapSrc} loading="lazy" className="absolute -top-[58px] left-0 block w-full h-[calc(100%+58px)]" referrerPolicy="no-referrer-when-downgrade" />
               {/* Boutons flottants façon Apple par-dessus la carte */}

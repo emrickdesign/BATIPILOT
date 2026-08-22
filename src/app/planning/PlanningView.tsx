@@ -8,8 +8,11 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, CalendarDays, HardHat, Users2, X, AlertTriangle, UserCheck, ArrowRight, CloudRain, CalendarClock, CalendarOff } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, HardHat, Users2, X, AlertTriangle, UserCheck, ArrowRight, CloudRain, CalendarClock, CalendarOff, UserPlus, Check } from 'lucide-react'
 import { employeeInitials } from '@/lib/equipe'
+import DottedPage from '@/components/PageDottedBg'
+import DottedCard from '@/components/charts/DottedCard'
+import { BREAK_START, BREAK_END, workedHours, formatRange } from '@/lib/horaires'
 import type { DayWeather } from '@/lib/meteo'
 import type { WeatherAlert } from './page'
 
@@ -25,6 +28,7 @@ const MONTHS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet'
 const DAY_START = 6
 const DAY_END = 20
 const TOTAL_H = DAY_END - DAY_START
+// Journée type : 8h→17h avec pause déjeuner 12h→13h ⇒ 7 h travaillées.
 const DEFAULT_START = 8
 const DEFAULT_END = 17
 const AXIS = Array.from({ length: TOTAL_H + 1 }, (_, i) => DAY_START + i) // toutes les heures 6h…20h
@@ -71,19 +75,115 @@ function EmployeeBar({ emp, a, busy, onChange, onRemove }: {
 
   const left = (range.s - DAY_START) / TOTAL_H * 100
   const width = (range.e - range.s) / TOTAL_H * 100
+  const heures = workedHours(range.s, range.e)
+  // Pause déjeuner : trou visuel dans la barre, positionné en % de la barre elle-même.
+  const spanH = range.e - range.s
+  const bStart = Math.max(range.s, BREAK_START), bEnd = Math.min(range.e, BREAK_END)
+  const showBreak = bEnd > bStart && spanH > 0
   return (
     <div
-      className="absolute top-1 bottom-1 rounded-lg flex items-center text-white text-[11px] font-semibold shadow-sm select-none touch-none"
+      className="absolute top-1 bottom-1 rounded-lg flex items-center text-white text-[11px] font-semibold shadow-[0_2px_8px_rgba(0,0,0,0.18)] ring-1 ring-white/40 select-none touch-none"
       style={{ left: `${left}%`, width: `${width}%`, backgroundColor: emp.color }}
     >
-      <span onPointerDown={e => begin('start', e)} className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize rounded-l-lg hover:bg-black/20" title="Étirer le début" />
-      <span onPointerDown={e => begin('move', e)} className="flex-1 min-w-0 h-full flex items-center gap-1 pl-3 pr-1 cursor-grab active:cursor-grabbing">
+      {showBreak && (
+        <span
+          aria-hidden
+          className="absolute top-0 bottom-0 pointer-events-none bg-white/45"
+          style={{
+            left: `${(bStart - range.s) / spanH * 100}%`,
+            width: `${(bEnd - bStart) / spanH * 100}%`,
+            backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.55) 0 4px, transparent 4px 8px)',
+          }}
+          title="Pause déjeuner"
+        />
+      )}
+      <span onPointerDown={e => begin('start', e)} className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize rounded-l-lg hover:bg-black/20 z-10" title="Étirer le début" />
+      <span onPointerDown={e => begin('move', e)} className="relative z-10 flex-1 min-w-0 h-full flex items-center gap-1 pl-3 pr-1 cursor-grab active:cursor-grabbing drop-shadow-[0_1px_2px_rgba(0,0,0,0.45)]">
         <span className="truncate">{emp.full_name.split(' ')[0]}</span>
-        <span className="opacity-80 whitespace-nowrap hidden sm:inline">· {range.s}h–{range.e}h</span>
+        <span className="opacity-90 whitespace-nowrap hidden sm:inline">· {formatRange(range.s, range.e)} · {heures} h</span>
       </span>
-      <button onPointerDown={e => e.stopPropagation()} onClick={onRemove} disabled={busy} className="px-1 mr-1.5 opacity-70 hover:opacity-100" title="Retirer"><X className="w-3 h-3" /></button>
-      <span onPointerDown={e => begin('end', e)} className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize rounded-r-lg hover:bg-black/20" title="Étirer la fin" />
+      <button onPointerDown={e => e.stopPropagation()} onClick={onRemove} disabled={busy} className="relative z-10 px-1 mr-1.5 opacity-70 hover:opacity-100" title="Retirer"><X className="w-3 h-3" /></button>
+      <span onPointerDown={e => begin('end', e)} className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize rounded-r-lg hover:bg-black/20 z-10" title="Étirer la fin" />
     </div>
+  )
+}
+
+// Sélecteur de salarié maison (pas de <select> natif) : bouton pastille + panneau flottant.
+// Rendu en portal + position fixed pour ne pas être rogné par les conteneurs à overflow.
+function AffectPicker({ available, busy, variant = 'pill', onPick }: {
+  available: EmployeeRow[]; busy: boolean; variant?: 'pill' | 'cta'
+  onPick: (employeeId: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null)
+  const btnRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    const place = () => {
+      const r = btnRef.current?.getBoundingClientRect()
+      if (!r) return
+      const width = Math.max(r.width, 232)
+      const left = Math.min(Math.max(r.left + r.width / 2 - width / 2, 8), window.innerWidth - width - 8)
+      const below = window.innerHeight - r.bottom
+      const top = below > 260 ? r.bottom + 6 : Math.max(8, r.top - 6 - 260)
+      setPos({ top, left, width })
+    }
+    place()
+    const close = () => setOpen(false)
+    window.addEventListener('resize', place)
+    window.addEventListener('scroll', close, true)
+    return () => { window.removeEventListener('resize', place); window.removeEventListener('scroll', close, true) }
+  }, [open])
+
+  if (!available.length) return null
+
+  const cta = variant === 'cta'
+  return (
+    <>
+      <button
+        ref={btnRef} type="button" disabled={busy} onClick={() => setOpen(o => !o)}
+        aria-haspopup="listbox" aria-expanded={open}
+        className={cta
+          ? `inline-flex items-center gap-2 h-9 pl-3 pr-4 rounded-full bg-gradient-to-b from-[#E5734F] to-[#C14E33] text-white text-[13px] font-semibold border border-white/30 shadow-[0_4px_14px_rgba(193,78,51,0.35)] hover:shadow-[0_6px_18px_rgba(193,78,51,0.45)] hover:-translate-y-px active:translate-y-0 transition-all disabled:opacity-50 ${open ? 'ring-2 ring-[#C14E33]/30' : ''}`
+          : `inline-flex items-center gap-1.5 h-7 pl-2 pr-2.5 rounded-full bg-white/80 backdrop-blur-sm border border-dashed border-[#E0B9A6] text-[11px] font-semibold text-[#B0563A] shadow-sm hover:bg-white hover:border-[#C14E33] hover:shadow-[0_3px_10px_rgba(193,78,51,0.22)] hover:-translate-y-px transition-all disabled:opacity-50 ${open ? 'border-[#C14E33] ring-2 ring-[#C14E33]/20' : ''}`}
+      >
+        <UserPlus className={cta ? 'w-4 h-4' : 'w-3.5 h-3.5'} /> Affecter
+      </button>
+
+      {open && pos && typeof document !== 'undefined' && createPortal(
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={() => setOpen(false)} />
+          <div
+            role="listbox"
+            style={{ top: pos.top, left: pos.left, width: pos.width }}
+            className="fixed z-[61] rounded-2xl border border-[#EBD9CE] bg-gradient-to-br from-[#FFF9F5] to-[#FCEBE1] shadow-[0_18px_44px_rgba(80,40,20,0.22)] overflow-hidden animate-fade-up"
+          >
+            <p className="px-3 pt-2.5 pb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#B0563A]/70">
+              Qui part sur le chantier ?
+            </p>
+            <div className="max-h-[248px] overflow-y-auto pb-1.5">
+              {available.map(e => (
+                <button
+                  key={e.id} type="button" role="option" aria-selected={false} disabled={busy}
+                  onClick={() => { onPick(e.id); setOpen(false) }}
+                  className="group w-full flex items-center gap-2.5 px-3 py-2 text-left hover:bg-white/80 transition-colors disabled:opacity-50"
+                >
+                  <span className="grid place-items-center w-7 h-7 rounded-full text-white text-[10px] font-bold ring-2 ring-white shadow-sm flex-shrink-0"
+                    style={{ backgroundColor: e.color }}>{employeeInitials(e.full_name)}</span>
+                  <span className="flex-1 min-w-0 truncate text-[13px] font-medium text-marine">{e.full_name}</span>
+                  <Check className="w-4 h-4 text-[#C14E33] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+                </button>
+              ))}
+            </div>
+            <p className="px-3 py-2 border-t border-[#EBD9CE]/80 text-[10px] text-gray-400">
+              Journée type {DEFAULT_START}h–{BREAK_START}h · {BREAK_END}h–{DEFAULT_END}h ({workedHours(DEFAULT_START, DEFAULT_END)} h)
+            </p>
+          </div>
+        </>,
+        document.body
+      )}
+    </>
   )
 }
 
@@ -185,13 +285,13 @@ export default function PlanningView({
   const visibleAlerts = weatherAlerts.filter(a => !dismissed.has(`${a.projectId}|${a.date}`))
 
   // Petite pastille météo pour une cellule chantier×jour (chantiers extérieurs uniquement).
-  const WeatherBadge = ({ projectId, date }: { projectId: string; date: string }) => {
+  const WeatherBadge = ({ projectId, date, bar }: { projectId: string; date: string; bar?: boolean }) => {
     const dw = weather[projectId]?.[date]
     if (!dw) return null
     return (
       <span title={`${dw.label} — min ${Math.round(dw.tMin)}° / max ${Math.round(dw.tMax)}°`}
-        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold ${dw.bad ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-500'}`}>
-        <span aria-hidden>{dw.emoji}</span>{dw.label}
+        className={`${bar ? 'w-full flex' : 'inline-flex'} items-center justify-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold leading-tight ${dw.bad ? 'bg-sky-100 text-sky-700' : 'bg-gray-100 text-gray-500'}`}>
+        <span aria-hidden>{dw.emoji}</span><span className="truncate">{dw.label}</span>
       </span>
     )
   }
@@ -210,24 +310,12 @@ export default function PlanningView({
       </span>
     )
   }
-  const AffectSelect = ({ projectId, date }: { projectId: string; date: string }) => {
+  const affectPicker = (projectId: string, date: string, variant?: 'pill' | 'cta') => {
     const assignedIds = new Set((cellMap.get(`${projectId}|${date}`) || []).map(a => a.employee_id))
     const absent = new Set(absentByDate[date] || [])
     const available = employees.filter(e => !assignedIds.has(e.id) && !absent.has(e.id))
-    if (!available.length) return null
-    return (
-      <div className="group relative inline-flex">
-        <span className="pointer-events-none inline-flex items-center gap-1 h-7 px-2.5 rounded-full border border-dashed border-gray-300 text-[11px] font-medium text-gray-400 group-hover:border-primary group-hover:text-primary transition-colors">
-          <span className="text-sm leading-none">+</span> Affecter
-        </span>
-        <select value="" disabled={busy} aria-label="Affecter un salarié"
-          onChange={e => { addAssignment(projectId, date, e.target.value); e.target.value = '' }}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer">
-          <option value="">+ Affecter</option>
-          {available.map(e => <option key={e.id} value={e.id} className="text-gray-900">{e.full_name}</option>)}
-        </select>
-      </div>
-    )
+    return <AffectPicker available={available} busy={busy} variant={variant}
+      onPick={empId => addAssignment(projectId, date, empId)} />
   }
 
   const switchHref = (v: PlanningViewMode) => `/planning?view=${v}&date=${anchor}`
@@ -332,7 +420,7 @@ export default function PlanningView({
           cta={<Link href="/chantiers/nouveau"><Button>Nouveau chantier</Button></Link>} />
       ) : view === 'semaine' ? (
         /* ───────── Vue semaine ───────── */
-        <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden">
+        <Card className="border-0 bg-white/90 backdrop-blur-sm ring-1 ring-white/70 shadow-[0_10px_28px_-8px_rgba(80,40,20,0.28),0_2px_6px_rgba(80,40,20,0.10)] overflow-hidden">
           <div className="overflow-x-auto">
             <div className="min-w-[820px]">
               <div className="grid" style={{ gridTemplateColumns: '200px repeat(7, 1fr)' }}>
@@ -350,15 +438,15 @@ export default function PlanningView({
                 <div key={p.id} className="grid border-b border-gray-100 last:border-0 hover:bg-gray-50/60 transition-colors" style={{ gridTemplateColumns: '200px repeat(7, 1fr)' }}>
                   <div className="p-3 flex items-center gap-2.5 min-w-0">
                     <span className="grid place-items-center w-8 h-8 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><HardHat className="w-4 h-4" /></span>
-                    <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 truncate hover:text-primary">{p.title}</Link>
+                    <Link href={`/chantiers/${p.id}`} className="text-[12px] font-bold uppercase tracking-[0.05em] text-marine truncate hover:text-primary">{p.title}</Link>
                   </div>
                   {days.map(d => (
-                    <div key={d} className={`p-2 border-l border-gray-100 min-h-[76px] ${d === todayIso ? 'bg-primary/[0.03]' : ''}`}>
-                      {weather[p.id]?.[d] && <div className="mb-1"><WeatherBadge projectId={p.id} date={d} /></div>}
-                      <div className="flex flex-wrap gap-1.5">
+                    <div key={d} className={`p-2 border-l border-gray-100 min-h-[76px] flex flex-col items-center ${d === todayIso ? 'bg-primary/[0.03]' : ''}`}>
+                      {weather[p.id]?.[d] && <div className="w-full mb-1"><WeatherBadge projectId={p.id} date={d} bar /></div>}
+                      <div className="flex flex-wrap justify-center gap-1.5">
                         {(cellMap.get(`${p.id}|${d}`) || []).map(a => <Chip key={a.id} a={a} date={d} />)}
                       </div>
-                      <div className="mt-1.5"><AffectSelect projectId={p.id} date={d} /></div>
+                      <div className="mt-auto pt-1.5 flex justify-center">{affectPicker(p.id, d)}</div>
                     </div>
                   ))}
                 </div>
@@ -373,14 +461,14 @@ export default function PlanningView({
             {projects.map(p => {
               const rows = cellMap.get(`${p.id}|${days[0]}`) || []
               return (
-                <Card key={p.id} className="border-0 shadow-[var(--shadow-sm)]">
-                  <CardContent className="p-4">
+                <DottedCard key={p.id} className="shadow-[0_10px_28px_-8px_rgba(80,40,20,0.28),0_2px_6px_rgba(80,40,20,0.10)] ring-1 ring-white/60 transition-shadow hover:shadow-[0_16px_38px_-10px_rgba(80,40,20,0.34),0_3px_8px_rgba(80,40,20,0.12)]">
+                  <div className="p-4">
                     <div className="flex items-center gap-2.5 mb-3">
-                      <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><HardHat className="w-4 h-4" /></span>
-                      <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate">{p.title}</Link>
-                      <span className="ml-auto flex items-center gap-2">
+                      <span className="grid place-items-center w-9 h-9 rounded-xl bg-[#FCE7DE] text-[#C14E33] flex-shrink-0 ring-1 ring-white/80 shadow-sm"><HardHat className="w-4 h-4" /></span>
+                      <Link href={`/chantiers/${p.id}`} className="text-[13px] font-bold uppercase tracking-[0.06em] text-marine hover:text-primary truncate">{p.title}</Link>
+                      <span className="ml-auto flex items-center gap-2 flex-shrink-0">
                         <WeatherBadge projectId={p.id} date={days[0]} />
-                        <span className="text-xs text-gray-400">{rows.length} affecté{rows.length > 1 ? 's' : ''}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{rows.length} affecté{rows.length > 1 ? 's' : ''}</span>
                       </span>
                     </div>
 
@@ -406,9 +494,11 @@ export default function PlanningView({
                               <span className="grid place-items-center w-5 h-5 rounded-full text-white text-[9px] flex-shrink-0" style={{ backgroundColor: emp.color }}>{employeeInitials(emp.full_name)}</span>
                               <span className="text-xs text-gray-700 truncate">{emp.full_name.split(' ')[0]}</span>
                             </div>
-                            <div data-track className="relative flex-1 h-9 rounded-lg bg-gray-100">
+                            <div data-track className="relative flex-1 h-9 rounded-lg bg-white/70 ring-1 ring-[#EBD9CE] shadow-[inset_0_1px_3px_rgba(80,40,20,0.10)]">
+                              <div aria-hidden className="absolute top-0 bottom-0 bg-[#8A4B24]/[0.06]"
+                                style={{ left: `${(BREAK_START - DAY_START) / TOTAL_H * 100}%`, width: `${(BREAK_END - BREAK_START) / TOTAL_H * 100}%` }} />
                               {AXIS.slice(1, -1).map(h => (
-                                <div key={h} className="absolute top-0 bottom-0 w-px bg-gray-200/80" style={{ left: `${(h - DAY_START) / TOTAL_H * 100}%` }} />
+                                <div key={h} className="absolute top-0 bottom-0 w-px bg-[#8A4B24]/10" style={{ left: `${(h - DAY_START) / TOTAL_H * 100}%` }} />
                               ))}
                               <EmployeeBar emp={emp} a={a} busy={busy} onChange={(s, e) => updateHours(a, s, e)} onRemove={() => removeAssignment(a)} />
                             </div>
@@ -417,17 +507,17 @@ export default function PlanningView({
                       })}
                     </div>
 
-                    <div className="mt-3"><AffectSelect projectId={p.id} date={days[0]} /></div>
-                  </CardContent>
-                </Card>
+                    <div className="mt-3 flex justify-center">{affectPicker(p.id, days[0], 'cta')}</div>
+                  </div>
+                </DottedCard>
               )
             })}
           </div>
 
           {/* Disponibilités (§11.1) */}
-          <Card className="border-0 bg-[#F1F6E9]/60 shadow-[var(--shadow-sm)]">
+          <Card className="border-0 bg-[#F1F6E9]/70 ring-1 ring-white/60 shadow-[0_10px_28px_-8px_rgba(46,90,34,0.28),0_2px_6px_rgba(46,90,34,0.10)]">
             <CardContent className="p-4">
-              <h3 className="text-sm font-semibold text-[#2E5A22] mb-2.5 flex items-center gap-2"><UserCheck className="w-4 h-4 text-[#3F7A2E]" /> Disponibles ce jour ({dispoJour.length})</h3>
+              <h3 className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#2E5A22] mb-2.5 flex items-center gap-2"><UserCheck className="w-4 h-4 text-[#3F7A2E]" /> Disponibles ce jour ({dispoJour.length})</h3>
               {dispoJour.length === 0 ? <p className="text-sm text-[#3F7A2E]/70">Tout le monde est affecté.</p> : (
                 <div className="flex flex-wrap gap-1.5">
                   {dispoJour.map(e => (
@@ -440,7 +530,7 @@ export default function PlanningView({
               )}
               {absentsJourList.length > 0 && (
                 <div className="mt-3 pt-3 border-t border-[#CFE0BE]">
-                  <h3 className="text-sm font-semibold text-rose-700 mb-2 flex items-center gap-2"><CalendarOff className="w-4 h-4" /> Absents ce jour ({absentsJourList.length})</h3>
+                  <h3 className="text-[12px] font-bold uppercase tracking-[0.08em] text-rose-700 mb-2 flex items-center gap-2"><CalendarOff className="w-4 h-4" /> Absents ce jour ({absentsJourList.length})</h3>
                   <div className="flex flex-wrap gap-1.5">
                     {absentsJourList.map(e => (
                       <span key={e.id} className="inline-flex items-center gap-1.5 rounded-full bg-white border border-rose-200 pl-1 pr-2.5 py-0.5 text-xs shadow-sm">
@@ -454,12 +544,12 @@ export default function PlanningView({
             </CardContent>
           </Card>
 
-          <p className="text-xs text-gray-400">Glissez le bord d&apos;un créneau pour ajuster ses heures, ou déplacez-le. Par défaut : journée complète ({DEFAULT_START}h–{DEFAULT_END}h).</p>
+          <p className="text-xs text-gray-400">Glissez le bord d&apos;un créneau pour ajuster ses heures, ou déplacez-le. Par défaut : {formatRange(DEFAULT_START, DEFAULT_END)} — pause déjeuner déduite, soit {workedHours(DEFAULT_START, DEFAULT_END)} h travaillées.</p>
         </div>
       ) : (
         /* ───────── Vue mois ───────── */
         <>
-          <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden">
+          <Card className="border-0 bg-white/90 backdrop-blur-sm ring-1 ring-white/70 shadow-[0_10px_28px_-8px_rgba(80,40,20,0.28),0_2px_6px_rgba(80,40,20,0.10)] overflow-hidden">
             <div className="grid grid-cols-7 text-center border-b border-gray-100 bg-gray-50/60">
               {DAY_LABELS.map(l => <div key={l} className="p-2.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">{l}</div>)}
             </div>
@@ -500,10 +590,10 @@ export default function PlanningView({
                 <div className="max-h-[45vh] overflow-y-auto divide-y divide-gray-100">
                   {projects.map(p => (
                     <div key={p.id} className="px-4 py-2.5">
-                      <Link href={`/chantiers/${p.id}`} className="text-sm font-semibold text-gray-800 hover:text-primary truncate block mb-1.5">{p.title}</Link>
+                      <Link href={`/chantiers/${p.id}`} className="text-[12px] font-bold uppercase tracking-[0.05em] text-marine hover:text-primary truncate block mb-1.5">{p.title}</Link>
                       <div className="flex flex-wrap items-center gap-1.5">
                         {(cellMap.get(`${p.id}|${selDay}`) || []).map(a => <Chip key={a.id} a={a} date={selDay} />)}
-                        <AffectSelect projectId={p.id} date={selDay} />
+                        {affectPicker(p.id, selDay)}
                       </div>
                     </div>
                   ))}
@@ -529,13 +619,15 @@ export default function PlanningView({
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="space-y-5 animate-fade-up">
-      <div>
-        <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Planning</h1>
-        <p className="text-gray-500 mt-1 text-sm">Qui va où, quand, sur quel chantier — jour, semaine ou mois.</p>
+    <DottedPage>
+      <div className="space-y-5 animate-fade-up">
+        <div>
+          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Planning</h1>
+          <p className="text-gray-500 mt-1 text-sm">Qui va où, quand, sur quel chantier — jour, semaine ou mois.</p>
+        </div>
+        {children}
       </div>
-      {children}
-    </div>
+    </DottedPage>
   )
 }
 

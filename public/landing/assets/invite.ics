@@ -1,0 +1,54 @@
+BEGIN:VCALENDAR
+PRODID:-//Google Inc//Google Calendar 70.9054//EN
+VERSION:2.0
+CALSCALE:GREGORIAN
+METHOD:REQUEST
+BEGIN:VTIMEZONE
+TZID:Europe/Paris
+X-LIC-LOCATION:Europe/Paris
+BEGIN:DAYLIGHT
+TZOFFSETFROM:+0100
+TZOFFSETTO:+0200
+TZNAME:GMT+2
+DTSTART:19700329T020000
+RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU
+END:DAYLIGHT
+BEGIN:STANDARD
+TZOFFSETFROM:+0200
+TZOFFSETTO:+0100
+TZNAME:GMT+1
+DTSTART:19701025T030000
+RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU
+END:STANDARD
+END:VTIMEZONE
+BEGIN:VEVENT
+DTSTART;TZID=Europe/Paris:20260812T100000
+DTEND;TZID=Europe/Paris:20260812T103000
+DTSTAMP:20260811T142221Z
+ORGANIZER;CN=Rayane Rhougaya:mailto:rayane.r@bridgeapi.io
+UID:3rv58u1a2jtqrq6fgbhmnr0cbj@google.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=
+ TRUE;CN=Romain Polit-Jouan;X-NUM-GUESTS=0:mailto:romain.p@bridgeapi.io
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=NEEDS-ACTION;RSVP=
+ TRUE;CN=emrick.perilliat2006@gmail.com;X-NUM-GUESTS=0:mailto:emrick.perilli
+ at2006@gmail.com
+ATTENDEE;CUTYPE=INDIVIDUAL;ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=TRUE
+ ;CN=Rayane Rhougaya;X-NUM-GUESTS=0:mailto:rayane.r@bridgeapi.io
+X-GOOGLE-CONFERENCE:https://meet.google.com/pxn-srqs-sbq
+X-MICROSOFT-CDO-OWNERAPPTID:923592796
+CREATED:20260811T142208Z
+DESCRIPTION:-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~
+ :~:~:~:~:~:~:~:~::~:~::-\nJoin with Google Meet: https://meet.google.com/px
+ n-srqs-sbq\nOr dial: (IE) +353 1 571 2382 PIN: 277512633#\nMore phone numbe
+ rs: https://tel.meet/pxn-srqs-sbq?pin=5371048590015&hs=7\n\nLearn more abou
+ t Meet at: https://support.google.com/a/users/answer/9282720\n\nPlease do n
+ ot edit this section.\n-::~:~::~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:~:
+ ~:~:~:~:~:~:~:~:~:~:~:~:~:~::~:~::-
+LAST-MODIFIED:20260811T142221Z
+LOCATION:https://meet.google.com/pxn-srqs-sbq
+SEQUENCE:0
+STATUS:CONFIRMED
+SUMMARY:Potentieel X BridgeAPI
+TRANSP:OPAQUE
+END:VEVENT
+END:VCALENDAR
