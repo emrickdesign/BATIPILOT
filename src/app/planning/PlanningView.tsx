@@ -392,7 +392,7 @@ export default function PlanningView({
 
       {/* Alertes météo → replanification (chantiers extérieurs) */}
       {visibleAlerts.length > 0 && (
-        <Card className="border-0 shadow-[var(--shadow-sm)] overflow-hidden ring-1 ring-sky-100">
+        <Card className="border-0 py-0 gap-0 rounded-2xl shadow-[var(--shadow-sm)] overflow-hidden ring-1 ring-sky-100">
           <div className="bg-gradient-to-r from-sky-50 to-transparent px-4 py-2.5 border-b border-sky-100 flex items-center gap-2">
             <CloudRain className="w-4 h-4 text-sky-600" />
             <h3 className="text-sm font-semibold text-marine">Météo défavorable sur des chantiers extérieurs planifiés</h3>
@@ -436,8 +436,8 @@ export default function PlanningView({
           cta={<Link href="/chantiers/nouveau"><Button>Nouveau chantier</Button></Link>} />
       ) : view === 'semaine' ? (
         /* ───────── Vue semaine ───────── */
-        <Card className="border-0 bg-white/90 backdrop-blur-sm ring-1 ring-white/70 shadow-[0_10px_28px_-8px_rgba(80,40,20,0.28),0_2px_6px_rgba(80,40,20,0.10)] overflow-hidden">
-          <div className="overflow-x-auto">
+        <Card className="border-0 py-0 gap-0 rounded-2xl bg-white/90 backdrop-blur-sm ring-1 ring-white/70 shadow-[0_10px_28px_-8px_rgba(80,40,20,0.28),0_2px_6px_rgba(80,40,20,0.10)] overflow-hidden">
+          <div className="overflow-x-auto rounded-2xl">
             <div className="min-w-[1320px]">
               {/* Bandeau des jours — dégradé corail + motif de points, pour isoler visuellement la zone d'affectation */}
               <div className="grid border-b border-[#E6C9B8] bg-gradient-to-b from-[#FCEBE1] to-[#F7DDCE] shadow-[0_2px_6px_rgba(80,40,20,0.10)]" style={{ gridTemplateColumns: `${WEEK_COL}px repeat(7, 1fr)` }}>
@@ -580,23 +580,13 @@ export default function PlanningView({
       ) : (
         /* ───────── Vue mois ───────── */
         <>
-          <Card className="relative border-0 bg-white/90 backdrop-blur-sm ring-1 ring-white/70 shadow-[0_10px_28px_-8px_rgba(80,40,20,0.28),0_2px_6px_rgba(80,40,20,0.10)] overflow-hidden">
-            {/* Quadrillage papier millimétré en fond de calendrier */}
-            <div aria-hidden className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundImage: [
-                  'linear-gradient(rgba(138,75,36,0.055) 1px, transparent 1px)',
-                  'linear-gradient(90deg, rgba(138,75,36,0.055) 1px, transparent 1px)',
-                  'radial-gradient(rgba(138,75,36,0.10) 1px, transparent 1px)',
-                ].join(', '),
-                backgroundSize: '22px 22px, 22px 22px, 22px 22px',
-              }} />
+          <Card className="relative border-0 py-0 gap-0 rounded-2xl bg-white/90 backdrop-blur-sm ring-1 ring-white/70 shadow-[0_10px_28px_-8px_rgba(80,40,20,0.28),0_2px_6px_rgba(80,40,20,0.10)] overflow-hidden">
             <div className="relative grid grid-cols-7 text-center border-b border-[#E6C9B8] bg-gradient-to-b from-[#FCEBE1] to-[#F7DDCE] shadow-[0_2px_6px_rgba(80,40,20,0.08)]">
               {DAY_LABELS.map((l, i) => (
                 <div key={l} className={`p-2.5 text-[11px] font-bold uppercase tracking-[0.12em] ${i >= 5 ? 'text-[#B0563A]/55' : 'text-[#B0563A]'}`}>{l}</div>
               ))}
             </div>
-            <div className="relative grid grid-cols-7">
+            <div className="relative grid grid-cols-7 [&>*]:border-dashed [&>*:nth-child(7n+1)]:border-l-0 [&>*:nth-last-child(-n+7)]:border-b-0">
               {Array.from({ length: (new Date(days[0] + 'T00:00:00').getDay() + 6) % 7 }).map((_, i) => (
                 <div key={`b${i}`} className="min-h-[116px] border-b border-l border-[#F0E2D8]"
                   style={{ backgroundImage: 'repeating-linear-gradient(45deg, rgba(138,75,36,0.05) 0 6px, transparent 6px 12px)' }} />
