@@ -11,7 +11,6 @@ import { toast } from 'sonner'
 import { ChevronLeft, ChevronRight, CalendarDays, HardHat, Users2, X, AlertTriangle, UserCheck, ArrowRight, CloudRain, CalendarClock, CalendarOff, UserPlus, Check, Clock3 } from 'lucide-react'
 import { employeeInitials } from '@/lib/equipe'
 import DottedPage from '@/components/PageDottedBg'
-import DottedCard from '@/components/charts/DottedCard'
 import { BREAK_START, BREAK_END, workedHours, formatRange } from '@/lib/horaires'
 import type { DayWeather } from '@/lib/meteo'
 import type { WeatherAlert } from './page'
@@ -488,21 +487,31 @@ export default function PlanningView({
       ) : view === 'jour' ? (
         /* ───────── Vue jour : frise horaire draggable ───────── */
         <div className="space-y-4">
-          <div className="grid gap-3">
+          {/* Section : fond crème pointillé + arrondi ; les cartes chantier restent claires */}
+          <div className="relative rounded-2xl overflow-hidden ring-1 ring-white/70 border border-[#EBD9CE] bg-gradient-to-br from-[#FFF7F2] to-[#FCEBE1] shadow-[0_10px_28px_-8px_rgba(80,40,20,0.28),0_2px_6px_rgba(80,40,20,0.10)]">
+            <div aria-hidden className="absolute inset-0 pointer-events-none"
+              style={{
+                backgroundImage: [
+                  'radial-gradient(60% 45% at 100% 0%, rgba(224,103,76,0.12), transparent 60%)',
+                  'radial-gradient(rgba(138,75,36,0.10) 1px, transparent 1px)',
+                ].join(', '),
+                backgroundSize: '100% 100%, 15px 15px',
+              }} />
+          <div className="relative grid gap-3 p-3 sm:p-4">
             {projects.map(p => {
               const rows = cellMap.get(`${p.id}|${days[0]}`) || []
               return (
-                <DottedCard key={p.id} className="shadow-[0_10px_28px_-8px_rgba(80,40,20,0.28),0_2px_6px_rgba(80,40,20,0.10)] ring-1 ring-white/60 transition-shadow hover:shadow-[0_16px_38px_-10px_rgba(80,40,20,0.34),0_3px_8px_rgba(80,40,20,0.12)]">
+                <div key={p.id} className="rounded-2xl overflow-hidden bg-white/95 ring-1 ring-[#EBD9CE] shadow-[0_6px_18px_-6px_rgba(80,40,20,0.22),0_1px_3px_rgba(80,40,20,0.08)] transition-shadow hover:shadow-[0_12px_28px_-8px_rgba(80,40,20,0.30),0_2px_5px_rgba(80,40,20,0.10)]">
+                  {/* Bandeau orange, comme les en-têtes des vues semaine et mois */}
+                  <div className="flex items-center gap-2.5 px-4 py-2.5 bg-gradient-to-b from-[#FCEBE1] to-[#F7DDCE] border-b border-[#E6C9B8]">
+                    <span className="grid place-items-center w-8 h-8 rounded-xl bg-white/80 text-[#C14E33] flex-shrink-0 ring-1 ring-[#EBD9CE] shadow-sm"><HardHat className="w-4 h-4" /></span>
+                    <Link href={`/chantiers/${p.id}`} className="text-[13px] font-bold uppercase tracking-[0.06em] text-[#B0563A] hover:text-[#C14E33] truncate">{p.title}</Link>
+                    <span className="ml-auto flex items-center gap-2 flex-shrink-0">
+                      <WeatherBadge projectId={p.id} date={days[0]} />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-[#B0563A]/70">{rows.length} affecté{rows.length > 1 ? 's' : ''}</span>
+                    </span>
+                  </div>
                   <div className="p-4">
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <span className="grid place-items-center w-9 h-9 rounded-xl bg-[#FCE7DE] text-[#C14E33] flex-shrink-0 ring-1 ring-white/80 shadow-sm"><HardHat className="w-4 h-4" /></span>
-                      <Link href={`/chantiers/${p.id}`} className="text-[13px] font-bold uppercase tracking-[0.06em] text-marine hover:text-primary truncate">{p.title}</Link>
-                      <span className="ml-auto flex items-center gap-2 flex-shrink-0">
-                        <WeatherBadge projectId={p.id} date={days[0]} />
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">{rows.length} affecté{rows.length > 1 ? 's' : ''}</span>
-                      </span>
-                    </div>
-
                     {/* Axe des heures */}
                     <div className="flex items-center gap-2">
                       <div className="w-24 flex-shrink-0" />
@@ -525,7 +534,7 @@ export default function PlanningView({
                               <span className="grid place-items-center w-5 h-5 rounded-full text-white text-[9px] flex-shrink-0" style={{ backgroundColor: emp.color }}>{employeeInitials(emp.full_name)}</span>
                               <span className="text-xs text-gray-700 truncate">{emp.full_name.split(' ')[0]}</span>
                             </div>
-                            <div data-track className="relative flex-1 h-9 rounded-lg bg-white/70 ring-1 ring-[#EBD9CE] shadow-[inset_0_1px_3px_rgba(80,40,20,0.10)]">
+                            <div data-track className="relative flex-1 h-9 rounded-lg bg-[#FDF6F1] ring-1 ring-[#EBD9CE] shadow-[inset_0_1px_3px_rgba(80,40,20,0.10)]">
                               <div aria-hidden className="absolute top-0 bottom-0 bg-[#8A4B24]/[0.06]"
                                 style={{ left: `${(BREAK_START - DAY_START) / TOTAL_H * 100}%`, width: `${(BREAK_END - BREAK_START) / TOTAL_H * 100}%` }} />
                               {AXIS.slice(1, -1).map(h => (
@@ -540,9 +549,10 @@ export default function PlanningView({
 
                     <div className="mt-3 flex justify-center">{affectPicker(p.id, days[0], 'cta')}</div>
                   </div>
-                </DottedCard>
+                </div>
               )
             })}
+          </div>
           </div>
 
           {/* Disponibilités (§11.1) */}
