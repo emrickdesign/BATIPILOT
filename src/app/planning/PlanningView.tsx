@@ -487,17 +487,8 @@ export default function PlanningView({
       ) : view === 'jour' ? (
         /* ───────── Vue jour : frise horaire draggable ───────── */
         <div className="space-y-4">
-          {/* Section : fond crème pointillé + arrondi ; les cartes chantier restent claires */}
-          <div className="relative rounded-2xl overflow-hidden ring-1 ring-white/70 border border-[#EBD9CE] bg-gradient-to-br from-[#FFF7F2] to-[#FCEBE1] shadow-[0_10px_28px_-8px_rgba(80,40,20,0.28),0_2px_6px_rgba(80,40,20,0.10)]">
-            <div aria-hidden className="absolute inset-0 pointer-events-none"
-              style={{
-                backgroundImage: [
-                  'radial-gradient(60% 45% at 100% 0%, rgba(224,103,76,0.12), transparent 60%)',
-                  'radial-gradient(rgba(138,75,36,0.10) 1px, transparent 1px)',
-                ].join(', '),
-                backgroundSize: '100% 100%, 15px 15px',
-              }} />
-          <div className="relative grid gap-3 p-3 sm:p-4">
+          {/* Cartes chantier volantes : le motif de points reste celui de la page */}
+          <div className="grid gap-3">
             {projects.map(p => {
               const rows = cellMap.get(`${p.id}|${days[0]}`) || []
               return (
@@ -552,7 +543,6 @@ export default function PlanningView({
                 </div>
               )
             })}
-          </div>
           </div>
 
           {/* Disponibilités (§11.1) */}
