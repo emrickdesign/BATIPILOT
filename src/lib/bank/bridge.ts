@@ -62,7 +62,8 @@ export async function createConnectSession(token: string, opts: {
       callback_url: opts.callbackUrl,
       country_code: 'FR',
       account_types: 'all',
-      ...(opts.context ? { context: opts.context } : {}),
+      // Bridge n'accepte QUE des lettres et chiffres dans context (ni tiret ni point).
+      ...(opts.context ? { context: opts.context.replace(/[^a-zA-Z0-9]/g, '') } : {}),
     }),
   })
 }
