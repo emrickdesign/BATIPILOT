@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { formatCurrency } from '@/lib/utils'
+import { categorizeExpense, CATEGORY_LABELS, type ExpenseCategory } from '@/lib/bank/categorize'
 import { timeProgress, isAValider } from '@/lib/chantiers'
 import { isRelanceDue } from '@/lib/relances'
 import ChantiersActifsList from './ChantiersActifsList'
@@ -75,7 +76,7 @@ async function getData(userId: string) {
     supabase.from('presence_events').select('employee_id').eq('user_id', userId).gte('occurred_at', isoDay),
     supabase.from('assignments').select('employee_id, project_id').eq('user_id', userId).eq('date', today),
     supabase.from('assignments').select('project_id').eq('user_id', userId).eq('date', tomorrowStr),
-    supabase.from('bank_transactions').select('id, amount, status').eq('user_id', userId),
+    supabase.from('bank_transactions').select('id, amount, status, tx_date, label').eq('user_id', userId),
     supabase.from('vehicles').select('id, name').eq('user_id', userId).eq('active', true),
     supabase.from('vehicle_logs').select('project_id, date, hours_present').eq('user_id', userId),
     supabase.from('clients').select('id, first_name, last_name, company_name, type, status, request_type, created_at').eq('user_id', userId),
@@ -270,10 +271,36 @@ async function getData(userId: string) {
     }
     return exp.filter(e => inM(e.expense_date || e.created_at)).reduce((s, e) => s + num(e.amount_ttc), 0)
   })
+  // Sorties réelles depuis la banque (débits) : source de vérité quand une banque est connectée.
+  const hasBank = bank.length > 0
+  const bankDepensesSeries = Array.from({ length: 6 }, (_, k) => {
+    const dM = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1)
+    const inM = (d?: string | null) => {
+      if (!d) return false
+      const x = new Date(d)
+      return x.getFullYear() === dM.getFullYear() && x.getMonth() === dM.getMonth()
+    }
+    return bank.filter(t => num(t.amount) < 0 && inM(t.tx_date)).reduce((s, t) => s + Math.abs(num(t.amount)), 0)
+  })
+  const sortiesSeries = hasBank ? bankDepensesSeries : depensesSeries
   const cashflow = Array.from({ length: 6 }, (_, k) => {
     const dM = new Date(now.getFullYear(), now.getMonth() - (5 - k), 1)
-    return { label: MONTHS[dM.getMonth()], entrees: encaisseSeries[k], depenses: depensesSeries[k] }
+    return { label: MONTHS[dM.getMonth()], entrees: encaisseSeries[k], depenses: sortiesSeries[k] }
   })
+
+  // Répartition des sorties du mois en cours par catégorie (débits bancaires).
+  const debitsMois = bank.filter(t => num(t.amount) < 0 && inThisMonth(t.tx_date))
+  const sortiesMois = debitsMois.reduce((s, t) => s + Math.abs(num(t.amount)), 0)
+  const catMap = new Map<ExpenseCategory, number>()
+  for (const t of debitsMois) {
+    const c = categorizeExpense(t.label)
+    catMap.set(c, (catMap.get(c) || 0) + Math.abs(num(t.amount)))
+  }
+  const topCategories = [...catMap.entries()]
+    .map(([key, montant]) => ({ key, label: CATEGORY_LABELS[key], montant }))
+    .sort((a, b) => b.montant - a.montant)
+    .slice(0, 5)
+  const depenses = { hasBank, sortiesMois, topCategories }
 
   // Séries journalières CUMULÉES du mois en cours (vraies courbes des sparklines KPI,
   // construites à partir des vraies dates de factures / dépenses jour par jour)
@@ -437,6 +464,7 @@ async function getData(userId: string) {
   return {
     fin: { encaisseMois, encaisseMoisPrec, factureMois, resteAEncaisser, devisEnAttente },
     tresorerie: { total: tresorerie, has: hasTresorerie, maj: tresorerieMaj },
+    depenses,
     pilotage,
     kpiSparks: { encaisse: encaisseDaily, facture: factureDaily, depenses: depensesDaily },
     todos,
@@ -614,6 +642,39 @@ export default async function DashboardPage() {
             </div>
           </div>
         </Link>
+      )}
+
+      {/* Sorties du mois + répartition par catégorie (depuis les débits bancaires) */}
+      {d.depenses.hasBank && d.depenses.sortiesMois > 0 && (
+        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-[var(--shadow-xs)] animate-fade-up">
+          <div className="flex items-center justify-between gap-4 mb-3">
+            <div className="flex items-center gap-3.5">
+              <span className="grid place-items-center w-11 h-11 rounded-xl bg-orange-100 text-orange-600 flex-shrink-0">
+                <Banknote className="w-5 h-5" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Sorties du mois</p>
+                <p className="text-2xl md:text-[28px] font-bold font-heading text-marine tabular-nums leading-tight">{formatCurrency(d.depenses.sortiesMois)}</p>
+              </div>
+            </div>
+            <Link href="/banque" className="text-xs text-primary hover:underline flex-shrink-0">Détail →</Link>
+          </div>
+          <div className="space-y-1.5">
+            {d.depenses.topCategories.map(c => {
+              const pct = Math.round((c.montant / d.depenses.sortiesMois) * 100)
+              return (
+                <div key={c.key} className="flex items-center gap-3">
+                  <span className="w-40 text-xs text-gray-600 flex-shrink-0 truncate">{c.label}</span>
+                  <span className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+                    <span className="block h-full rounded-full bg-gradient-to-r from-[#F09A80] to-[#D05C43]" style={{ width: `${Math.max(pct, 3)}%` }} />
+                  </span>
+                  <span className="w-24 text-right text-xs font-semibold text-marine tabular-nums flex-shrink-0">{formatCurrency(c.montant)}</span>
+                  <span className="w-9 text-right text-[11px] text-gray-400 flex-shrink-0">{pct}%</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
       )}
 
       {/* 1. Chiffres vitaux */}
