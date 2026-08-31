@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
       .select('id').eq('user_id', user.id).eq('status', 'pending')
       .order('created_at', { ascending: false }).limit(1).maybeSingle()
 
+    const now = new Date().toISOString()
     for (const a of accounts) {
       await supabase.from('bank_accounts').upsert({
         user_id: user.id,
@@ -32,6 +33,9 @@ export async function GET(req: NextRequest) {
         iban: a.iban || null,
         name: a.name || null,
         currency: a.currency_code || null,
+        balance: typeof a.balance === 'number' ? a.balance : null,
+        account_type: a.type || null,
+        balance_updated_at: now,
       }, { onConflict: 'account_id' })
     }
 

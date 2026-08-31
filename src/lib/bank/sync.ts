@@ -2,7 +2,7 @@
 // Utilisé par le cron (tous les comptes) et par la synchro manuelle (un utilisateur).
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getUserToken, listTransactions } from './bridge'
+import { getUserToken, listTransactions, listAccounts } from './bridge'
 import { matchInvoice, applyReconciliation, type OpenInvoice } from './reconcile'
 
 export async function syncUserBank(supabase: SupabaseClient, userId: string): Promise<{ imported: number; matched: number }> {
@@ -11,6 +11,22 @@ export async function syncUserBank(supabase: SupabaseClient, userId: string): Pr
   if (!accounts?.length) return { imported: 0, matched: 0 }
 
   const token = await getUserToken(userId)
+
+  // Rafraîchit le solde de chaque compte (trésorerie live sur le dashboard).
+  try {
+    const live = await listAccounts(token)
+    const now = new Date().toISOString()
+    for (const a of live) {
+      await supabase.from('bank_accounts').update({
+        balance: typeof a.balance === 'number' ? a.balance : null,
+        account_type: a.type || null,
+        name: a.name || null,
+        currency: a.currency_code || null,
+        balance_updated_at: now,
+      }).eq('user_id', userId).eq('account_id', String(a.id))
+    }
+  } catch { /* solde non bloquant : on continue l'import des virements */ }
+
   const minDate = new Date(Date.now() - 90 * 86400000).toISOString().split('T')[0]
   const txs = await listTransactions(token, minDate)
   if (!txs.length) {

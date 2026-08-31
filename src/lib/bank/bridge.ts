@@ -68,7 +68,10 @@ export async function createConnectSession(token: string, opts: {
   })
 }
 
-export type BridgeAccount = { id: number; name?: string; iban?: string; currency_code?: string }
+export type BridgeAccount = {
+  id: number; name?: string; iban?: string; currency_code?: string
+  balance?: number; type?: string; updated_at?: string
+}
 
 export async function listAccounts(token: string): Promise<BridgeAccount[]> {
   const json = await call<{ resources: BridgeAccount[] }>('/aggregation/accounts', { token })

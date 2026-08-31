@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Landmark, CheckCircle2, AlertTriangle } from 'lucide-react'
-import { formatDate } from '@/lib/utils'
+import { formatDate, formatCurrency } from '@/lib/utils'
 import BanqueConnect from './BanqueConnect'
 
 export const dynamic = 'force-dynamic'
@@ -17,9 +17,12 @@ export default async function ParametresBanquePage({ searchParams }: { searchPar
   const [{ data: connection }, { data: accounts }] = await Promise.all([
     supabase.from('bank_connections').select('id, status, institution_name, linked_at, expires_at')
       .eq('user_id', user.id).eq('status', 'linked').order('linked_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('bank_accounts').select('id, iban, name, last_synced_at').eq('user_id', user.id),
+    supabase.from('bank_accounts').select('id, iban, name, currency, balance, last_synced_at').eq('user_id', user.id),
   ])
   const connected = !!connection
+  const totalEur = (accounts || []).filter(a => (!a.currency || a.currency === 'EUR') && a.balance != null)
+    .reduce((s, a) => s + Number(a.balance || 0), 0)
+  const hasBalance = (accounts || []).some(a => a.balance != null)
 
   const expires = connection?.expires_at ? new Date(connection.expires_at) : null
   const daysLeft = expires ? Math.ceil((expires.getTime() - Date.now()) / 86400000) : null
@@ -59,11 +62,29 @@ export default async function ParametresBanquePage({ searchParams }: { searchPar
               {connected ? (
                 <>
                   <p className="font-semibold text-marine">Banque connectée ✓</p>
-                  <div className="mt-1 space-y-0.5 text-sm text-gray-500">
+                  {hasBalance && (
+                    <div className="mt-2 mb-3 rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700/70">Trésorerie disponible</p>
+                      <p className="text-xl font-bold text-marine tabular-nums">{formatCurrency(totalEur)}</p>
+                    </div>
+                  )}
+                  <div className="mt-1 space-y-1.5 text-sm text-gray-500">
                     {(accounts || []).map(a => (
-                      <p key={a.id} className="font-mono text-xs">{a.iban || a.name || 'Compte'}</p>
+                      <div key={a.id} className="flex items-center justify-between gap-3">
+                        <span className="min-w-0">
+                          <span className="block text-xs text-gray-600 truncate">{a.name || 'Compte'}</span>
+                          <span className="block font-mono text-[11px] text-gray-400 truncate">{a.iban || '—'}</span>
+                        </span>
+                        {a.balance != null && (
+                          <span className="text-sm font-semibold text-marine tabular-nums flex-shrink-0">
+                            {!a.currency || a.currency === 'EUR'
+                              ? formatCurrency(Number(a.balance))
+                              : `${Number(a.balance).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${a.currency}`}
+                          </span>
+                        )}
+                      </div>
                     ))}
-                    {lastSync && <p className="text-xs">Dernière synchro : {formatDate(lastSync)}</p>}
+                    {lastSync && <p className="text-xs pt-1">Dernière synchro : {formatDate(lastSync)}</p>}
                     {daysLeft != null && (
                       <p className={`text-xs ${daysLeft < 15 ? 'text-amber-600 font-medium' : 'text-gray-400'}`}>
                         {daysLeft > 0 ? `Reconnexion à refaire dans ${daysLeft} j (obligation DSP2)` : 'Reconnexion nécessaire (consentement expiré)'}

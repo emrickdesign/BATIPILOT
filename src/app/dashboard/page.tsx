@@ -65,7 +65,7 @@ async function getData(userId: string) {
     return x.getFullYear() === lastMonth.getFullYear() && x.getMonth() === lastMonth.getMonth()
   }
 
-  const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes, absRes, vehAsgRes, snzRes] = await Promise.all([
+  const [quotesRes, invRes, projRes, expRes, empRes, timesRes, presRes, asgTodayRes, asgTomRes, bankRes, vehRes, vlogRes, clientsRes, absRes, vehAsgRes, snzRes, acctRes] = await Promise.all([
     supabase.from('quotes').select('id, quote_number, status, total_ttc, subtotal_ht, issue_date, valid_until, reminded_at, client_id, project_id, created_at').eq('user_id', userId),
     supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due, issue_date, due_date, client_id, quote_id, created_at').eq('user_id', userId),
     supabase.from('projects').select('id, title, status, start_date, end_date, progress, created_at').eq('user_id', userId).neq('status', 'archive'),
@@ -82,6 +82,7 @@ async function getData(userId: string) {
     supabase.from('absences').select('id, employee_id, start_date, end_date, type, reason, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
     supabase.from('vehicle_assignments').select('vehicle_id, project_id').eq('user_id', userId).eq('date', today),
     supabase.from('dashboard_snoozes').select('todo_key, snooze_until').eq('user_id', userId).gt('snooze_until', now.toISOString()),
+    supabase.from('bank_accounts').select('balance, currency, balance_updated_at').eq('user_id', userId),
   ])
   const snoozed = new Set((snzRes.data || []).map(s => s.todo_key as string))
 
@@ -91,6 +92,13 @@ async function getData(userId: string) {
   const exp = expRes.data || []
   const times = timesRes.data || []
   const bank = bankRes.data || []
+  const accts = acctRes.data || []
+
+  // Trésorerie : solde cumulé des comptes en euros (les devises étrangères sont ignorées ici).
+  const eurAccts = accts.filter(a => !a.currency || a.currency === 'EUR')
+  const tresorerie = eurAccts.reduce((s, a) => s + num(a.balance), 0)
+  const hasTresorerie = eurAccts.some(a => a.balance != null)
+  const tresorerieMaj = accts.map(a => a.balance_updated_at).filter(Boolean).sort().pop() || null
 
   const isPaid = (s: string) => s === 'payee' || s === 'payée' || s === 'paye'
 
@@ -428,6 +436,7 @@ async function getData(userId: string) {
 
   return {
     fin: { encaisseMois, encaisseMoisPrec, factureMois, resteAEncaisser, devisEnAttente },
+    tresorerie: { total: tresorerie, has: hasTresorerie, maj: tresorerieMaj },
     pilotage,
     kpiSparks: { encaisse: encaisseDaily, facture: factureDaily, depenses: depensesDaily },
     todos,
@@ -581,6 +590,31 @@ export default async function DashboardPage() {
           <span className="grid place-items-center w-9 h-9 rounded-full bg-gradient-to-br from-[#F09A80] to-[#D05C43] text-white text-xs font-bold">{initials}</span>
         </div>
       </div>
+
+      {/* Trésorerie : solde bancaire réel (affiché seulement si une banque est connectée) */}
+      {d.tresorerie.has && (
+        <Link href="/banque" className="block animate-fade-up">
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white px-5 py-4 shadow-[var(--shadow-xs)] hover:shadow-[var(--shadow-sm)] transition-shadow">
+            <div className="flex items-center gap-3.5">
+              <span className="grid place-items-center w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 flex-shrink-0">
+                <Landmark className="w-5 h-5" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700/70">Trésorerie disponible</p>
+                <p className="text-2xl md:text-[28px] font-bold font-heading text-marine tabular-nums leading-tight">{formatCurrency(d.tresorerie.total)}</p>
+              </div>
+            </div>
+            <div className="text-right hidden sm:block">
+              <p className="text-xs text-gray-400">Solde réel des comptes</p>
+              {d.tresorerie.maj && (
+                <p className="text-xs text-gray-400 mt-0.5">
+                  màj {new Date(d.tresorerie.maj).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              )}
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* 1. Chiffres vitaux */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
