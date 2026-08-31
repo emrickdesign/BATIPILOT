@@ -1,6 +1,8 @@
 // Connecteur Bridge (bridgeapi.io) — agrégateur bancaire DSP2, API v3.
 // Docs : https://docs.bridgeapi.io/  — auth par headers app + token utilisateur.
-// Variables d'env : BRIDGE_CLIENT_ID, BRIDGE_CLIENT_SECRET.
+// Variables d'env : BRIDGE_CLIENT_ID, BRIDGE_CLIENT_SECRET, BRIDGE_WEBHOOK_SECRET.
+
+import crypto from 'crypto'
 
 const BASE = 'https://api.bridgeapi.io/v3'
 const VERSION = '2025-01-15'
@@ -95,4 +97,29 @@ export async function listTransactions(token: string, minDate?: string): Promise
     guard++
   }
   return out
+}
+
+// Retrouve notre identifiant interne (external_user_id = user.id Supabase) à partir
+// de l'uuid Bridge reçu dans un webhook. Auth au niveau app (Client-Id/Secret).
+export async function resolveExternalUserId(uuid: string): Promise<string | null> {
+  try {
+    const j = await call<{ external_user_id?: string }>(`/aggregation/users/${uuid}`)
+    return j.external_user_id || null
+  } catch {
+    return null
+  }
+}
+
+// Vérifie la signature d'un webhook Bridge : HMAC-SHA256(secret, corps brut), en hex
+// majuscule, transmise dans l'en-tête `BridgeApi-Signature` sous forme « v1=... ».
+export function verifyWebhookSignature(rawBody: string, header: string | null, secret: string): boolean {
+  if (!header || !secret) return false
+  const expected = crypto.createHmac('sha256', secret).update(rawBody, 'utf8').digest('hex').toUpperCase()
+  const provided = header.split(',').map(s => s.trim())
+    .filter(s => s.startsWith('v1='))
+    .map(s => s.slice(3).trim().toUpperCase())
+  return provided.some(sig => {
+    const a = Buffer.from(sig), b = Buffer.from(expected)
+    return a.length === b.length && crypto.timingSafeEqual(a, b)
+  })
 }
