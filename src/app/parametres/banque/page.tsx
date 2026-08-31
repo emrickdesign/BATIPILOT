@@ -17,12 +17,19 @@ export default async function ParametresBanquePage({ searchParams }: { searchPar
   const [{ data: connection }, { data: accounts }] = await Promise.all([
     supabase.from('bank_connections').select('id, status, institution_name, linked_at, expires_at')
       .eq('user_id', user.id).eq('status', 'linked').order('linked_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('bank_accounts').select('id, iban, name, currency, balance, last_synced_at').eq('user_id', user.id),
+    supabase.from('bank_accounts').select('id, account_id, iban, name, currency, balance, last_synced_at').eq('user_id', user.id),
   ])
   const connected = !!connection
-  const totalEur = (accounts || []).filter(a => (!a.currency || a.currency === 'EUR') && a.balance != null)
+
+  // Dédoublonnage par IBAN (un compte réutilisé sous 2 items Bridge après reconnexion
+  // ne doit apparaître — et être compté — qu'une fois). Fallback account_id si pas d'IBAN.
+  const acctByKey = new Map<string, NonNullable<typeof accounts>[number]>()
+  for (const a of accounts || []) acctByKey.set(a.iban || a.account_id, a)
+  const uniqueAccounts = [...acctByKey.values()]
+
+  const totalEur = uniqueAccounts.filter(a => (!a.currency || a.currency === 'EUR') && a.balance != null)
     .reduce((s, a) => s + Number(a.balance || 0), 0)
-  const hasBalance = (accounts || []).some(a => a.balance != null)
+  const hasBalance = uniqueAccounts.some(a => a.balance != null)
 
   const expires = connection?.expires_at ? new Date(connection.expires_at) : null
   const daysLeft = expires ? Math.ceil((expires.getTime() - Date.now()) / 86400000) : null
@@ -69,7 +76,7 @@ export default async function ParametresBanquePage({ searchParams }: { searchPar
                     </div>
                   )}
                   <div className="mt-1 space-y-1.5 text-sm text-gray-500">
-                    {(accounts || []).map(a => (
+                    {uniqueAccounts.map(a => (
                       <div key={a.id} className="flex items-center justify-between gap-3">
                         <span className="min-w-0">
                           <span className="block text-xs text-gray-600 truncate">{a.name || 'Compte'}</span>

@@ -83,7 +83,7 @@ async function getData(userId: string) {
     supabase.from('absences').select('id, employee_id, start_date, end_date, type, reason, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(5),
     supabase.from('vehicle_assignments').select('vehicle_id, project_id').eq('user_id', userId).eq('date', today),
     supabase.from('dashboard_snoozes').select('todo_key, snooze_until').eq('user_id', userId).gt('snooze_until', now.toISOString()),
-    supabase.from('bank_accounts').select('balance, currency, balance_updated_at').eq('user_id', userId),
+    supabase.from('bank_accounts').select('account_id, iban, balance, currency, balance_updated_at').eq('user_id', userId),
   ])
   const snoozed = new Set((snzRes.data || []).map(s => s.todo_key as string))
 
@@ -93,7 +93,14 @@ async function getData(userId: string) {
   const exp = expRes.data || []
   const times = timesRes.data || []
   const bank = bankRes.data || []
-  const accts = acctRes.data || []
+  const acctsRaw = acctRes.data || []
+
+  // Dédoublonnage : un même compte réel peut apparaître sous 2 items Bridge après une
+  // reconnexion (même IBAN, id différent). On ne garde qu'une ligne par IBAN pour ne pas
+  // compter le solde deux fois. Les comptes sans IBAN sont dédoublonnés par account_id.
+  const acctByKey = new Map<string, (typeof acctsRaw)[number]>()
+  for (const a of acctsRaw) acctByKey.set(a.iban || a.account_id, a)
+  const accts = [...acctByKey.values()]
 
   // Trésorerie : solde cumulé des comptes en euros (les devises étrangères sont ignorées ici).
   const eurAccts = accts.filter(a => !a.currency || a.currency === 'EUR')
