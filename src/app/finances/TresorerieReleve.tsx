@@ -5,17 +5,7 @@ import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { ArrowDownLeft, ArrowUpRight, HelpCircle, Link2 } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
-
-export type Mouvement = {
-  id: string
-  date: string | null
-  label: string | null
-  amount: number
-  status: string
-  method: string | null
-  ref: string | null
-  kind: 'in' | 'out'
-}
+import type { Mouvement } from '@/lib/finances-data'
 
 // Libellé lisible de la méthode de rapprochement (audit).
 const METHOD_LABEL: Record<string, string> = {
@@ -47,9 +37,9 @@ export default function TresorerieReleve({ mouvements, nbARapprocher }: { mouvem
   ]
 
   return (
-    <div className="animate-fade-up">
+    <div>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Relevé</h2>
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Relevé</h3>
         <div className="flex items-center gap-2">
           {nbARapprocher > 0 && (
             <Link href="/banque" className="text-xs font-medium text-[#1F5FAE] hover:underline flex items-center gap-1">
