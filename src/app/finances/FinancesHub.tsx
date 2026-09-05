@@ -75,7 +75,7 @@ export default function FinancesHub({
       </div>
 
       <div className="animate-fade-up">
-        {tab === 'tresorerie' && <TresorerieView data={tresorerie} />}
+        {tab === 'tresorerie' && <TresorerieView data={tresorerie} onGoToPaiements={() => setTab('paiements')} />}
         {tab === 'paiements' && <BanqueClient transactions={paiements.transactions} openInvoices={paiements.openInvoices} />}
         {tab === 'depenses' && <DepensesLedger expenses={depenses.expenses} projects={depenses.projects} />}
       </div>

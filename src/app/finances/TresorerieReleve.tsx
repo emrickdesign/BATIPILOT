@@ -22,7 +22,7 @@ const METHOD_LABEL: Record<string, string> = {
 
 type Filtre = 'toutes' | 'in' | 'out'
 
-export default function TresorerieReleve({ mouvements, nbARapprocher }: { mouvements: Mouvement[]; nbARapprocher: number }) {
+export default function TresorerieReleve({ mouvements, nbARapprocher, onGoToPaiements }: { mouvements: Mouvement[]; nbARapprocher: number; onGoToPaiements?: () => void }) {
   const [filtre, setFiltre] = useState<Filtre>('toutes')
 
   const rows = useMemo(
@@ -42,9 +42,15 @@ export default function TresorerieReleve({ mouvements, nbARapprocher }: { mouvem
         <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Relevé</h3>
         <div className="flex items-center gap-2">
           {nbARapprocher > 0 && (
-            <Link href="/banque" className="text-xs font-medium text-[#1F5FAE] hover:underline flex items-center gap-1">
-              <Link2 className="w-3.5 h-3.5" /> {nbARapprocher} à rapprocher
-            </Link>
+            onGoToPaiements ? (
+              <button onClick={onGoToPaiements} className="text-xs font-medium text-[#1F5FAE] hover:underline flex items-center gap-1">
+                <Link2 className="w-3.5 h-3.5" /> {nbARapprocher} à rapprocher
+              </button>
+            ) : (
+              <Link href="/banque" className="text-xs font-medium text-[#1F5FAE] hover:underline flex items-center gap-1">
+                <Link2 className="w-3.5 h-3.5" /> {nbARapprocher} à rapprocher
+              </Link>
+            )
           )}
           <div className="flex rounded-lg bg-gray-100 p-0.5">
             {tabs.map(t => (

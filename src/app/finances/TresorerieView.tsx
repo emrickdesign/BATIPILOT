@@ -7,7 +7,7 @@ import StatCard from '@/components/charts/StatCard'
 import TresorerieReleve from './TresorerieReleve'
 import type { TresorerieData } from '@/lib/finances-data'
 
-export default function TresorerieView({ data }: { data: TresorerieData }) {
+export default function TresorerieView({ data, onGoToPaiements }: { data: TresorerieData; onGoToPaiements?: () => void }) {
   const { months, mouvements } = data
   // 'r6' = 6 derniers mois, sinon une clé 'YYYY-MM'.
   const [periode, setPeriode] = useState<string>('r6')
@@ -95,7 +95,7 @@ export default function TresorerieView({ data }: { data: TresorerieData }) {
         </div>
       </div>
 
-      <TresorerieReleve mouvements={view.mv} nbARapprocher={data.nbARapprocher} />
+      <TresorerieReleve mouvements={view.mv} nbARapprocher={data.nbARapprocher} onGoToPaiements={onGoToPaiements} />
     </div>
   )
 }
