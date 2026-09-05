@@ -1,211 +1,67 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { Sparkles, Mic, Loader2, Volume2, Send, ChevronRight, Mail, MessageSquare, Check, X } from 'lucide-react'
+import { useState } from 'react'
+import { Sparkles, Mic, ArrowUpRight } from 'lucide-react'
+import AssistantVoiceMode from './AssistantVoiceMode'
 
-type Card = { label: string; sublabel?: string; href?: string }
-type Pending =
-  | { canal: 'email_client'; to: string; label: string; subject: string; message: string }
-  | { canal: 'message_interne'; targetKind: 'employee' | 'conversation'; employeeId?: string; conversationId?: string; label: string; message: string }
-  | { canal: 'marquer_facture_payee'; invoiceId: string; label: string; message: string }
-type Turn = { role: 'user' | 'assistant'; content: string }
-type Etat = 'idle' | 'listening' | 'thinking' | 'speaking'
-
-// Reconnaissance vocale du navigateur (gratuite). Absente sur certains Safari/iOS.
-function getSR(): any {
-  if (typeof window === 'undefined') return null
-  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null
-}
+const SUGGESTIONS = [
+  'Recap de mes derniers mails',
+  'Où en sont mes paiements ?',
+  'Mes chantiers en cours',
+]
 
 export default function AssistantWidget() {
-  const router = useRouter()
-  const [etat, setEtat] = useState<Etat>('idle')
-  const [heard, setHeard] = useState('')            // ce que l'utilisateur a dit
-  const [reply, setReply] = useState('')            // réponse de l'IA
-  const [cards, setCards] = useState<Card[]>([])
-  const [pending, setPending] = useState<Pending | null>(null)
-  const [sending, setSending] = useState(false)
-  const [sent, setSent] = useState('')
-  const [typed, setTyped] = useState('')
-  const [srSupported, setSrSupported] = useState(true)
-  const recRef = useRef<any>(null)
-  const histRef = useRef<Turn[]>([])
+  const [open, setOpen] = useState(false)
+  const [initial, setInitial] = useState<string | undefined>(undefined)
 
-  useEffect(() => {
-    const SR = getSR()
-    if (!SR) { setSrSupported(false); return }
-    const rec = new SR()
-    rec.lang = 'fr-FR'
-    rec.interimResults = true
-    rec.continuous = false
-    rec.onresult = (e: any) => {
-      const txt = Array.from(e.results).map((r: any) => r[0].transcript).join('')
-      setHeard(txt)
-      if (e.results[e.results.length - 1].isFinal) { rec.stop(); ask(txt) }
-    }
-    rec.onerror = () => setEtat('idle')
-    rec.onend = () => setEtat(s => (s === 'listening' ? 'idle' : s))
-    recRef.current = rec
-    return () => { try { rec.abort() } catch {} }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  function speak(text: string) {
-    try {
-      const synth = window.speechSynthesis
-      if (!synth) return
-      synth.cancel()
-      const u = new SpeechSynthesisUtterance(text)
-      u.lang = 'fr-FR'
-      u.onend = () => setEtat('idle')
-      setEtat('speaking')
-      synth.speak(u)
-    } catch { setEtat('idle') }
-  }
-
-  function startListen() {
-    if (!recRef.current) return
-    setHeard(''); setReply(''); setCards([]); setPending(null); setSent('')
-    try { window.speechSynthesis?.cancel() } catch {}
-    setEtat('listening')
-    try { recRef.current.start() } catch {}
-  }
-
-  async function ask(question: string) {
-    const q = question.trim()
-    if (!q) { setEtat('idle'); return }
-    setHeard(q); setReply(''); setCards([]); setPending(null); setSent(''); setEtat('thinking')
-    const history = [...histRef.current, { role: 'user' as const, content: q }]
-    try {
-      const res = await fetch('/api/assistant', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: history }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Erreur')
-      const answer: string = data.reply || ''
-      histRef.current = [...history, { role: 'assistant' as const, content: answer }].slice(-8)
-      setReply(answer)
-      setCards(Array.isArray(data.cards) ? data.cards : [])
-      setPending(data.pendingAction || null)
-      speak(answer)
-      if (data.navigateTo) setTimeout(() => router.push(data.navigateTo), 400)
-    } catch (e) {
-      const msg = 'Désolé, je n’ai pas réussi à répondre.'
-      setReply(msg); speak(msg)
-    }
-  }
-
-  async function confirmSend() {
-    if (!pending) return
-    setSending(true)
-    try {
-      const res = await fetch('/api/assistant/execute', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: pending }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Erreur')
-      setPending(null); setSent(data.message || 'Envoyé.'); speak(data.message || 'Envoyé.')
-    } catch {
-      setSent('Échec de l’envoi.'); speak('Je n’ai pas réussi à envoyer.')
-    } finally {
-      setSending(false)
-    }
-  }
-
-  const busy = etat === 'thinking' || etat === 'speaking'
+  const launch = (q?: string) => { setInitial(q); setOpen(true) }
 
   return (
-    <div className="rounded-2xl border border-marine/15 bg-gradient-to-br from-[#F3F7FE] to-white p-5">
-      <div className="flex items-center gap-2 mb-4">
-        <span className="grid place-items-center w-9 h-9 rounded-xl bg-marine text-white"><Sparkles className="w-5 h-5" /></span>
-        <div>
-          <div className="font-heading font-bold text-marine leading-tight">IA TonPilote</div>
-          <div className="text-[11px] text-gray-400">
-            {etat === 'listening' ? 'Je t’écoute…' : etat === 'thinking' ? 'Je réfléchis…' : etat === 'speaking' ? 'Je te réponds…' : 'Pose-moi une question'}
+    <>
+      <div
+        className="relative overflow-hidden rounded-2xl p-5 text-white"
+        style={{ background: 'radial-gradient(120% 140% at 100% 0%, #241a10 0%, #121013 45%, #0c0c0e 100%)' }}
+      >
+        {/* onde décorative */}
+        <div aria-hidden className="pointer-events-none absolute -right-6 -top-8 h-40 w-40 rounded-full" style={{ background: 'radial-gradient(circle, rgba(245,166,35,.18), transparent 70%)' }} />
+
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <span className="grid place-items-center w-10 h-10 rounded-xl bg-[#F5A623] text-black"><Sparkles className="w-5 h-5" /></span>
+            <div>
+              <div className="font-heading font-bold leading-tight">IA TonPilote</div>
+              <div className="text-xs text-white/50">Demande-moi tout sur ton activité</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="relative mt-4 grid grid-cols-1 sm:grid-cols-[1.3fr_1fr] gap-3">
+          {/* Let's Talk */}
+          <button
+            onClick={() => launch()}
+            className="group relative flex flex-col justify-between rounded-2xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/10 p-4 h-32 text-left transition-colors"
+          >
+            <span className="grid place-items-center w-10 h-10 rounded-full bg-[#F5A623] text-black" style={{ boxShadow: '0 0 24px rgba(245,166,35,.4)' }}><Mic className="w-5 h-5" /></span>
+            <span className="text-lg font-heading font-semibold">Let’s Talk</span>
+            <ArrowUpRight className="absolute top-4 right-4 w-4 h-4 text-white/40 group-hover:text-white/80" />
+          </button>
+
+          {/* Suggestions */}
+          <div className="flex flex-col gap-2">
+            {SUGGESTIONS.map(s => (
+              <button
+                key={s}
+                onClick={() => launch(s)}
+                className="flex-1 text-left rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/10 px-3 py-2 text-[13px] text-white/80 transition-colors"
+              >
+                {s}
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        {srSupported ? (
-          <button
-            onClick={etat === 'listening' ? () => recRef.current?.stop() : startListen}
-            disabled={busy}
-            className={`relative grid place-items-center w-14 h-14 rounded-full flex-shrink-0 text-white transition-all ${
-              etat === 'listening' ? 'bg-rose-500 scale-105' : busy ? 'bg-gray-300' : 'bg-marine hover:bg-marine/90 hover:scale-105'
-            }`}
-            aria-label="Parler à l’assistant"
-          >
-            {etat === 'listening' && <span className="absolute inset-0 rounded-full bg-rose-500/40 animate-ping" />}
-            {etat === 'thinking' ? <Loader2 className="w-6 h-6 animate-spin" /> : etat === 'speaking' ? <Volume2 className="w-6 h-6" /> : <Mic className="w-6 h-6 relative" />}
-          </button>
-        ) : null}
-
-        <form
-          onSubmit={e => { e.preventDefault(); if (!busy && typed.trim()) { const t = typed; setTyped(''); ask(t) } }}
-          className="flex-1 flex items-center gap-2"
-        >
-          <input
-            value={typed}
-            onChange={e => setTyped(e.target.value)}
-            placeholder={srSupported ? 'ou écris ta question…' : 'Écris ta question (micro indisponible ici)'}
-            className="w-full h-11 rounded-xl border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-marine/30"
-          />
-          <button type="submit" disabled={busy || !typed.trim()} className="grid place-items-center w-11 h-11 rounded-xl bg-marine text-white disabled:bg-gray-200 flex-shrink-0" aria-label="Envoyer">
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
-      </div>
-
-      {(heard || reply || cards.length > 0 || pending || sent) && (
-        <div className="mt-4 space-y-2">
-          {heard && <p className="text-xs text-gray-400">« {heard} »</p>}
-          {reply && <p className="text-sm text-marine">{reply}</p>}
-
-          {pending && (
-            <div className="rounded-xl border border-marine/20 bg-white p-3">
-              <div className="flex items-center gap-2 text-xs font-medium text-marine mb-1.5">
-                {pending.canal === 'email_client' ? <Mail className="w-3.5 h-3.5" /> : pending.canal === 'message_interne' ? <MessageSquare className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
-                {pending.canal === 'email_client' ? `Email à ${pending.label}` : pending.canal === 'message_interne' ? `Message à ${pending.label}` : pending.label}
-                {pending.canal === 'email_client' && <span className="text-gray-400 font-normal">· {pending.subject}</span>}
-              </div>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">{pending.message}</p>
-              <div className="flex items-center gap-2 mt-3">
-                <button onClick={confirmSend} disabled={sending}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-marine text-white text-sm font-medium disabled:opacity-60">
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {pending.canal === 'marquer_facture_payee' ? 'Confirmer' : 'Envoyer'}
-                </button>
-                <button onClick={() => setPending(null)} disabled={sending}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 text-gray-600 text-sm">
-                  <X className="w-4 h-4" /> Annuler
-                </button>
-              </div>
-            </div>
-          )}
-
-          {sent && <p className="text-sm font-medium text-emerald-600 flex items-center gap-1.5"><Check className="w-4 h-4" /> {sent}</p>}
-          {cards.length > 0 && (
-            <div className="space-y-1.5 pt-1">
-              {cards.map((c, i) => {
-                const inner = (
-                  <div className="flex items-center gap-2 rounded-lg border border-gray-200/80 bg-white px-3 py-2 hover:border-marine/30 transition-colors">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-marine truncate">{c.label}</div>
-                      {c.sublabel && <div className="text-[11px] text-gray-400 truncate">{c.sublabel}</div>}
-                    </div>
-                    {c.href && <ChevronRight className="w-4 h-4 text-gray-300 flex-shrink-0" />}
-                  </div>
-                )
-                return c.href ? <Link key={i} href={c.href}>{inner}</Link> : <div key={i}>{inner}</div>
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+      {open && <AssistantVoiceMode onClose={() => setOpen(false)} initial={initial} />}
+    </>
   )
 }
