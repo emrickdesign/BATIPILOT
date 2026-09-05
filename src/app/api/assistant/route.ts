@@ -1,7 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { assistantTools, executeTool, type AssistantCard } from '@/lib/assistant/tools'
+import { assistantTools, executeTool, type AssistantCard, type PendingAction } from '@/lib/assistant/tools'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,6 +13,7 @@ L'utilisateur te parle à voix haute ; ta réponse sera LUE À VOIX HAUTE. Donc 
 - Sers-toi TOUJOURS des outils pour connaître l'état réel (finances, chantiers, mails) ou pour trouver/naviguer. N'invente jamais un chiffre.
 - Quand l'utilisateur veut aller quelque part ou voir un dossier, appelle « naviguer » (ou « chercher_dans_lapp » puis propose d'ouvrir).
 - Après un outil, résume l'essentiel à l'oral, en langage parlé (« Il te reste 12 300 € à encaisser sur 4 factures »).
+- Pour envoyer un message (email client ou message salarié), utilise « preparer_envoi » : tu PRÉPARES seulement. Ne dis JAMAIS que c'est envoyé — l'utilisateur confirmera avec un bouton. Invite-le à confirmer (« je te l'affiche, tu confirmes ? »).
 - Si tu ne peux pas faire quelque chose, dis-le simplement.`
 
 type Msg = { role: 'user' | 'assistant'; content: unknown }
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
     const messages: Msg[] = incoming.slice(-8)
 
     let navigateTo: string | undefined
+    let pendingAction: PendingAction | undefined
     const cards: AssistantCard[] = []
     let reply = ''
 
@@ -54,14 +56,15 @@ export async function POST(req: NextRequest) {
       for (const tu of toolUses) {
         const outcome = await executeTool(tu.name, (tu.input || {}) as Record<string, unknown>, supabase, user.id)
         if (outcome.navigateTo) navigateTo = outcome.navigateTo
+        if (outcome.pendingAction) pendingAction = outcome.pendingAction
         if (outcome.cards) cards.push(...outcome.cards)
         toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: outcome.result })
       }
       messages.push({ role: 'user', content: toolResults })
     }
 
-    if (!reply) reply = navigateTo ? "Je t'y emmène." : "Je n'ai pas de réponse pour ça."
-    return NextResponse.json({ reply, navigateTo, cards: cards.slice(0, 8) })
+    if (!reply) reply = navigateTo ? "Je t'y emmène." : pendingAction ? 'Je te prépare ça.' : "Je n'ai pas de réponse pour ça."
+    return NextResponse.json({ reply, navigateTo, cards: cards.slice(0, 8), pendingAction })
   } catch (err) {
     console.error('Assistant error:', err)
     return NextResponse.json({ error: (err as Error)?.message || 'Erreur serveur' }, { status: 500 })

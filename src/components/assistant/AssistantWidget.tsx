@@ -3,9 +3,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Sparkles, Mic, Loader2, Volume2, Send, ChevronRight } from 'lucide-react'
+import { Sparkles, Mic, Loader2, Volume2, Send, ChevronRight, Mail, MessageSquare, Check, X } from 'lucide-react'
 
 type Card = { label: string; sublabel?: string; href?: string }
+type Pending =
+  | { canal: 'email_client'; to: string; label: string; subject: string; message: string }
+  | { canal: 'message_salarie'; employeeId: string; label: string; message: string }
 type Turn = { role: 'user' | 'assistant'; content: string }
 type Etat = 'idle' | 'listening' | 'thinking' | 'speaking'
 
@@ -21,6 +24,9 @@ export default function AssistantWidget() {
   const [heard, setHeard] = useState('')            // ce que l'utilisateur a dit
   const [reply, setReply] = useState('')            // réponse de l'IA
   const [cards, setCards] = useState<Card[]>([])
+  const [pending, setPending] = useState<Pending | null>(null)
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState('')
   const [typed, setTyped] = useState('')
   const [srSupported, setSrSupported] = useState(true)
   const recRef = useRef<any>(null)
@@ -60,7 +66,7 @@ export default function AssistantWidget() {
 
   function startListen() {
     if (!recRef.current) return
-    setHeard(''); setReply(''); setCards([])
+    setHeard(''); setReply(''); setCards([]); setPending(null); setSent('')
     try { window.speechSynthesis?.cancel() } catch {}
     setEtat('listening')
     try { recRef.current.start() } catch {}
@@ -69,7 +75,7 @@ export default function AssistantWidget() {
   async function ask(question: string) {
     const q = question.trim()
     if (!q) { setEtat('idle'); return }
-    setHeard(q); setReply(''); setCards([]); setEtat('thinking')
+    setHeard(q); setReply(''); setCards([]); setPending(null); setSent(''); setEtat('thinking')
     const history = [...histRef.current, { role: 'user' as const, content: q }]
     try {
       const res = await fetch('/api/assistant', {
@@ -82,11 +88,30 @@ export default function AssistantWidget() {
       histRef.current = [...history, { role: 'assistant' as const, content: answer }].slice(-8)
       setReply(answer)
       setCards(Array.isArray(data.cards) ? data.cards : [])
+      setPending(data.pendingAction || null)
       speak(answer)
       if (data.navigateTo) setTimeout(() => router.push(data.navigateTo), 400)
     } catch (e) {
       const msg = 'Désolé, je n’ai pas réussi à répondre.'
       setReply(msg); speak(msg)
+    }
+  }
+
+  async function confirmSend() {
+    if (!pending) return
+    setSending(true)
+    try {
+      const res = await fetch('/api/assistant/execute', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: pending }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data?.error || 'Erreur')
+      setPending(null); setSent(data.message || 'Envoyé.'); speak(data.message || 'Envoyé.')
+    } catch {
+      setSent('Échec de l’envoi.'); speak('Je n’ai pas réussi à envoyer.')
+    } finally {
+      setSending(false)
     }
   }
 
@@ -135,10 +160,33 @@ export default function AssistantWidget() {
         </form>
       </div>
 
-      {(heard || reply || cards.length > 0) && (
+      {(heard || reply || cards.length > 0 || pending || sent) && (
         <div className="mt-4 space-y-2">
           {heard && <p className="text-xs text-gray-400">« {heard} »</p>}
           {reply && <p className="text-sm text-marine">{reply}</p>}
+
+          {pending && (
+            <div className="rounded-xl border border-marine/20 bg-white p-3">
+              <div className="flex items-center gap-2 text-xs font-medium text-marine mb-1.5">
+                {pending.canal === 'email_client' ? <Mail className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
+                {pending.canal === 'email_client' ? `Email à ${pending.label}` : `Message à ${pending.label}`}
+                {pending.canal === 'email_client' && <span className="text-gray-400 font-normal">· {pending.subject}</span>}
+              </div>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{pending.message}</p>
+              <div className="flex items-center gap-2 mt-3">
+                <button onClick={confirmSend} disabled={sending}
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-marine text-white text-sm font-medium disabled:opacity-60">
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Envoyer
+                </button>
+                <button onClick={() => setPending(null)} disabled={sending}
+                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 text-gray-600 text-sm">
+                  <X className="w-4 h-4" /> Annuler
+                </button>
+              </div>
+            </div>
+          )}
+
+          {sent && <p className="text-sm font-medium text-emerald-600 flex items-center gap-1.5"><Check className="w-4 h-4" /> {sent}</p>}
           {cards.length > 0 && (
             <div className="space-y-1.5 pt-1">
               {cards.map((c, i) => {

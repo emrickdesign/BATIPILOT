@@ -9,7 +9,14 @@ const num = (v: unknown) => Number(v) || 0
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
 
 export type AssistantCard = { label: string; sublabel?: string; href?: string }
-export type ToolOutcome = { result: string; cards?: AssistantCard[]; navigateTo?: string }
+
+// Action d'envoi préparée mais NON exécutée : l'utilisateur doit confirmer
+// (bouton « Envoyer ») avant tout envoi réel. Exécutée par /api/assistant/execute.
+export type PendingAction =
+  | { canal: 'email_client'; to: string; label: string; subject: string; message: string }
+  | { canal: 'message_salarie'; employeeId: string; label: string; message: string }
+
+export type ToolOutcome = { result: string; cards?: AssistantCard[]; navigateTo?: string; pendingAction?: PendingAction }
 
 // Sections navigables → routes. Sert aussi d'enum pour l'outil « naviguer ».
 export const SECTIONS: Record<string, string> = {
@@ -64,6 +71,20 @@ export const assistantTools = [
         note: { type: 'string', description: 'Texte de la note à enregistrer' },
       },
       required: ['chantier', 'note'],
+    },
+  },
+  {
+    name: 'preparer_envoi',
+    description: "PRÉPARE l'envoi d'un message (sans l'envoyer) : email à un client, ou message interne à un salarié. L'utilisateur devra confirmer avant l'envoi réel. Pour « écris à … », « envoie un message à … », « préviens le salarié … ». Rédige toi-même un message clair à partir de l'intention.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        canal: { type: 'string', enum: ['email_client', 'message_salarie', 'sms'], description: "email_client = email à un client ; message_salarie = message interne à un salarié ; sms = SMS/WhatsApp" },
+        destinataire: { type: 'string', description: 'Nom du client ou du salarié' },
+        message: { type: 'string', description: 'Le message à envoyer, rédigé' },
+        sujet: { type: 'string', description: "Objet de l'email (canal email_client uniquement)" },
+      },
+      required: ['canal', 'destinataire', 'message'],
     },
   },
   {
@@ -191,6 +212,46 @@ export async function executeTool(
         result: `Note ajoutée au chantier ${proj.title}.`,
         cards: [{ label: proj.title as string, sublabel: 'Note ajoutée', href: `/chantiers/${proj.id}` }],
       }
+    }
+
+    case 'preparer_envoi': {
+      const canal = String(input.canal || '')
+      const dest = String(input.destinataire || '').trim()
+      const message = String(input.message || '').trim()
+      if (!dest || !message) return { result: 'Il me faut le destinataire et le message.' }
+
+      if (canal === 'sms') {
+        return { result: "L'envoi de SMS ou WhatsApp n'est pas encore branché — il faudrait un service comme Twilio. Je peux le faire par email ou en message interne à un salarié." }
+      }
+
+      if (canal === 'email_client') {
+        const like = `%${dest}%`
+        const { data } = await supabase.from('clients').select('first_name, last_name, company_name, email')
+          .eq('user_id', userId).or(`company_name.ilike.${like},last_name.ilike.${like},first_name.ilike.${like}`).limit(5)
+        const withEmail = (data || []).find(c => c.email)
+        if (!data?.length) return { result: `Aucun client trouvé pour « ${dest} ».` }
+        if (!withEmail) return { result: `${dest} n'a pas d'adresse email enregistrée.` }
+        const label = withEmail.company_name || `${withEmail.first_name || ''} ${withEmail.last_name || ''}`.trim() || (withEmail.email as string)
+        const subject = String(input.sujet || '').trim() || 'Message'
+        return {
+          result: `Prêt à envoyer un email à ${label} (${withEmail.email}). Objet : « ${subject} ». Tu confirmes l'envoi ?`,
+          pendingAction: { canal: 'email_client', to: withEmail.email as string, label, subject, message },
+        }
+      }
+
+      if (canal === 'message_salarie') {
+        const { data } = await supabase.from('employees').select('id, full_name')
+          .eq('user_id', userId).eq('active', true).ilike('full_name', `%${dest}%`).limit(5)
+        if (!data?.length) return { result: `Aucun salarié actif trouvé pour « ${dest} ».` }
+        if (data.length > 1) return { result: `Plusieurs salariés correspondent : ${data.map(e => e.full_name).join(', ')}. Lequel ?` }
+        const emp = data[0]
+        return {
+          result: `Prêt à envoyer un message interne à ${emp.full_name}. Tu confirmes ?`,
+          pendingAction: { canal: 'message_salarie', employeeId: emp.id as string, label: emp.full_name as string, message },
+        }
+      }
+
+      return { result: 'Canal inconnu.' }
     }
 
     default:
