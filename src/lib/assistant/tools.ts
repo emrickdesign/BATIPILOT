@@ -7,6 +7,9 @@ import { getGmailAccessToken, fetchRecentInbox } from '@/lib/gmail-read'
 
 const num = (v: unknown) => Number(v) || 0
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
+const jour = (d: unknown) => { const s = String(d || ''); return s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '' }
+const nomClient = (c: { company_name?: string | null; first_name?: string | null; last_name?: string | null }) =>
+  c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Client'
 
 export type AssistantCard = { label: string; sublabel?: string; href?: string }
 
@@ -73,6 +76,22 @@ export const assistantTools = [
     name: 'recap_mails',
     description: "Donne les tout derniers emails reçus, lus EN DIRECT dans Gmail (donc toujours à jour). Pour « recap de mes mails », « actualise et donne mes derniers mails », « qu'est-ce que j'ai reçu ».",
     input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
+    name: 'lire',
+    description: "Lit le contenu de N'IMPORTE QUEL onglet de l'app. Utilise-le pour « montre/lis mes … », « qu'est-ce qu'il y a dans … », l'état d'une section. Filtre optionnel par nom.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        domaine: {
+          type: 'string',
+          enum: ['messages', 'planning', 'absences', 'prospects', 'clients', 'devis', 'factures', 'heures', 'salaries', 'sous_traitants', 'vehicules', 'comptes_rendus', 'visites', 'documents', 'notes', 'depenses', 'chantiers', 'rappels'],
+          description: 'La section à lire',
+        },
+        filtre: { type: 'string', description: 'Optionnel : nom/mot-clé pour restreindre' },
+      },
+      required: ['domaine'],
+    },
   },
   {
     name: 'creer_note_chantier',
@@ -199,6 +218,125 @@ export async function executeTool(
       return {
         result: `${mails.length} derniers mails. ` + mails.map(m => `${m.from_name || m.from_email} — ${m.subject}`).join(' | '),
         cards: mails.map(m => ({ label: (m.subject as string) || '(sans objet)', sublabel: (m.from_name as string) || (m.from_email as string), href: '/emails' })),
+      }
+    }
+
+    case 'lire': {
+      const dom = String(input.domaine || '')
+      const filtre = String(input.filtre || '').trim()
+      const like = `%${filtre}%`
+      const today = new Date().toISOString().split('T')[0]
+      const pack = (label: string, items: AssistantCard[], route: string): ToolOutcome => {
+        if (!items.length) return { result: `Rien à afficher dans ${label}.`, cards: [{ label: `Ouvrir ${label}`, href: route }] }
+        return { result: `${label} (${items.length}) : ` + items.map(c => `${c.label}${c.sublabel ? ` — ${c.sublabel}` : ''}`).join(' | '), cards: items }
+      }
+
+      switch (dom) {
+        case 'messages': {
+          const { data } = await supabase.from('messages').select('body, created_at, conversations(name)')
+            .eq('user_id', userId).order('created_at', { ascending: false }).limit(8)
+          return pack('Messages', (data || []).map(m => ({
+            label: (m.body as string || '').slice(0, 60) || '(vocal/pièce jointe)',
+            sublabel: ((m.conversations as unknown as { name?: string } | null)?.name) || jour(m.created_at), href: '/messages',
+          })), '/messages')
+        }
+        case 'planning': {
+          const { data } = await supabase.from('assignments').select('date, start_hour, end_hour, employees(full_name), projects(title)')
+            .eq('user_id', userId).gte('date', today).order('date', { ascending: true }).limit(10)
+          return pack('Planning', (data || []).map(a => ({
+            label: `${jour(a.date)} · ${(a.projects as unknown as { title?: string } | null)?.title || 'Chantier'}`,
+            sublabel: `${(a.employees as unknown as { full_name?: string } | null)?.full_name || ''}${a.start_hour ? ` ${a.start_hour}-${a.end_hour || ''}` : ''}`, href: '/planning',
+          })), '/planning')
+        }
+        case 'absences': {
+          const { data } = await supabase.from('absences').select('start_date, end_date, type, employees(full_name)')
+            .eq('user_id', userId).gte('end_date', today).order('start_date', { ascending: true }).limit(10)
+          return pack('Absences', (data || []).map(a => ({
+            label: `${(a.employees as unknown as { full_name?: string } | null)?.full_name || 'Salarié'} — ${a.type || 'absence'}`,
+            sublabel: `${jour(a.start_date)} → ${jour(a.end_date)}`, href: '/planning',
+          })), '/planning')
+        }
+        case 'prospects': {
+          const q = supabase.from('clients').select('first_name, last_name, company_name, status, created_at').eq('user_id', userId).eq('status', 'prospect')
+          const { data } = filtre ? await q.or(`company_name.ilike.${like},last_name.ilike.${like}`).limit(10) : await q.order('created_at', { ascending: false }).limit(10)
+          return pack('Prospects', (data || []).map(c => ({ label: nomClient(c), sublabel: 'prospect', href: '/prospects' })), '/prospects')
+        }
+        case 'clients': {
+          const q = supabase.from('clients').select('id, first_name, last_name, company_name, phone').eq('user_id', userId)
+          const { data } = filtre ? await q.or(`company_name.ilike.${like},last_name.ilike.${like},first_name.ilike.${like}`).limit(10) : await q.order('created_at', { ascending: false }).limit(10)
+          return pack('Clients', (data || []).map(c => ({ label: nomClient(c), sublabel: c.phone as string || '', href: '/clients' })), '/clients')
+        }
+        case 'devis': {
+          const q = supabase.from('quotes').select('id, quote_number, status, total_ttc').eq('user_id', userId)
+          const { data } = filtre ? await q.ilike('quote_number', like).limit(10) : await q.order('created_at', { ascending: false }).limit(10)
+          return pack('Devis', (data || []).map(d => ({ label: `Devis ${d.quote_number}`, sublabel: `${fmt(num(d.total_ttc))} · ${d.status}`, href: `/devis/${d.id}` })), '/devis')
+        }
+        case 'factures': {
+          const q = supabase.from('invoices').select('id, invoice_number, status, total_ttc, amount_due').eq('user_id', userId)
+          const { data } = filtre ? await q.ilike('invoice_number', like).limit(10) : await q.order('created_at', { ascending: false }).limit(10)
+          return pack('Factures', (data || []).map(i => ({ label: `Facture ${i.invoice_number}`, sublabel: `${fmt(num(i.total_ttc))} · ${i.status}`, href: `/factures/${i.id}` })), '/factures')
+        }
+        case 'heures': {
+          const { data } = await supabase.from('time_entries').select('date, hours, employees(full_name), projects(title)')
+            .eq('user_id', userId).order('date', { ascending: false }).limit(10)
+          return pack('Heures', (data || []).map(h => ({
+            label: `${(h.employees as unknown as { full_name?: string } | null)?.full_name || 'Salarié'} — ${num(h.hours)}h`,
+            sublabel: `${jour(h.date)} · ${(h.projects as unknown as { title?: string } | null)?.title || ''}`, href: '/heures',
+          })), '/heures')
+        }
+        case 'salaries': {
+          const { data } = await supabase.from('employees').select('full_name, role, phone').eq('user_id', userId).eq('active', true).limit(15)
+          return pack('Salariés', (data || []).map(e => ({ label: e.full_name as string, sublabel: (e.role as string) || (e.phone as string) || '', href: '/equipe' })), '/equipe')
+        }
+        case 'sous_traitants': {
+          const { data } = await supabase.from('subcontractors').select('company_name, trade, phone').eq('user_id', userId).limit(15)
+          return pack('Sous-traitants', (data || []).map(s => ({ label: s.company_name as string, sublabel: (s.trade as string) || (s.phone as string) || '', href: '/sous-traitants' })), '/sous-traitants')
+        }
+        case 'vehicules': {
+          const { data } = await supabase.from('vehicles').select('name, plate, active').eq('user_id', userId).limit(15)
+          return pack('Véhicules', (data || []).map(v => ({ label: v.name as string, sublabel: (v.plate as string) || (v.active ? 'actif' : 'inactif'), href: '/vehicules' })), '/vehicules')
+        }
+        case 'comptes_rendus': {
+          const { data } = await supabase.from('site_updates').select('update_date, note, progress, projects(title)')
+            .eq('user_id', userId).order('update_date', { ascending: false }).limit(10)
+          return pack('Comptes-rendus', (data || []).map(u => ({
+            label: `${(u.projects as unknown as { title?: string } | null)?.title || 'Chantier'}${u.progress != null ? ` (${u.progress}%)` : ''}`,
+            sublabel: `${jour(u.update_date)} ${(u.note as string || '').slice(0, 40)}`, href: '/comptes-rendus',
+          })), '/comptes-rendus')
+        }
+        case 'visites': {
+          const { data } = await supabase.from('site_visits').select('title, address, status, created_at, clients(first_name, last_name, company_name)')
+            .eq('user_id', userId).order('created_at', { ascending: false }).limit(10)
+          return pack('Visites', (data || []).map(v => ({
+            label: (v.title as string) || (v.clients ? nomClient(v.clients as any) : 'Visite'),
+            sublabel: `${jour(v.created_at)} ${(v.address as string || '').slice(0, 30)}`, href: '/visites',
+          })), '/visites')
+        }
+        case 'documents': {
+          const q = supabase.from('documents').select('name, category, created_at').eq('user_id', userId)
+          const { data } = filtre ? await q.ilike('name', like).limit(12) : await q.order('created_at', { ascending: false }).limit(12)
+          return pack('Documents', (data || []).map(d => ({ label: d.name as string, sublabel: (d.category as string) || jour(d.created_at), href: '/documents' })), '/documents')
+        }
+        case 'notes': {
+          const { data } = await supabase.from('notes').select('body, created_at, projects(title)')
+            .eq('user_id', userId).order('created_at', { ascending: false }).limit(10)
+          return pack('Notes', (data || []).map(n => ({ label: (n.body as string || '').slice(0, 60), sublabel: (n.projects as unknown as { title?: string } | null)?.title || jour(n.created_at), href: '/notes' })), '/notes')
+        }
+        case 'depenses': {
+          const { data } = await supabase.from('expenses').select('supplier, amount_ttc, expense_date, status').eq('user_id', userId).order('expense_date', { ascending: false }).limit(10)
+          return pack('Dépenses', (data || []).map(e => ({ label: (e.supplier as string) || 'Dépense', sublabel: `${fmt(num(e.amount_ttc))} · ${jour(e.expense_date)}`, href: '/depenses' })), '/depenses')
+        }
+        case 'chantiers': {
+          const q = supabase.from('projects').select('id, title, status, progress').eq('user_id', userId).neq('status', 'archive')
+          const { data } = filtre ? await q.ilike('title', like).limit(12) : await q.order('created_at', { ascending: false }).limit(12)
+          return pack('Chantiers', (data || []).map(p => ({ label: p.title as string, sublabel: `${p.status}${p.progress != null ? ` · ${p.progress}%` : ''}`, href: `/chantiers/${p.id}` })), '/chantiers')
+        }
+        case 'rappels': {
+          const { data } = await supabase.from('reminders').select('title, type, due_date, priority, status').eq('user_id', userId).neq('status', 'done').order('due_date', { ascending: true }).limit(10)
+          return pack('Rappels', (data || []).map(r => ({ label: (r.title as string) || (r.type as string) || 'Rappel', sublabel: `${jour(r.due_date)}${r.priority ? ` · ${r.priority}` : ''}`, href: '/dashboard' })), '/dashboard')
+        }
+        default:
+          return { result: `Domaine inconnu : ${dom}.` }
       }
     }
 
