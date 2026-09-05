@@ -138,6 +138,69 @@ export async function recomputeInvoice(supabase: SupabaseClient, userId: string,
   await supabase.from('invoices').update({ amount_due: due, status }).eq('id', invoiceId).eq('user_id', userId)
 }
 
+// ─── Miroir : rapprochement des SORTIES (débit bancaire ↔ dépense/ticket) ───
+
+export type OpenExpense = {
+  id: string
+  supplier: string | null
+  amount_ttc: number
+  expense_date: string | null
+}
+
+export type ExpenseMatch = { expenseId: string; method: string } | null
+
+// Trouve la dépense correspondant à un débit bancaire (montant < 0), même logique
+// prudente que matchInvoice : n'accepte que si un seul candidat. Évite le double
+// comptage entre un ticket scanné et la ligne du relevé pour le même achat.
+export function matchExpense(
+  tx: { amount: number; label: string | null | undefined; tx_date?: string | null },
+  expenses: OpenExpense[],
+): ExpenseMatch {
+  if (!(tx.amount < 0)) return null
+  const out = Math.abs(tx.amount)
+  const words = labelWords(tx.label)
+  const amountMatches = (e: OpenExpense) => Math.abs((e.amount_ttc || 0) - out) <= 1
+  const supplierHit = (e: OpenExpense) => {
+    const toks = nameTokens(e.supplier)
+    return toks.length > 0 && toks.some(t => words.has(t))
+  }
+  const daysApart = (e: OpenExpense): number => {
+    if (!tx.tx_date || !e.expense_date) return 999
+    const a = Date.parse(tx.tx_date), b = Date.parse(e.expense_date)
+    if (Number.isNaN(a) || Number.isNaN(b)) return 999
+    return Math.abs(a - b) / 86400000
+  }
+
+  // 1. Fournisseur reconnu dans le libellé + montant qui colle.
+  const byBoth = expenses.filter(e => amountMatches(e) && supplierHit(e))
+  if (byBoth.length === 1) return { expenseId: byBoth[0].id, method: 'fournisseur+montant' }
+
+  // 2. Montant + date proche (≤ 5 jours), sans ambiguïté.
+  const byAmtDate = expenses.filter(e => amountMatches(e) && daysApart(e) <= 5)
+  if (byAmtDate.length === 1) return { expenseId: byAmtDate[0].id, method: 'montant+date' }
+
+  // 3. Montant unique parmi les dépenses non rapprochées.
+  const byAmt = expenses.filter(amountMatches)
+  if (byAmt.length === 1) return { expenseId: byAmt[0].id, method: 'montant' }
+
+  return null
+}
+
+// Applique un rapprochement de dépense : marque le débit + la dépense comme rapprochés.
+export async function applyExpenseReconciliation(
+  supabase: SupabaseClient,
+  userId: string,
+  opts: { txId: string; expenseId: string; method?: string },
+): Promise<void> {
+  await supabase.from('bank_transactions').update({
+    status: 'rapproche',
+    matched_expense_id: opts.expenseId,
+    match_method: opts.method || 'manuel',
+  }).eq('id', opts.txId).eq('user_id', userId)
+  await supabase.from('expenses').update({ reconciled: true })
+    .eq('id', opts.expenseId).eq('user_id', userId)
+}
+
 // Applique un rapprochement : marque la transaction, apprend l'IBAN du client,
 // recalcule la facture. Réutilisé par la synchro auto et la validation manuelle.
 export async function applyReconciliation(

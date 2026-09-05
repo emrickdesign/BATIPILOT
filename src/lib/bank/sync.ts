@@ -3,7 +3,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getUserToken, listTransactions, listAccounts } from './bridge'
-import { matchInvoice, applyReconciliation, nameTokens, type OpenInvoice } from './reconcile'
+import { matchInvoice, applyReconciliation, matchExpense, applyExpenseReconciliation, nameTokens, type OpenInvoice, type OpenExpense } from './reconcile'
 
 export async function syncUserBank(supabase: SupabaseClient, userId: string): Promise<{ imported: number; matched: number }> {
   // Pas de compte connecté → rien à faire.
@@ -53,6 +53,14 @@ export async function syncUserBank(supabase: SupabaseClient, userId: string): Pr
     if (toks.length) clientNames.set(c.id, toks)
   }
 
+  // Dépenses non rapprochées → pour rattacher les DÉBITS bancaires (miroir des entrées).
+  const { data: expRows } = await supabase.from('expenses')
+    .select('id, supplier, amount_ttc, expense_date')
+    .eq('user_id', userId).eq('reconciled', false)
+  const expenses: OpenExpense[] = (expRows || []).map(e => ({
+    id: e.id, supplier: e.supplier, amount_ttc: Number(e.amount_ttc) || 0, expense_date: e.expense_date,
+  }))
+
   // Texte de rapprochement = libellé nettoyé + brut (le nom du payeur est parfois
   // seulement dans le brut). Le libellé stocké/affiché reste le nettoyé.
   const matchText = new Map<string, string>()
@@ -82,25 +90,35 @@ export async function syncUserBank(supabase: SupabaseClient, userId: string): Pr
   let imported = 0, matched = 0
   if (fresh.length) {
     const { data: inserted } = await supabase.from('bank_transactions').insert(fresh)
-      .select('id, amount, label, counterparty_iban, provider_tx_id')
+      .select('id, amount, label, tx_date, counterparty_iban, provider_tx_id')
     imported = inserted?.length || 0
 
+    const usedExpenses = new Set<string>()
     for (const tx of inserted || []) {
-      const m = matchInvoice(
-        {
-          amount: Number(tx.amount) || 0,
-          label: matchText.get(tx.provider_tx_id) || tx.label,
-          counterparty_iban: tx.counterparty_iban,
-        },
-        invoices, ibanToClient, clientNames,
-      )
+      const amount = Number(tx.amount) || 0
+      const label = matchText.get(tx.provider_tx_id) || tx.label
+
+      // Entrée (> 0) → facture.
+      const m = matchInvoice({ amount, label, counterparty_iban: tx.counterparty_iban }, invoices, ibanToClient, clientNames)
       if (m) {
         await applyReconciliation(supabase, userId, {
           txId: tx.id, invoiceId: m.invoiceId, clientId: m.clientId, method: m.method, counterpartyIban: tx.counterparty_iban,
         })
         matched++
         const inv = invoices.find(i => i.id === m.invoiceId)
-        if (inv) inv.amount_due = Math.max((inv.amount_due || inv.total_ttc) - (Number(tx.amount) || 0), 0)
+        if (inv) inv.amount_due = Math.max((inv.amount_due || inv.total_ttc) - amount, 0)
+        continue
+      }
+
+      // Sortie (< 0) → dépense/ticket (miroir), sans réutiliser une dépense déjà prise ce tour.
+      if (amount < 0) {
+        const pool = expenses.filter(e => !usedExpenses.has(e.id))
+        const em = matchExpense({ amount, label, tx_date: tx.tx_date }, pool)
+        if (em) {
+          await applyExpenseReconciliation(supabase, userId, { txId: tx.id, expenseId: em.expenseId, method: em.method })
+          usedExpenses.add(em.expenseId)
+          matched++
+        }
       }
     }
   }
