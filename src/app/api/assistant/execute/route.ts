@@ -37,34 +37,39 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, message: `Email envoyé à ${action.label}.` })
     }
 
-    if (action.canal === 'message_salarie') {
+    if (action.canal === 'message_interne') {
       const service = createServiceClient()
-      // Vérifie que le salarié appartient bien à l'utilisateur.
-      const { data: emp } = await service.from('employees').select('id, full_name').eq('id', action.employeeId).eq('user_id', user.id).maybeSingle()
-      if (!emp) return NextResponse.json({ error: 'Salarié introuvable' }, { status: 404 })
+      let conversationId: string
 
-      // Conversation directe existante avec ce salarié, sinon on la crée.
-      const { data: parts } = await service.from('conversation_participants')
-        .select('conversation_id, conversations!inner(id, user_id, type)')
-        .eq('user_id', user.id).eq('employee_id', emp.id)
-      let conversationId = (parts || []).find(p => {
-        const c = p.conversations as unknown as { type: string } | null
-        return c?.type === 'direct'
-      })?.conversation_id as string | undefined
-
-      if (!conversationId) {
-        const { data: conv, error: convErr } = await service.from('conversations')
-          .insert({ user_id: user.id, type: 'direct', name: null }).select('id').single()
-        if (convErr || !conv) return NextResponse.json({ error: 'Création conversation impossible' }, { status: 500 })
+      if (action.targetKind === 'conversation') {
+        // Groupe / conversation existante : vérifie l'appartenance.
+        const { data: conv } = await service.from('conversations').select('id, user_id').eq('id', action.conversationId).maybeSingle()
+        if (!conv || conv.user_id !== user.id) return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
         conversationId = conv.id as string
-        await service.from('conversation_participants').insert({ conversation_id: conversationId, user_id: user.id, employee_id: emp.id })
+      } else {
+        // Salarié : conversation directe existante, sinon on la crée.
+        const { data: emp } = await service.from('employees').select('id').eq('id', action.employeeId).eq('user_id', user.id).maybeSingle()
+        if (!emp) return NextResponse.json({ error: 'Salarié introuvable' }, { status: 404 })
+        const { data: parts } = await service.from('conversation_participants')
+          .select('conversation_id, conversations!inner(id, user_id, type)')
+          .eq('user_id', user.id).eq('employee_id', emp.id)
+        const existing = (parts || []).find(p => (p.conversations as unknown as { type: string } | null)?.type === 'direct')?.conversation_id as string | undefined
+        if (existing) {
+          conversationId = existing
+        } else {
+          const { data: conv, error: convErr } = await service.from('conversations')
+            .insert({ user_id: user.id, type: 'direct', name: null }).select('id').single()
+          if (convErr || !conv) return NextResponse.json({ error: 'Création conversation impossible' }, { status: 500 })
+          conversationId = conv.id as string
+          await service.from('conversation_participants').insert({ conversation_id: conversationId, user_id: user.id, employee_id: emp.id })
+        }
       }
 
       const { error } = await service.from('messages').insert({
         conversation_id: conversationId, user_id: user.id, sender_type: 'admin', body: action.message,
       })
       if (error) return NextResponse.json({ error: "Le message n'a pas pu être envoyé." }, { status: 500 })
-      return NextResponse.json({ ok: true, message: `Message envoyé à ${emp.full_name}.` })
+      return NextResponse.json({ ok: true, message: `Message envoyé à ${action.label}.` })
     }
 
     return NextResponse.json({ error: 'Canal non supporté' }, { status: 400 })

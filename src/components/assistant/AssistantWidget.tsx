@@ -8,7 +8,7 @@ import { Sparkles, Mic, Loader2, Volume2, Send, ChevronRight, Mail, MessageSquar
 type Card = { label: string; sublabel?: string; href?: string }
 type Pending =
   | { canal: 'email_client'; to: string; label: string; subject: string; message: string }
-  | { canal: 'message_salarie'; employeeId: string; label: string; message: string }
+  | { canal: 'message_interne'; targetKind: 'employee' | 'conversation'; employeeId?: string; conversationId?: string; label: string; message: string }
 type Turn = { role: 'user' | 'assistant'; content: string }
 type Etat = 'idle' | 'listening' | 'thinking' | 'speaking'
 

@@ -14,25 +14,38 @@ export type AssistantCard = { label: string; sublabel?: string; href?: string }
 // (bouton « Envoyer ») avant tout envoi réel. Exécutée par /api/assistant/execute.
 export type PendingAction =
   | { canal: 'email_client'; to: string; label: string; subject: string; message: string }
-  | { canal: 'message_salarie'; employeeId: string; label: string; message: string }
+  | { canal: 'message_interne'; targetKind: 'employee'; employeeId: string; label: string; message: string }
+  | { canal: 'message_interne'; targetKind: 'conversation'; conversationId: string; label: string; message: string }
 
 export type ToolOutcome = { result: string; cards?: AssistantCard[]; navigateTo?: string; pendingAction?: PendingAction }
 
-// Sections navigables → routes. Sert aussi d'enum pour l'outil « naviguer ».
+// Sections navigables → routes. Couvre TOUS les onglets de l'app.
+// Sert aussi d'enum pour l'outil « naviguer ».
 export const SECTIONS: Record<string, string> = {
   tableau_de_bord: '/dashboard',
-  finances: '/finances',
-  clients: '/clients',
+  messages: '/messages',
+  notes: '/notes',
   prospects: '/prospects',
+  visites: '/visites',
+  clients: '/clients',
   devis: '/devis',
   factures: '/factures',
+  relances: '/relances',
+  avis_clients: '/avis',
   chantiers: '/chantiers',
   planning: '/planning',
   heures: '/heures',
-  equipe: '/equipe',
-  mails: '/emails',
-  relances: '/relances',
+  salaries: '/equipe',
+  sous_traitants: '/sous-traitants',
+  vehicules: '/vehicules',
+  comptes_rendus: '/comptes-rendus',
+  finances: '/finances',
   scan: '/tickets',
+  comptable: '/comptable',
+  documents: '/documents',
+  mails: '/emails',
+  prix: '/prix',
+  analyse_de_plan: '/plans',
   parametres: '/parametres',
 }
 
@@ -75,12 +88,12 @@ export const assistantTools = [
   },
   {
     name: 'preparer_envoi',
-    description: "PRÉPARE l'envoi d'un message (sans l'envoyer) : email à un client, ou message interne à un salarié. L'utilisateur devra confirmer avant l'envoi réel. Pour « écris à … », « envoie un message à … », « préviens le salarié … ». Rédige toi-même un message clair à partir de l'intention.",
+    description: "PRÉPARE l'envoi d'un message (sans l'envoyer) : email à un client, ou message interne (à un salarié OU à un groupe/conversation de la messagerie). L'utilisateur confirmera avant l'envoi réel. Pour « écris à … », « envoie un message à … », « préviens le groupe … », « message dans la conversation … ». Rédige toi-même un message clair.",
     input_schema: {
       type: 'object' as const,
       properties: {
-        canal: { type: 'string', enum: ['email_client', 'message_salarie', 'sms'], description: "email_client = email à un client ; message_salarie = message interne à un salarié ; sms = SMS/WhatsApp" },
-        destinataire: { type: 'string', description: 'Nom du client ou du salarié' },
+        canal: { type: 'string', enum: ['email_client', 'message_interne', 'sms'], description: "email_client = email à un client ; message_interne = messagerie de l'app (salarié ou groupe) ; sms = SMS/WhatsApp" },
+        destinataire: { type: 'string', description: 'Nom du client, du salarié, ou du groupe/conversation' },
         message: { type: 'string', description: 'Le message à envoyer, rédigé' },
         sujet: { type: 'string', description: "Objet de l'email (canal email_client uniquement)" },
       },
@@ -239,15 +252,27 @@ export async function executeTool(
         }
       }
 
-      if (canal === 'message_salarie') {
-        const { data } = await supabase.from('employees').select('id, full_name')
+      if (canal === 'message_interne') {
+        // 1) Groupe / conversation nommée qui matche.
+        const { data: convs } = await supabase.from('conversations').select('id, name, type')
+          .eq('user_id', userId).not('name', 'is', null).ilike('name', `%${dest}%`).limit(5)
+        if (convs && convs.length === 1) {
+          return {
+            result: `Prêt à envoyer un message dans « ${convs[0].name} ». Tu confirmes ?`,
+            pendingAction: { canal: 'message_interne', targetKind: 'conversation', conversationId: convs[0].id as string, label: convs[0].name as string, message },
+          }
+        }
+        if (convs && convs.length > 1) {
+          return { result: `Plusieurs conversations correspondent : ${convs.map(c => c.name).join(', ')}. Laquelle ?` }
+        }
+        // 2) Sinon, un salarié (conversation directe).
+        const { data: emps } = await supabase.from('employees').select('id, full_name')
           .eq('user_id', userId).eq('active', true).ilike('full_name', `%${dest}%`).limit(5)
-        if (!data?.length) return { result: `Aucun salarié actif trouvé pour « ${dest} ».` }
-        if (data.length > 1) return { result: `Plusieurs salariés correspondent : ${data.map(e => e.full_name).join(', ')}. Lequel ?` }
-        const emp = data[0]
+        if (!emps?.length) return { result: `Aucun salarié ni groupe trouvé pour « ${dest} ».` }
+        if (emps.length > 1) return { result: `Plusieurs salariés correspondent : ${emps.map(e => e.full_name).join(', ')}. Lequel ?` }
         return {
-          result: `Prêt à envoyer un message interne à ${emp.full_name}. Tu confirmes ?`,
-          pendingAction: { canal: 'message_salarie', employeeId: emp.id as string, label: emp.full_name as string, message },
+          result: `Prêt à envoyer un message interne à ${emps[0].full_name}. Tu confirmes ?`,
+          pendingAction: { canal: 'message_interne', targetKind: 'employee', employeeId: emps[0].id as string, label: emps[0].full_name as string, message },
         }
       }
 
