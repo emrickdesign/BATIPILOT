@@ -11,6 +11,35 @@ export function normalizeIban(s: string | null | undefined): string {
   return (s || '').replace(/\s/g, '').toUpperCase()
 }
 
+// Mots à ignorer dans un nom : formes juridiques + civilités + articles.
+// Sans eux, « SARL MARTIN » et « M. MARTIN » se ramènent tous deux au jeton MARTIN.
+const NAME_STOPWORDS = new Set([
+  'SARL', 'SAS', 'SASU', 'EURL', 'SCI', 'SA', 'SNC', 'EI', 'EIRL', 'SCOP', 'GAEC',
+  'MICRO', 'AUTO', 'ENTREPRISE', 'ETS', 'ETABLISSEMENT', 'ETABLISSEMENTS', 'STE', 'SOCIETE',
+  'MR', 'MME', 'MLLE', 'MONSIEUR', 'MADAME', 'MADEMOISELLE',
+  'ET', 'DE', 'DU', 'DES', 'LA', 'LE', 'LES', 'AUX',
+  'VIR', 'VIREMENT', 'VIRT', 'SEPA', 'RECU', 'PRLV', 'PAIEMENT', 'REGLEMENT', 'FACTURE', 'REF',
+])
+
+// Accents retirés, majuscules, découpage en jetons alphanumériques significatifs
+// (≥ 3 caractères, hors stopwords). Sert au rapprochement par nom du payeur.
+export function nameTokens(...parts: (string | null | undefined)[]): string[] {
+  const raw = parts.filter(Boolean).join(' ')
+  const toks = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim().split(/\s+/)
+    .filter(t => t.length >= 3 && !NAME_STOPWORDS.has(t))
+  return Array.from(new Set(toks))
+}
+
+// Jeux de mots du libellé bancaire (mêmes règles de normalisation, mais on garde
+// tout mot ≥ 3 lettres : c'est là que le nom du client peut apparaître).
+export function labelWords(label: string | null | undefined): Set<string> {
+  return new Set(
+    (label || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase().replace(/[^A-Z0-9]+/g, ' ').trim().split(/\s+/).filter(t => t.length >= 3),
+  )
+}
+
 export type OpenInvoice = {
   id: string
   invoice_number: string
@@ -21,13 +50,25 @@ export type OpenInvoice = {
 
 export type MatchResult = { invoiceId: string; clientId: string | null; method: string } | null
 
-// Trouve la facture correspondant à un virement reçu, par ordre de confiance :
-// 1) référence (n° de facture dans le libellé)  2) IBAN payeur connu + montant
-// 3) montant unique parmi les factures ouvertes.
+// Montant dû restant d'une facture (retombe sur le TTC si amount_due absent).
+function invoiceAmount(i: OpenInvoice): number {
+  return i.amount_due || i.total_ttc
+}
+
+// Trouve la facture correspondant à un virement reçu, par ordre de confiance
+// décroissant. Chaque niveau n'accepte QUE s'il est sans ambiguïté (un seul
+// candidat) — sinon on descend, et in fine ça part en rapprochement manuel.
+//   1) référence : n° de facture dans le libellé              → quasi certain
+//   2) nom du client + montant qui colle                      → très fiable
+//   3) IBAN payeur appris + montant / IBAN seul               → fiable (inactif si Bridge ne fournit pas l'IBAN)
+//   4) nom du client unique parmi les factures ouvertes       → fiable
+//   5) montant unique parmi toutes les factures ouvertes      → dernier recours
+// `clientNames` : clientId → jetons significatifs de son nom (nameTokens).
 export function matchInvoice(
   tx: { amount: number; label: string | null | undefined; counterparty_iban?: string | null },
   invoices: OpenInvoice[],
   ibanToClient: Map<string, string>,
+  clientNames?: Map<string, string[]>,
 ): MatchResult {
   if (!(tx.amount > 0)) return null
   const label = normalizeRef(tx.label)
@@ -36,18 +77,41 @@ export function matchInvoice(
   const byRef = invoices.find(i => i.invoice_number && label.includes(normalizeRef(i.invoice_number)))
   if (byRef) return { invoiceId: byRef.id, clientId: byRef.client_id, method: 'reference' }
 
-  // 2. IBAN payeur déjà appris → restreint au client, puis montant.
+  // Nom du payeur : combien de jetons du client apparaissent dans le libellé.
+  const words = labelWords(tx.label)
+  const nameHits = (cid: string | null): number => {
+    if (!cid || !clientNames) return 0
+    const toks = clientNames.get(cid)
+    if (!toks?.length) return 0
+    return toks.reduce((n, t) => n + (words.has(t) ? 1 : 0), 0)
+  }
+
+  const amountMatches = (i: OpenInvoice) => Math.abs(invoiceAmount(i) - tx.amount) <= 1
+
+  // 2. Nom du client reconnu dans le libellé ET montant qui colle → très fiable.
+  if (clientNames) {
+    const named = invoices.filter(i => amountMatches(i) && nameHits(i.client_id) > 0)
+    if (named.length === 1) return { invoiceId: named[0].id, clientId: named[0].client_id, method: 'nom+montant' }
+  }
+
+  // 3. IBAN payeur déjà appris → restreint au client, puis montant.
   const iban = normalizeIban(tx.counterparty_iban)
   if (iban && ibanToClient.has(iban)) {
     const cid = ibanToClient.get(iban)!
     const cand = invoices.filter(i => i.client_id === cid)
-    const exact = cand.find(i => Math.abs((i.amount_due || i.total_ttc) - tx.amount) <= 1)
+    const exact = cand.find(amountMatches)
     if (exact) return { invoiceId: exact.id, clientId: cid, method: 'iban+montant' }
     if (cand.length === 1) return { invoiceId: cand[0].id, clientId: cid, method: 'iban' }
   }
 
-  // 3. Un seul montant qui colle parmi toutes les factures ouvertes.
-  const byAmount = invoices.filter(i => Math.abs((i.amount_due || i.total_ttc) - tx.amount) <= 1)
+  // 4. Nom du client reconnu, sans autre facture ouverte ambiguë (1 seul candidat).
+  if (clientNames) {
+    const named = invoices.filter(i => nameHits(i.client_id) > 0)
+    if (named.length === 1) return { invoiceId: named[0].id, clientId: named[0].client_id, method: 'nom' }
+  }
+
+  // 5. Un seul montant qui colle parmi toutes les factures ouvertes.
+  const byAmount = invoices.filter(amountMatches)
   if (byAmount.length === 1) return { invoiceId: byAmount[0].id, clientId: byAmount[0].client_id, method: 'montant' }
 
   return null

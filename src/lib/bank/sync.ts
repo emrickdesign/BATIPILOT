@@ -3,7 +3,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getUserToken, listTransactions, listAccounts } from './bridge'
-import { matchInvoice, applyReconciliation, type OpenInvoice } from './reconcile'
+import { matchInvoice, applyReconciliation, nameTokens, type OpenInvoice } from './reconcile'
 
 export async function syncUserBank(supabase: SupabaseClient, userId: string): Promise<{ imported: number; matched: number }> {
   // Pas de compte connecté → rien à faire.
@@ -41,8 +41,24 @@ export async function syncUserBank(supabase: SupabaseClient, userId: string): Pr
     id: i.id, invoice_number: i.invoice_number, client_id: i.client_id,
     amount_due: Number(i.amount_due) || 0, total_ttc: Number(i.total_ttc) || 0,
   }))
-  // Bridge ne fournit pas l'IBAN du payeur → apprentissage IBAN inactif ici (référence + montant suffisent).
+  // Bridge ne fournit pas l'IBAN du payeur → apprentissage IBAN inactif ici.
   const ibanToClient = new Map<string, string>()
+
+  // Noms des clients → jetons, pour reconnaître le payeur dans le libellé bancaire.
+  const { data: clientRows } = await supabase.from('clients')
+    .select('id, first_name, last_name, company_name').eq('user_id', userId)
+  const clientNames = new Map<string, string[]>()
+  for (const c of clientRows || []) {
+    const toks = nameTokens(c.company_name, c.first_name, c.last_name)
+    if (toks.length) clientNames.set(c.id, toks)
+  }
+
+  // Texte de rapprochement = libellé nettoyé + brut (le nom du payeur est parfois
+  // seulement dans le brut). Le libellé stocké/affiché reste le nettoyé.
+  const matchText = new Map<string, string>()
+  for (const t of txs) {
+    matchText.set(`bridge-${t.id}`, `${t.clean_description || ''} ${t.provider_description || ''}`.trim())
+  }
 
   const rows = txs.map(t => ({
     user_id: userId,
@@ -66,13 +82,17 @@ export async function syncUserBank(supabase: SupabaseClient, userId: string): Pr
   let imported = 0, matched = 0
   if (fresh.length) {
     const { data: inserted } = await supabase.from('bank_transactions').insert(fresh)
-      .select('id, amount, label, counterparty_iban')
+      .select('id, amount, label, counterparty_iban, provider_tx_id')
     imported = inserted?.length || 0
 
     for (const tx of inserted || []) {
       const m = matchInvoice(
-        { amount: Number(tx.amount) || 0, label: tx.label, counterparty_iban: tx.counterparty_iban },
-        invoices, ibanToClient,
+        {
+          amount: Number(tx.amount) || 0,
+          label: matchText.get(tx.provider_tx_id) || tx.label,
+          counterparty_iban: tx.counterparty_iban,
+        },
+        invoices, ibanToClient, clientNames,
       )
       if (m) {
         await applyReconciliation(supabase, userId, {
