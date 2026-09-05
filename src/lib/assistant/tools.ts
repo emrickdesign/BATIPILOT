@@ -19,6 +19,7 @@ export type PendingAction =
   | { canal: 'email_client'; to: string; label: string; subject: string; message: string }
   | { canal: 'message_interne'; targetKind: 'employee'; employeeId: string; label: string; message: string }
   | { canal: 'message_interne'; targetKind: 'conversation'; conversationId: string; label: string; message: string }
+  | { canal: 'marquer_facture_payee'; invoiceId: string; label: string; message: string }
 
 export type ToolOutcome = { result: string; cards?: AssistantCard[]; navigateTo?: string; pendingAction?: PendingAction }
 
@@ -91,6 +92,38 @@ export const assistantTools = [
         filtre: { type: 'string', description: 'Optionnel : nom/mot-clé pour restreindre' },
       },
       required: ['domaine'],
+    },
+  },
+  {
+    name: 'creer_contact',
+    description: "Crée un nouveau client/prospect dans le CRM. Pour « ajoute un client … », « nouveau prospect … ». Donne au moins le nom.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        nom: { type: 'string', description: 'Nom de la personne (ou du contact)' },
+        entreprise: { type: 'string', description: "Nom de l'entreprise si c'est un professionnel" },
+        telephone: { type: 'string' },
+        email: { type: 'string' },
+      },
+      required: ['nom'],
+    },
+  },
+  {
+    name: 'preparer_devis',
+    description: "Ouvre un nouveau devis pré-rempli pour un client (l'utilisateur complète les lignes à l'écran). Pour « fais un devis pour … », « nouveau devis à … ».",
+    input_schema: {
+      type: 'object' as const,
+      properties: { client: { type: 'string', description: 'Nom du client' } },
+      required: ['client'],
+    },
+  },
+  {
+    name: 'marquer_facture_payee',
+    description: "Prépare le passage d'une facture en « payée » (confirmation requise). Pour « marque la facture X payée », « le client a payé la facture … ».",
+    input_schema: {
+      type: 'object' as const,
+      properties: { facture: { type: 'string', description: 'Numéro de facture ou nom du client' } },
+      required: ['facture'],
     },
   },
   {
@@ -257,9 +290,11 @@ export async function executeTool(
           })), '/planning')
         }
         case 'prospects': {
-          const q = supabase.from('clients').select('first_name, last_name, company_name, status, created_at').eq('user_id', userId).eq('status', 'prospect')
+          // « Prospects » = clients au stade amont (pas encore de chantier).
+          const q = supabase.from('clients').select('first_name, last_name, company_name, status, created_at')
+            .eq('user_id', userId).in('status', ['nouveau', 'infos_a_recuperer', 'devis_a_faire', 'devis_envoye'])
           const { data } = filtre ? await q.or(`company_name.ilike.${like},last_name.ilike.${like}`).limit(10) : await q.order('created_at', { ascending: false }).limit(10)
-          return pack('Prospects', (data || []).map(c => ({ label: nomClient(c), sublabel: 'prospect', href: '/prospects' })), '/prospects')
+          return pack('Prospects', (data || []).map(c => ({ label: nomClient(c), sublabel: c.status as string, href: '/prospects' })), '/prospects')
         }
         case 'clients': {
           const q = supabase.from('clients').select('id, first_name, last_name, company_name, phone').eq('user_id', userId)
@@ -337,6 +372,64 @@ export async function executeTool(
         }
         default:
           return { result: `Domaine inconnu : ${dom}.` }
+      }
+    }
+
+    case 'creer_contact': {
+      const nom = String(input.nom || '').trim()
+      const entreprise = String(input.entreprise || '').trim()
+      if (!nom && !entreprise) return { result: 'Il me faut au moins un nom.' }
+      const parts = nom.split(/\s+/)
+      const { data, error } = await supabase.from('clients').insert({
+        user_id: userId,
+        status: 'nouveau',
+        type: entreprise ? 'professionnel' : 'particulier',
+        company_name: entreprise || null,
+        first_name: parts[0] || null,
+        last_name: parts.slice(1).join(' ') || null,
+        phone: String(input.telephone || '') || null,
+        email: String(input.email || '') || null,
+      }).select('id').single()
+      if (error) return { result: "Je n'ai pas réussi à créer le contact." }
+      const label = entreprise || nom
+      return { result: `Contact ${label} créé.`, cards: [{ label, sublabel: 'Nouveau — fiche client', href: `/clients/${data.id}` }] }
+    }
+
+    case 'preparer_devis': {
+      const client = String(input.client || '').trim()
+      if (!client) return { result: 'Pour quel client ?' }
+      const like = `%${client}%`
+      const { data } = await supabase.from('clients').select('id, first_name, last_name, company_name')
+        .eq('user_id', userId).or(`company_name.ilike.${like},last_name.ilike.${like},first_name.ilike.${like}`).limit(5)
+      if (!data?.length) return { result: `Aucun client trouvé pour « ${client} ». Je peux d'abord le créer.` }
+      if (data.length > 1) return { result: `Plusieurs clients correspondent : ${data.map(nomClient).join(', ')}. Lequel ?`, cards: data.map(c => ({ label: nomClient(c), href: `/devis/nouveau?client=${c.id}` })) }
+      const c = data[0]
+      return { result: `J'ouvre un nouveau devis pour ${nomClient(c)}. Complète les lignes à l'écran.`, navigateTo: `/devis/nouveau?client=${c.id}` }
+    }
+
+    case 'marquer_facture_payee': {
+      const f = String(input.facture || '').trim()
+      if (!f) return { result: 'Quelle facture ?' }
+      const like = `%${f}%`
+      const { data } = await supabase.from('invoices')
+        .select('id, invoice_number, total_ttc, status, clients(first_name, last_name, company_name)')
+        .eq('user_id', userId).in('status', ['envoyee', 'en_retard', 'payee_partiellement'])
+        .or(`invoice_number.ilike.${like}`).limit(5)
+      let rows = data || []
+      // Repli : recherche par nom de client (filtré côté JS) si rien par numéro.
+      if (!rows.length) {
+        const { data: open } = await supabase.from('invoices')
+          .select('id, invoice_number, total_ttc, status, clients(first_name, last_name, company_name)')
+          .eq('user_id', userId).in('status', ['envoyee', 'en_retard', 'payee_partiellement']).limit(50)
+        const needle = f.toLowerCase()
+        rows = (open || []).filter(r => nomClient((r.clients as any) || {}).toLowerCase().includes(needle))
+      }
+      if (!rows.length) return { result: `Aucune facture ouverte trouvée pour « ${f} ».` }
+      if (rows.length > 1) return { result: `Plusieurs factures correspondent : ${rows.map(r => r.invoice_number).join(', ')}. Laquelle ?`, cards: rows.map(r => ({ label: `Facture ${r.invoice_number}`, sublabel: fmt(num(r.total_ttc)), href: `/factures/${r.id}` })) }
+      const inv = rows[0]
+      return {
+        result: `Marquer la facture ${inv.invoice_number} (${fmt(num(inv.total_ttc))}) comme payée ? Confirme.`,
+        pendingAction: { canal: 'marquer_facture_payee', invoiceId: inv.id as string, label: `Facture ${inv.invoice_number}`, message: `Passer la facture ${inv.invoice_number} de ${fmt(num(inv.total_ttc))} en « payée ».` },
       }
     }
 

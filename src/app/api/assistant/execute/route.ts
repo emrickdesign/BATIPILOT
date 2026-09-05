@@ -72,6 +72,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, message: `Message envoyé à ${action.label}.` })
     }
 
+    if (action.canal === 'marquer_facture_payee') {
+      const { error } = await supabase.from('invoices')
+        .update({ status: 'payee', amount_due: 0 })
+        .eq('id', action.invoiceId).eq('user_id', user.id)
+      if (error) return NextResponse.json({ error: "La facture n'a pas pu être mise à jour." }, { status: 500 })
+      return NextResponse.json({ ok: true, message: `${action.label} marquée payée.` })
+    }
+
     return NextResponse.json({ error: 'Canal non supporté' }, { status: 400 })
   } catch (err) {
     console.error('Assistant execute error:', err)

@@ -9,6 +9,7 @@ type Card = { label: string; sublabel?: string; href?: string }
 type Pending =
   | { canal: 'email_client'; to: string; label: string; subject: string; message: string }
   | { canal: 'message_interne'; targetKind: 'employee' | 'conversation'; employeeId?: string; conversationId?: string; label: string; message: string }
+  | { canal: 'marquer_facture_payee'; invoiceId: string; label: string; message: string }
 type Turn = { role: 'user' | 'assistant'; content: string }
 type Etat = 'idle' | 'listening' | 'thinking' | 'speaking'
 
@@ -168,15 +169,15 @@ export default function AssistantWidget() {
           {pending && (
             <div className="rounded-xl border border-marine/20 bg-white p-3">
               <div className="flex items-center gap-2 text-xs font-medium text-marine mb-1.5">
-                {pending.canal === 'email_client' ? <Mail className="w-3.5 h-3.5" /> : <MessageSquare className="w-3.5 h-3.5" />}
-                {pending.canal === 'email_client' ? `Email à ${pending.label}` : `Message à ${pending.label}`}
+                {pending.canal === 'email_client' ? <Mail className="w-3.5 h-3.5" /> : pending.canal === 'message_interne' ? <MessageSquare className="w-3.5 h-3.5" /> : <Check className="w-3.5 h-3.5" />}
+                {pending.canal === 'email_client' ? `Email à ${pending.label}` : pending.canal === 'message_interne' ? `Message à ${pending.label}` : pending.label}
                 {pending.canal === 'email_client' && <span className="text-gray-400 font-normal">· {pending.subject}</span>}
               </div>
               <p className="text-sm text-gray-700 whitespace-pre-wrap">{pending.message}</p>
               <div className="flex items-center gap-2 mt-3">
                 <button onClick={confirmSend} disabled={sending}
                   className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg bg-marine text-white text-sm font-medium disabled:opacity-60">
-                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Envoyer
+                  {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} {pending.canal === 'marquer_facture_payee' ? 'Confirmer' : 'Envoyer'}
                 </button>
                 <button onClick={() => setPending(null)} disabled={sending}
                   className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-gray-200 text-gray-600 text-sm">
