@@ -210,9 +210,17 @@ export default function TicketsManager({
       <Link href={backHref} className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-500 hover:text-gray-700">
         <ArrowLeft className="w-4 h-4" /> {backLabel}
       </Link>
+
+      {/* Sélecteur de type — les 4 manières de scanner, en tête. Le contenu dessous s'adapte. */}
+      <div className="flex flex-wrap gap-2">
+        {scanTabs.map(t => (
+          <Chip key={t.key} active={mode === t.key} onClick={() => { setMode(t.key); setDraft(null) }}>{t.label}</Chip>
+        ))}
+      </div>
+
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Scan tickets &amp; achats</h1>
+          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Scan tout</h1>
           <p className="text-gray-500 mt-1 text-sm">
             {mode === 'ticket'
               ? 'Photographiez vos tickets : on lit le montant et la TVA, et on garde le justificatif.'
@@ -238,13 +246,6 @@ export default function TicketsManager({
             </Button>
           </div>
         )}
-      </div>
-
-      {/* Sélecteur de type de document */}
-      <div className="flex flex-wrap gap-2">
-        {scanTabs.map(t => (
-          <Chip key={t.key} active={mode === t.key} onClick={() => { setMode(t.key); setDraft(null) }}>{t.label}</Chip>
-        ))}
       </div>
 
       {mode !== 'ticket' ? (

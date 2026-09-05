@@ -54,7 +54,7 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
     label: 'Admin & finances',
     items: [
       { href: '/finances', label: 'Finances', icon: Landmark },
-      { href: '/tickets', label: 'Scan tickets', icon: ScanLine },
+      { href: '/tickets', label: 'Scan tout', icon: ScanLine },
       { href: '/comptable', label: 'Comptable', icon: Calculator },
       { href: '/documents', label: 'Documents', icon: FolderOpen },
     ],
