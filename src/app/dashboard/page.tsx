@@ -16,6 +16,7 @@ import EncaissementsChart from './EncaissementsChart'
 import DonutMetricCard from '@/components/charts/DonutMetricCard'
 import StatCard, { type StatTone } from '@/components/charts/StatCard'
 import TodoSnooze from './TodoSnooze'
+import AssistantWidget from '@/components/assistant/AssistantWidget'
 
 const DONUT_COLORS = ['#D05C43', '#C77D0E', '#8A4B24', '#3F7A2E', '#94918A']
 const ENTREE_COLORS = ['#22A45A', '#2F7DE0', '#0E9F8E', '#5CCB86', '#94918A']
@@ -624,6 +625,11 @@ export default async function DashboardPage() {
           </span>
           <span className="grid place-items-center w-9 h-9 rounded-full bg-gradient-to-br from-[#F09A80] to-[#D05C43] text-white text-xs font-bold">{initials}</span>
         </div>
+      </div>
+
+      {/* Assistant vocal IA TonPilote */}
+      <div className="animate-fade-up">
+        <AssistantWidget />
       </div>
 
       {/* Trésorerie : solde bancaire réel (affiché seulement si une banque est connectée) */}
