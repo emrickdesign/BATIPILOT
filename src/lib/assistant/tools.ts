@@ -10,6 +10,22 @@ const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', c
 const jour = (d: unknown) => { const s = String(d || ''); return s ? s.slice(8, 10) + '/' + s.slice(5, 7) : '' }
 const nomClient = (c: { company_name?: string | null; first_name?: string | null; last_name?: string | null }) =>
   c.company_name || `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Client'
+const today = () => new Date().toISOString().split('T')[0]
+
+async function findEmployee(supabase: SupabaseClient, userId: string, name: string) {
+  const { data } = await supabase.from('employees').select('id, full_name').eq('user_id', userId).eq('active', true).ilike('full_name', `%${name}%`).limit(5)
+  return data || []
+}
+async function findProject(supabase: SupabaseClient, userId: string, name: string) {
+  const { data } = await supabase.from('projects').select('id, title, client_id').eq('user_id', userId).neq('status', 'archive').ilike('title', `%${name}%`).limit(5)
+  return data || []
+}
+async function findClient(supabase: SupabaseClient, userId: string, name: string) {
+  const like = `%${name}%`
+  const { data } = await supabase.from('clients').select('id, first_name, last_name, company_name, site_address, billing_address')
+    .eq('user_id', userId).or(`company_name.ilike.${like},last_name.ilike.${like},first_name.ilike.${like}`).limit(5)
+  return data || []
+}
 
 export type AssistantCard = { label: string; sublabel?: string; href?: string }
 
@@ -124,6 +140,76 @@ export const assistantTools = [
       type: 'object' as const,
       properties: { facture: { type: 'string', description: 'Numéro de facture ou nom du client' } },
       required: ['facture'],
+    },
+  },
+  {
+    name: 'pointer_heures',
+    description: "Enregistre des heures travaillées pour un salarié. Pour « note 8h pour Kevin aujourd'hui », « pointe 6 heures à Sami sur le chantier Dupont ».",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        salarie: { type: 'string' }, heures: { type: 'number' },
+        date: { type: 'string', description: 'AAAA-MM-JJ ; par défaut aujourd’hui' },
+        chantier: { type: 'string', description: 'Optionnel : nom du chantier' },
+      },
+      required: ['salarie', 'heures'],
+    },
+  },
+  {
+    name: 'creer_absence',
+    description: "Pose une absence pour un salarié. Pour « Kevin est absent du 10 au 12 », « congé de Sami lundi ».",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        salarie: { type: 'string' }, du: { type: 'string', description: 'AAAA-MM-JJ' }, au: { type: 'string', description: 'AAAA-MM-JJ' },
+        type: { type: 'string', description: 'congé, maladie, RTT…' },
+      },
+      required: ['salarie', 'du', 'au'],
+    },
+  },
+  {
+    name: 'creer_rappel',
+    description: "Crée un rappel/tâche. Pour « rappelle-moi de rappeler le fournisseur demain », « note : commander le carrelage ».",
+    input_schema: {
+      type: 'object' as const,
+      properties: { titre: { type: 'string' }, date: { type: 'string', description: 'AAAA-MM-JJ échéance' }, priorite: { type: 'string', enum: ['basse', 'normal', 'haute'] } },
+      required: ['titre'],
+    },
+  },
+  {
+    name: 'creer_compte_rendu',
+    description: "Ajoute un compte-rendu / point d'avancement à un chantier. Pour « CR chantier Dupont : dalle coulée, 40% », « avancement chantier X ».",
+    input_schema: {
+      type: 'object' as const,
+      properties: { chantier: { type: 'string' }, note: { type: 'string' }, avancement: { type: 'number', description: '0-100' } },
+      required: ['chantier', 'note'],
+    },
+  },
+  {
+    name: 'creer_chantier',
+    description: "Crée un nouveau chantier. Pour « crée le chantier rénovation salle de bain pour Dupont ».",
+    input_schema: {
+      type: 'object' as const,
+      properties: { titre: { type: 'string' }, client: { type: 'string', description: 'Optionnel : nom du client' } },
+      required: ['titre'],
+    },
+  },
+  {
+    name: 'creer_visite',
+    description: "Crée une visite technique / de chantier. Pour « planifie une visite chez Dupont », « nouvelle visite au 12 rue… ».",
+    input_schema: {
+      type: 'object' as const,
+      properties: { titre: { type: 'string' }, client: { type: 'string' }, adresse: { type: 'string' } },
+      required: ['titre'],
+    },
+  },
+  {
+    name: 'preparer_facture',
+    description: "Ouvre une nouvelle facture pré-remplie pour un client (l'utilisateur complète à l'écran). Pour « facture le client … », « nouvelle facture pour … ».",
+    input_schema: {
+      type: 'object' as const,
+      properties: { client: { type: 'string' } },
+      required: ['client'],
     },
   },
   {
@@ -431,6 +517,86 @@ export async function executeTool(
         result: `Marquer la facture ${inv.invoice_number} (${fmt(num(inv.total_ttc))}) comme payée ? Confirme.`,
         pendingAction: { canal: 'marquer_facture_payee', invoiceId: inv.id as string, label: `Facture ${inv.invoice_number}`, message: `Passer la facture ${inv.invoice_number} de ${fmt(num(inv.total_ttc))} en « payée ».` },
       }
+    }
+
+    case 'pointer_heures': {
+      const heures = Number(input.heures) || 0
+      const emps = await findEmployee(supabase, userId, String(input.salarie || ''))
+      if (!emps.length) return { result: `Aucun salarié trouvé pour « ${input.salarie} ».` }
+      if (emps.length > 1) return { result: `Plusieurs salariés : ${emps.map(e => e.full_name).join(', ')}. Lequel ?` }
+      let projectId: string | null = null
+      if (input.chantier) {
+        const pr = await findProject(supabase, userId, String(input.chantier))
+        if (pr.length === 1) projectId = pr[0].id as string
+      }
+      const date = String(input.date || '') || today()
+      const { error } = await supabase.from('time_entries').insert({ user_id: userId, employee_id: emps[0].id, project_id: projectId, date, hours: heures, status: 'valide' })
+      if (error) return { result: "Je n'ai pas réussi à enregistrer les heures." }
+      return { result: `${heures}h enregistrées pour ${emps[0].full_name} le ${date.slice(8, 10)}/${date.slice(5, 7)}.`, cards: [{ label: `${emps[0].full_name} · ${heures}h`, href: '/heures' }] }
+    }
+
+    case 'creer_absence': {
+      const emps = await findEmployee(supabase, userId, String(input.salarie || ''))
+      if (!emps.length) return { result: `Aucun salarié trouvé pour « ${input.salarie} ».` }
+      if (emps.length > 1) return { result: `Plusieurs salariés : ${emps.map(e => e.full_name).join(', ')}. Lequel ?` }
+      const du = String(input.du || ''), au = String(input.au || du)
+      if (!du) return { result: 'À quelle date ?' }
+      const { error } = await supabase.from('absences').insert({ user_id: userId, employee_id: emps[0].id, start_date: du, end_date: au || du, type: String(input.type || '') || null })
+      if (error) return { result: "Je n'ai pas réussi à enregistrer l'absence." }
+      return { result: `Absence de ${emps[0].full_name} enregistrée du ${jour(du)} au ${jour(au || du)}.`, cards: [{ label: `${emps[0].full_name} — absence`, sublabel: `${jour(du)} → ${jour(au || du)}`, href: '/planning' }] }
+    }
+
+    case 'creer_rappel': {
+      const titre = String(input.titre || '').trim()
+      if (!titre) return { result: 'Quel rappel ?' }
+      const { error } = await supabase.from('reminders').insert({ user_id: userId, title: titre, type: 'manuel', due_date: String(input.date || '') || null, priority: String(input.priorite || '') || 'normal', status: 'a_faire' })
+      if (error) return { result: "Je n'ai pas réussi à créer le rappel." }
+      return { result: `Rappel créé : ${titre}${input.date ? ` (pour le ${jour(input.date)})` : ''}.`, cards: [{ label: titre, sublabel: input.date ? jour(input.date) : 'sans échéance', href: '/dashboard' }] }
+    }
+
+    case 'creer_compte_rendu': {
+      const pr = await findProject(supabase, userId, String(input.chantier || ''))
+      if (!pr.length) return { result: `Aucun chantier trouvé pour « ${input.chantier} ».` }
+      if (pr.length > 1) return { result: `Plusieurs chantiers : ${pr.map(p => p.title).join(', ')}. Lequel ?` }
+      const progress = input.avancement != null ? Math.max(0, Math.min(100, Number(input.avancement))) : null
+      const { error } = await supabase.from('site_updates').insert({ user_id: userId, project_id: pr[0].id, update_date: today(), note: String(input.note || ''), progress })
+      if (error) return { result: "Je n'ai pas réussi à enregistrer le compte-rendu." }
+      return { result: `Compte-rendu ajouté au chantier ${pr[0].title}${progress != null ? ` (${progress}%)` : ''}.`, cards: [{ label: pr[0].title as string, sublabel: 'Compte-rendu ajouté', href: `/chantiers/${pr[0].id}` }] }
+    }
+
+    case 'creer_chantier': {
+      const titre = String(input.titre || '').trim()
+      if (!titre) return { result: 'Quel est le nom du chantier ?' }
+      let clientId: string | null = null, address: string | null = null
+      if (input.client) {
+        const cl = await findClient(supabase, userId, String(input.client))
+        if (cl.length === 1) { clientId = cl[0].id as string; address = (cl[0].site_address as string) || (cl[0].billing_address as string) || null }
+      }
+      const { data, error } = await supabase.from('projects').insert({ user_id: userId, title: titre, client_id: clientId, address, status: 'a_planifier' }).select('id').single()
+      if (error) return { result: "Je n'ai pas réussi à créer le chantier." }
+      return { result: `Chantier « ${titre} » créé.`, cards: [{ label: titre, sublabel: 'À planifier', href: `/chantiers/${data.id}` }] }
+    }
+
+    case 'creer_visite': {
+      const titre = String(input.titre || '').trim()
+      if (!titre) return { result: "Quel intitulé pour la visite ?" }
+      let clientId: string | null = null
+      if (input.client) {
+        const cl = await findClient(supabase, userId, String(input.client))
+        if (cl.length === 1) clientId = cl[0].id as string
+      }
+      const { data, error } = await supabase.from('site_visits').insert({ user_id: userId, title: titre, client_id: clientId, address: String(input.adresse || '') || null, status: 'brouillon' }).select('id').single()
+      if (error) return { result: "Je n'ai pas réussi à créer la visite." }
+      return { result: `Visite « ${titre} » créée.`, cards: [{ label: titre, sublabel: 'Visite', href: '/visites' }] }
+    }
+
+    case 'preparer_facture': {
+      const client = String(input.client || '').trim()
+      if (!client) return { result: 'Pour quel client ?' }
+      const cl = await findClient(supabase, userId, client)
+      if (!cl.length) return { result: `Aucun client trouvé pour « ${client} ».` }
+      if (cl.length > 1) return { result: `Plusieurs clients : ${cl.map(nomClient).join(', ')}. Lequel ?`, cards: cl.map(c => ({ label: nomClient(c), href: `/factures/nouveau?client=${c.id}` })) }
+      return { result: `J'ouvre une nouvelle facture pour ${nomClient(cl[0])}. Complète à l'écran.`, navigateTo: `/factures/nouveau?client=${cl[0].id}` }
     }
 
     case 'creer_note_chantier': {
