@@ -3,6 +3,7 @@
 // texte pour Claude + éventuellement des cartes cliquables et une navigation.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { getGmailAccessToken, fetchRecentInbox } from '@/lib/gmail-read'
 
 const num = (v: unknown) => Number(v) || 0
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
@@ -50,8 +51,20 @@ export const assistantTools = [
   },
   {
     name: 'recap_mails',
-    description: "Récapitule les derniers emails reçus (expéditeur, objet, résumé IA, catégorie). Pour « recap de mes mails », « qu'est-ce que j'ai reçu ».",
+    description: "Donne les tout derniers emails reçus, lus EN DIRECT dans Gmail (donc toujours à jour). Pour « recap de mes mails », « actualise et donne mes derniers mails », « qu'est-ce que j'ai reçu ».",
     input_schema: { type: 'object' as const, properties: {}, required: [] },
+  },
+  {
+    name: 'creer_note_chantier',
+    description: "Ajoute une note à un chantier. Pour « note sur le chantier X : … », « ajoute une note au chantier de Dupont ». Donne le nom du chantier et le texte de la note.",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        chantier: { type: 'string', description: 'Nom (ou partie du nom) du chantier' },
+        note: { type: 'string', description: 'Texte de la note à enregistrer' },
+      },
+      required: ['chantier', 'note'],
+    },
   },
   {
     name: 'naviguer',
@@ -133,15 +146,50 @@ export async function executeTool(
     }
 
     case 'recap_mails': {
+      // Live Gmail = vrais derniers mails. Repli sur la table locale si non connecté.
+      const token = await getGmailAccessToken(supabase, userId)
+      if (token) {
+        const mails = await fetchRecentInbox(token, 5)
+        if (mails.length) {
+          return {
+            result: `${mails.length} derniers mails reçus : ` + mails.map(m => `${m.from} — ${m.subject}`).join(' | '),
+            cards: mails.map(m => ({ label: m.subject, sublabel: m.from, href: '/emails' })),
+          }
+        }
+      }
       const { data } = await supabase.from('emails')
-        .select('from_name, from_email, subject, category, ai_summary, received_at')
+        .select('from_name, from_email, subject, ai_summary, received_at')
         .eq('user_id', userId).order('received_at', { ascending: false }).limit(5)
       const mails = data || []
-      if (!mails.length) return { result: 'Aucun email récent.', cards: [{ label: 'Ouvrir les mails', href: '/emails' }] }
-      const lignes = mails.map(m => `${m.from_name || m.from_email} — ${m.subject}${m.ai_summary ? ` : ${m.ai_summary}` : ''}`)
+      if (!mails.length) return { result: token ? 'Aucun email récent.' : "Gmail n'est pas connecté. Connecte-le dans Paramètres.", cards: [{ label: 'Ouvrir les mails', href: '/emails' }] }
       return {
-        result: `${mails.length} derniers mails. ` + lignes.join(' | '),
-        cards: mails.map(m => ({ label: m.subject as string || '(sans objet)', sublabel: (m.from_name as string) || (m.from_email as string), href: '/emails' })),
+        result: `${mails.length} derniers mails. ` + mails.map(m => `${m.from_name || m.from_email} — ${m.subject}`).join(' | '),
+        cards: mails.map(m => ({ label: (m.subject as string) || '(sans objet)', sublabel: (m.from_name as string) || (m.from_email as string), href: '/emails' })),
+      }
+    }
+
+    case 'creer_note_chantier': {
+      const chantier = String(input.chantier || '').trim()
+      const note = String(input.note || '').trim()
+      if (!chantier || !note) return { result: 'Il me faut le nom du chantier et le texte de la note.' }
+      const { data: matches } = await supabase.from('projects').select('id, title')
+        .eq('user_id', userId).ilike('title', `%${chantier}%`).neq('status', 'archive').limit(5)
+      if (!matches?.length) return { result: `Aucun chantier trouvé pour « ${chantier} ».` }
+      if (matches.length > 1) {
+        return {
+          result: `Plusieurs chantiers correspondent à « ${chantier} » : ${matches.map(m => m.title).join(', ')}. Lequel ?`,
+          cards: matches.map(m => ({ label: m.title as string, sublabel: 'Chantier', href: `/chantiers/${m.id}` })),
+        }
+      }
+      const proj = matches[0]
+      const { data: prof } = await supabase.from('profiles').select('full_name').eq('id', userId).maybeSingle()
+      const { error } = await supabase.from('notes').insert({
+        user_id: userId, project_id: proj.id, author_name: prof?.full_name || 'Vous', body: note,
+      })
+      if (error) return { result: "Je n'ai pas réussi à enregistrer la note." }
+      return {
+        result: `Note ajoutée au chantier ${proj.title}.`,
+        cards: [{ label: proj.title as string, sublabel: 'Note ajoutée', href: `/chantiers/${proj.id}` }],
       }
     }
 
