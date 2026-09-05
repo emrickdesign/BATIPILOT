@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
-import { Building2, Mail, User, FileText, ShieldCheck, Landmark, Calculator, Truck, Bell, HardHat } from 'lucide-react'
+import { Building2, Mail, User, FileText, ShieldCheck, Landmark, Calculator, Truck, Bell, HardHat, Sparkles } from 'lucide-react'
 
 type Item = { href?: string; icon: typeof Building2; title: string; desc: string; soon?: boolean }
 type Group = { title: string; items: Item[] }
@@ -27,6 +27,12 @@ const groups: Group[] = [
       { href: '/parametres/banque', icon: Landmark, title: 'Connexion bancaire', desc: 'Connectez votre compte : les virements reçus sont rapprochés automatiquement' },
       { href: '/comptable', icon: Calculator, title: 'Comptable', desc: 'Exports mensuels à transmettre à votre comptable' },
       { icon: Truck, title: 'Traceurs véhicules', desc: 'Connexion d\'un boîtier GPS à la flotte', soon: true },
+    ],
+  },
+  {
+    title: 'Assistant',
+    items: [
+      { href: '/automatisations', icon: Sparkles, title: 'Automatisations', desc: 'Actions détectées à traiter : devis à relancer, chantiers à facturer, dépenses à rattacher…' },
     ],
   },
   {
