@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Mic, X, Keyboard, Send, Loader2, Check, Mail, MessageSquare, ChevronRight, Volume2 } from 'lucide-react'
+import { Mic, X, Keyboard, Send, Loader2, Check, Mail, MessageSquare, ChevronRight, Volume2, SlidersHorizontal } from 'lucide-react'
 import type { PendingAction } from '@/lib/assistant/tools'
 
 type Card = { label: string; sublabel?: string; href?: string }
@@ -30,6 +30,11 @@ export default function AssistantVoiceMode({ onClose, initial }: { onClose: () =
   const [typed, setTyped] = useState('')
   const [srSupported, setSrSupported] = useState(true)
 
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([])
+  const [voiceURI, setVoiceURI] = useState('')
+  const [showVoices, setShowVoices] = useState(false)
+  const voiceURIRef = useRef('')
+
   const recRef = useRef<any>(null)
   const histRef = useRef<Turn[]>([])
   const etatRef = useRef<Etat>('idle')
@@ -40,6 +45,41 @@ export default function AssistantVoiceMode({ onClose, initial }: { onClose: () =
 
   const setState = (e: Etat) => { etatRef.current = e; setEtat(e) }
   useEffect(() => { pendingRef.current = pending }, [pending])
+
+  // ---- Voix FR disponibles sur l'appareil (choix mémorisé) ----
+  useEffect(() => {
+    const synth = window.speechSynthesis
+    if (!synth) return
+    const load = () => {
+      const fr = synth.getVoices().filter(v => v.lang?.toLowerCase().startsWith('fr'))
+      if (!fr.length) return
+      setVoices(fr)
+      let saved = ''
+      try { saved = localStorage.getItem('assistantVoiceURI') || '' } catch {}
+      const chosen = (saved && fr.some(v => v.voiceURI === saved) && saved)
+        || fr.find(v => /google/i.test(v.name))?.voiceURI
+        || fr.find(v => /am[ée]lie|audrey|marie|virginie/i.test(v.name))?.voiceURI
+        || fr[0].voiceURI
+      setVoiceURI(chosen); voiceURIRef.current = chosen
+    }
+    load()
+    synth.onvoiceschanged = load
+    return () => { try { synth.onvoiceschanged = null } catch {} }
+  }, [])
+
+  function pickVoice(uri: string) {
+    setVoiceURI(uri); voiceURIRef.current = uri; setShowVoices(false)
+    try { localStorage.setItem('assistantVoiceURI', uri) } catch {}
+    try {
+      const synth = window.speechSynthesis
+      synth.cancel()
+      const u = new SpeechSynthesisUtterance('Voilà, c’est ma nouvelle voix.')
+      u.lang = 'fr-FR'
+      const v = synth.getVoices().find(x => x.voiceURI === uri)
+      if (v) u.voice = v
+      synth.speak(u)
+    } catch {}
+  }
 
   // ---- Micro (reconnaissance continue + relance auto) ----
   const startRec = useCallback(() => {
@@ -56,6 +96,9 @@ export default function AssistantVoiceMode({ onClose, initial }: { onClose: () =
       lastSpokenRef.current = text
       const u = new SpeechSynthesisUtterance(text)
       u.lang = 'fr-FR'
+      const chosen = voiceURIRef.current ? synth.getVoices().find(x => x.voiceURI === voiceURIRef.current) : null
+      if (chosen) u.voice = chosen
+      u.rate = 1; u.pitch = 1
       u.onend = () => { if (!closedRef.current) setState('listening') }
       setState('speaking')
       synth.speak(u)
@@ -176,7 +219,20 @@ export default function AssistantVoiceMode({ onClose, initial }: { onClose: () =
           <div className="font-heading font-bold text-lg">Let’s Talk</div>
           <div className="text-xs text-white/50">{statusText}</div>
         </div>
-        <div className="w-10" />
+        <div className="relative">
+          <button onClick={() => setShowVoices(s => !s)} disabled={!voices.length} className="grid place-items-center w-10 h-10 rounded-full bg-white/10 hover:bg-white/15 disabled:opacity-40" aria-label="Choisir la voix"><SlidersHorizontal className="w-5 h-5" /></button>
+          {showVoices && (
+            <div className="absolute right-0 mt-2 w-60 max-h-72 overflow-y-auto rounded-2xl border border-white/10 bg-[#141416] p-1.5 z-10 shadow-xl">
+              <div className="px-2.5 py-1.5 text-[11px] uppercase tracking-wider text-white/40">Voix</div>
+              {voices.map(v => (
+                <button key={v.voiceURI} onClick={() => pickVoice(v.voiceURI)} className={`w-full text-left px-2.5 py-2 rounded-lg text-sm flex items-center justify-between gap-2 ${v.voiceURI === voiceURI ? 'bg-[#F5A623] text-black' : 'text-white/85 hover:bg-white/10'}`}>
+                  <span className="truncate">{v.name.replace(/\(.*?\)/, '').trim()}</span>
+                  {v.voiceURI === voiceURI && <Check className="w-4 h-4 flex-shrink-0" />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Hero */}
