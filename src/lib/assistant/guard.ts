@@ -19,7 +19,10 @@ export function sanitizeMessages(incoming: unknown): { role: 'user' | 'assistant
       out.push({ role, content: content.slice(0, MAX_MSG_CHARS) })
     }
   }
-  return out.slice(-MAX_MESSAGES)
+  const sliced = out.slice(-MAX_MESSAGES)
+  // L'API Anthropic exige que le 1er message soit 'user' : retire les 'assistant' de tête.
+  while (sliced.length && sliced[0].role !== 'user') sliced.shift()
+  return sliced
 }
 
 // true si l'utilisateur est sous la limite (et enregistre l'appel). false = à bloquer (429).

@@ -525,14 +525,16 @@ export async function executeTool(
       if (!emps.length) return { result: `Aucun salarié trouvé pour « ${input.salarie} ».` }
       if (emps.length > 1) return { result: `Plusieurs salariés : ${emps.map(e => e.full_name).join(', ')}. Lequel ?` }
       let projectId: string | null = null
+      let chantierNote = ''
       if (input.chantier) {
         const pr = await findProject(supabase, userId, String(input.chantier))
         if (pr.length === 1) projectId = pr[0].id as string
+        else chantierNote = pr.length > 1 ? ` (chantier non rattaché : « ${input.chantier} » ambigu)` : ` (chantier « ${input.chantier} » introuvable, non rattaché)`
       }
       const date = String(input.date || '') || today()
       const { error } = await supabase.from('time_entries').insert({ user_id: userId, employee_id: emps[0].id, project_id: projectId, date, hours: heures, status: 'valide' })
       if (error) return { result: "Je n'ai pas réussi à enregistrer les heures." }
-      return { result: `${heures}h enregistrées pour ${emps[0].full_name} le ${date.slice(8, 10)}/${date.slice(5, 7)}.`, cards: [{ label: `${emps[0].full_name} · ${heures}h`, href: '/heures' }] }
+      return { result: `${heures}h enregistrées pour ${emps[0].full_name} le ${date.slice(8, 10)}/${date.slice(5, 7)}${chantierNote}.`, cards: [{ label: `${emps[0].full_name} · ${heures}h`, href: '/heures' }] }
     }
 
     case 'creer_absence': {
@@ -567,27 +569,29 @@ export async function executeTool(
     case 'creer_chantier': {
       const titre = String(input.titre || '').trim()
       if (!titre) return { result: 'Quel est le nom du chantier ?' }
-      let clientId: string | null = null, address: string | null = null
+      let clientId: string | null = null, address: string | null = null, clientNote = ''
       if (input.client) {
         const cl = await findClient(supabase, userId, String(input.client))
         if (cl.length === 1) { clientId = cl[0].id as string; address = (cl[0].site_address as string) || (cl[0].billing_address as string) || null }
+        else clientNote = cl.length > 1 ? ` (client non rattaché : « ${input.client} » ambigu)` : ` (client « ${input.client} » introuvable)`
       }
       const { data, error } = await supabase.from('projects').insert({ user_id: userId, title: titre, client_id: clientId, address, status: 'a_planifier' }).select('id').single()
       if (error) return { result: "Je n'ai pas réussi à créer le chantier." }
-      return { result: `Chantier « ${titre} » créé.`, cards: [{ label: titre, sublabel: 'À planifier', href: `/chantiers/${data.id}` }] }
+      return { result: `Chantier « ${titre} » créé${clientNote}.`, cards: [{ label: titre, sublabel: 'À planifier', href: `/chantiers/${data.id}` }] }
     }
 
     case 'creer_visite': {
       const titre = String(input.titre || '').trim()
       if (!titre) return { result: "Quel intitulé pour la visite ?" }
-      let clientId: string | null = null
+      let clientId: string | null = null, visiteNote = ''
       if (input.client) {
         const cl = await findClient(supabase, userId, String(input.client))
         if (cl.length === 1) clientId = cl[0].id as string
+        else visiteNote = cl.length > 1 ? ` (client non rattaché : « ${input.client} » ambigu)` : ` (client « ${input.client} » introuvable)`
       }
       const { data, error } = await supabase.from('site_visits').insert({ user_id: userId, title: titre, client_id: clientId, address: String(input.adresse || '') || null, status: 'brouillon' }).select('id').single()
       if (error) return { result: "Je n'ai pas réussi à créer la visite." }
-      return { result: `Visite « ${titre} » créée.`, cards: [{ label: titre, sublabel: 'Visite', href: '/visites' }] }
+      return { result: `Visite « ${titre} » créée${visiteNote}.`, cards: [{ label: titre, sublabel: 'Visite', href: '/visites' }] }
     }
 
     case 'preparer_facture': {
@@ -638,14 +642,15 @@ export async function executeTool(
         const like = `%${dest}%`
         const { data } = await supabase.from('clients').select('first_name, last_name, company_name, email')
           .eq('user_id', userId).or(`company_name.ilike.${like},last_name.ilike.${like},first_name.ilike.${like}`).limit(5)
-        const withEmail = (data || []).find(c => c.email)
         if (!data?.length) return { result: `Aucun client trouvé pour « ${dest} ».` }
-        if (!withEmail) return { result: `${dest} n'a pas d'adresse email enregistrée.` }
-        const label = withEmail.company_name || `${withEmail.first_name || ''} ${withEmail.last_name || ''}`.trim() || (withEmail.email as string)
+        if (data.length > 1) return { result: `Plusieurs clients correspondent à « ${dest} » : ${data.map(nomClient).join(', ')}. Lequel ?`, cards: data.map(c => ({ label: nomClient(c), sublabel: (c.email as string) || 'sans email' })) }
+        const c = data[0]
+        if (!c.email) return { result: `${nomClient(c)} n'a pas d'adresse email enregistrée.` }
+        const label = nomClient(c)
         const subject = String(input.sujet || '').trim() || 'Message'
         return {
-          result: `Prêt à envoyer un email à ${label} (${withEmail.email}). Objet : « ${subject} ». Tu confirmes l'envoi ?`,
-          pendingAction: { canal: 'email_client', to: withEmail.email as string, label, subject, message },
+          result: `Prêt à envoyer un email à ${label} (${c.email}). Objet : « ${subject} ». Tu confirmes l'envoi ?`,
+          pendingAction: { canal: 'email_client', to: c.email as string, label, subject, message },
         }
       }
 

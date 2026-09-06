@@ -26,10 +26,14 @@ export async function POST(req: NextRequest) {
     if (action.canal === 'email_client') {
       const tok = await getValidGmailToken(supabase, user.id)
       if (!tok) return NextResponse.json({ error: 'Gmail non connecté' }, { status: 400 })
+      // Nettoie les en-têtes (pas de CRLF injecté) et encode le sujet en UTF-8 (accents).
+      const to = action.to.replace(/[\r\n]/g, ' ').trim()
+      const subject = action.subject.replace(/[\r\n]/g, ' ').trim()
       const raw = [
         `From: ${tok.gmailEmail}`,
-        `To: ${action.to}`,
-        `Subject: ${action.subject}`,
+        `To: ${to}`,
+        `Subject: =?UTF-8?B?${Buffer.from(subject, 'utf8').toString('base64')}?=`,
+        'MIME-Version: 1.0',
         'Content-Type: text/plain; charset=utf-8',
         '',
         action.message,

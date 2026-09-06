@@ -106,7 +106,12 @@ export async function syncUserBank(supabase: SupabaseClient, userId: string): Pr
         })
         matched++
         const inv = invoices.find(i => i.id === m.invoiceId)
-        if (inv) inv.amount_due = Math.max((inv.amount_due || inv.total_ttc) - amount, 0)
+        if (inv) {
+          inv.amount_due = Math.max((inv.amount_due || inv.total_ttc) - amount, 0)
+          // Facture soldée : la retirer du pool pour qu'un 2e virement du même run
+          // ne s'y rapproche pas à nouveau (invoiceAmount retombe sinon sur total_ttc).
+          if (inv.amount_due <= 1) { const idx = invoices.indexOf(inv); if (idx >= 0) invoices.splice(idx, 1) }
+        }
         continue
       }
 

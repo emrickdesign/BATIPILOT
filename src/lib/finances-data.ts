@@ -88,7 +88,11 @@ export async function getTresorerieData(userId: string): Promise<TresorerieData>
 
   const resteAEncaisser = (openInvRes.data || []).reduce((s, i) => s + (num(i.amount_due) || num(i.total_ttc)), 0)
   const aDecaisser = (subToPayRes.data || []).reduce((s, i) => s + (num(i.amount_ttc) || num(i.amount_ht) * 1.2), 0)
-  const nbARapprocher = mouvements.filter(m => m.status === 'a_rapprocher').length
+  // Compte les virements à rapprocher sur TOUT l'historique (pas seulement les 12 mois
+  // affichés) — cohérent avec l'atelier Paiements, qui ne filtre pas par date.
+  const { count: nbAR } = await supabase.from('bank_transactions')
+    .select('id', { count: 'exact', head: true }).eq('user_id', userId).eq('status', 'a_rapprocher')
+  const nbARapprocher = nbAR || 0
 
   return { solde, hasBalance, months, mouvements, resteAEncaisser, aDecaisser, nbARapprocher }
 }

@@ -27,12 +27,13 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
-    // Plafond de taille : rejette un corps trop gros AVANT tout appel au modèle.
-    if (Number(req.headers.get('content-length') || 0) > MAX_BODY_BYTES) {
+    // Plafond de taille : mesure le corps RÉEL (l'en-tête Content-Length peut manquer/mentir).
+    const raw = await req.text()
+    if (raw.length > MAX_BODY_BYTES) {
       return NextResponse.json({ error: 'Requête trop volumineuse.' }, { status: 413 })
     }
-
-    const body = await req.json().catch(() => ({}))
+    let body: unknown = {}
+    try { body = JSON.parse(raw) } catch {}
     // Sanitize : messages valides, contenu tronqué, historique borné.
     const messages: Msg[] = sanitizeMessages((body as { messages?: unknown }).messages)
     if (!messages.length) return NextResponse.json({ error: 'messages requis' }, { status: 400 })

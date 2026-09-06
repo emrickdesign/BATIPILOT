@@ -73,9 +73,18 @@ export function matchInvoice(
   if (!(tx.amount > 0)) return null
   const label = normalizeRef(tx.label)
 
-  // 1. Référence exacte : le n° de facture apparaît dans le libellé.
-  const byRef = invoices.find(i => i.invoice_number && label.includes(normalizeRef(i.invoice_number)))
-  if (byRef) return { invoiceId: byRef.id, clientId: byRef.client_id, method: 'reference' }
+  // 1. Référence : le n° de facture apparaît dans le libellé. On exige un numéro
+  // assez long (≥ 4 car. normalisés) et, s'il y a plusieurs correspondances, le plus
+  // spécifique (le plus long) ET unique — évite qu'un n° court (« 100 ») soit rapproché
+  // par sous-chaîne à un virement destiné à « 1001 ».
+  const refMatches = invoices
+    .filter(i => { const n = normalizeRef(i.invoice_number); return n.length >= 4 && label.includes(n) })
+    .sort((a, b) => normalizeRef(b.invoice_number).length - normalizeRef(a.invoice_number).length)
+  if (refMatches.length) {
+    const topLen = normalizeRef(refMatches[0].invoice_number).length
+    const tops = refMatches.filter(i => normalizeRef(i.invoice_number).length === topLen)
+    if (tops.length === 1) return { invoiceId: tops[0].id, clientId: tops[0].client_id, method: 'reference' }
+  }
 
   // Nom du payeur : combien de jetons du client apparaissent dans le libellé.
   const words = labelWords(tx.label)
@@ -130,7 +139,7 @@ export async function recomputeInvoice(supabase: SupabaseClient, userId: string,
   let status = inv.status as string
   if (paid <= 0) {
     if (status === 'payee' || status === 'payee_partiellement') status = 'envoyee'
-  } else if (due <= 0.5) {
+  } else if (due <= 1) {
     status = 'payee'
   } else {
     status = 'payee_partiellement'

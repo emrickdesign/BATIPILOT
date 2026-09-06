@@ -40,6 +40,7 @@ export default function AssistantVoiceMode({ onClose, initial }: { onClose: () =
   const etatRef = useRef<Etat>('idle')
   const pendingRef = useRef<PendingAction | null>(null)
   const lastSpokenRef = useRef('')
+  const speakEndRef = useRef(0)
   const runningRef = useRef(false)
   const closedRef = useRef(false)
 
@@ -99,7 +100,7 @@ export default function AssistantVoiceMode({ onClose, initial }: { onClose: () =
       const chosen = voiceURIRef.current ? synth.getVoices().find(x => x.voiceURI === voiceURIRef.current) : null
       if (chosen) u.voice = chosen
       u.rate = 1; u.pitch = 1
-      u.onend = () => { if (!closedRef.current) setState('listening') }
+      u.onend = () => { speakEndRef.current = Date.now(); if (!closedRef.current && etatRef.current === 'speaking') setState('listening') }
       setState('speaking')
       synth.speak(u)
     } catch { setState('listening') }
@@ -167,10 +168,12 @@ export default function AssistantVoiceMode({ onClose, initial }: { onClose: () =
       if (interim && etatRef.current === 'listening') setHeard(interim)
       if (!final.trim()) return
 
-      // Anti-écho : ignore ce qui ressemble à ce que l'IA vient de dire.
+      // Anti-écho : ignore ce qui ressemble à ce que l'IA vient de dire — pendant qu'elle
+      // parle ET dans les ~900 ms qui suivent la fin (le micro capte encore la fin du TTS).
       const spoken = lastSpokenRef.current.toLowerCase()
       const f = final.toLowerCase().trim()
-      if (etatRef.current === 'speaking' && f.length > 4 && spoken.includes(f.slice(0, Math.min(20, f.length)))) return
+      const nearSpeech = etatRef.current === 'speaking' || (Date.now() - speakEndRef.current) < 900
+      if (nearSpeech && f.length > 4 && spoken.includes(f.slice(0, Math.min(20, f.length)))) return
 
       // Barge-in : couper la parole de l'IA.
       if (etatRef.current === 'speaking') { try { window.speechSynthesis?.cancel() } catch {} }
