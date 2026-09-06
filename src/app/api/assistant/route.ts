@@ -1,7 +1,9 @@
 import { createClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { assistantTools, executeTool, type AssistantCard, type PendingAction } from '@/lib/assistant/tools'
+import { sanitizeMessages, withinRateLimit, MAX_BODY_BYTES } from '@/lib/assistant/guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -25,12 +27,21 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Non connecté' }, { status: 401 })
 
-    const { messages: incoming } = await req.json()
-    if (!Array.isArray(incoming) || incoming.length === 0) {
-      return NextResponse.json({ error: 'messages requis' }, { status: 400 })
+    // Plafond de taille : rejette un corps trop gros AVANT tout appel au modèle.
+    if (Number(req.headers.get('content-length') || 0) > MAX_BODY_BYTES) {
+      return NextResponse.json({ error: 'Requête trop volumineuse.' }, { status: 413 })
     }
-    // Historique court : garde les derniers échanges (le vocal reste concis).
-    const messages: Msg[] = incoming.slice(-8)
+
+    const body = await req.json().catch(() => ({}))
+    // Sanitize : messages valides, contenu tronqué, historique borné.
+    const messages: Msg[] = sanitizeMessages((body as { messages?: unknown }).messages)
+    if (!messages.length) return NextResponse.json({ error: 'messages requis' }, { status: 400 })
+
+    // Rate-limit par utilisateur (protège la clé Anthropic serveur).
+    const service = createServiceClient()
+    if (!(await withinRateLimit(service, user.id, 20))) {
+      return NextResponse.json({ error: 'Trop de requêtes, patiente un instant.' }, { status: 429 })
+    }
 
     let navigateTo: string | undefined
     let pendingAction: PendingAction | undefined

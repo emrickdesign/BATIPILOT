@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase/service'
 import { getValidGmailToken } from '@/lib/gmail-token'
 import { NextRequest, NextResponse } from 'next/server'
 import type { PendingAction } from '@/lib/assistant/tools'
+import { withinRateLimit } from '@/lib/assistant/guard'
 
 export const dynamic = 'force-dynamic'
 
@@ -15,6 +16,12 @@ export async function POST(req: NextRequest) {
 
     const { action } = await req.json() as { action: PendingAction }
     if (!action?.canal) return NextResponse.json({ error: 'Action invalide' }, { status: 400 })
+
+    // Rate-limit par utilisateur.
+    const rl = createServiceClient()
+    if (!(await withinRateLimit(rl, user.id, 30))) {
+      return NextResponse.json({ error: 'Trop de requêtes, patiente un instant.' }, { status: 429 })
+    }
 
     if (action.canal === 'email_client') {
       const tok = await getValidGmailToken(supabase, user.id)
