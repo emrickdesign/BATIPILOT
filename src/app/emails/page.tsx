@@ -14,7 +14,7 @@ import {
   Mail, Inbox, Star, Clock, Send, FileText, Trash2, AlertOctagon, Tag,
   Pencil, RefreshCw, Search, Archive, ChevronLeft, ChevronRight, Plus,
   Paperclip, X, Menu, ChevronDown, ChevronUp, Mails, Bookmark, Settings2,
-  HardHat, MailOpen,
+  HardHat, MailOpen, Users, Info, MessagesSquare,
 } from 'lucide-react'
 
 type MessageRow = {
@@ -58,6 +58,20 @@ const MORE_VIEWS: SystemView[] = [
   { id: 'TRASH', label: 'Corbeille', icon: Trash2 },
 ]
 
+/** Onglets de catégories de la boîte de réception, à l'identique de Gmail.
+ *  Le vrai onglet « Principal » = INBOX ∩ CATEGORY_PERSONAL ; Gmail range les
+ *  pubs, réseaux sociaux et notifications dans leurs propres onglets, ce qui
+ *  garde la boîte principale propre. On reproduit exactement ce classement. */
+type InboxTab = { id: string; label: string; icon: any }
+const INBOX_TABS: InboxTab[] = [
+  { id: 'CATEGORY_PERSONAL', label: 'Principal', icon: Inbox },
+  { id: 'CATEGORY_UPDATES', label: 'Notifications', icon: Info },
+  { id: 'CATEGORY_PROMOTIONS', label: 'Promotions', icon: Tag },
+  { id: 'CATEGORY_SOCIAL', label: 'Réseaux sociaux', icon: Users },
+  { id: 'CATEGORY_FORUMS', label: 'Forums', icon: MessagesSquare },
+]
+const DEFAULT_INBOX_TAB = 'CATEGORY_PERSONAL'
+
 const PAGE_SIZE = 30
 /** Gmail sans Pub/Sub : on interroge l'API à intervalle régulier, onglet visible. */
 const POLL_MS = 30_000
@@ -77,6 +91,8 @@ function formatDate(internalDate: string): string {
 export default function EmailsPage() {
   const [connected, setConnected] = useState<boolean | null>(null)
   const [view, setView] = useState('INBOX')
+  // Onglet de catégorie actif dans la boîte de réception (Principal par défaut).
+  const [inboxCategory, setInboxCategory] = useState(DEFAULT_INBOX_TAB)
   const [messages, setMessages] = useState<MessageRow[]>([])
   const [labels, setLabels] = useState<GmailLabel[]>([])
   const [loading, setLoading] = useState(true)
@@ -129,7 +145,12 @@ export default function EmailsPage() {
     const qs = new URLSearchParams()
     qs.set('maxResults', String(PAGE_SIZE))
     if (activeQuery) qs.set('q', activeQuery)
-    else if (view !== ALL_MAIL) qs.append('labelIds', view)
+    else if (view === 'INBOX') {
+      // Boîte de réception filtrée par onglet de catégorie : les libellés sont
+      // combinés en ET, donc INBOX + CATEGORY_x = exactement l'onglet Gmail.
+      qs.append('labelIds', 'INBOX')
+      qs.append('labelIds', inboxCategory)
+    } else if (view !== ALL_MAIL) qs.append('labelIds', view)
     const token = pageTokens[pageIndex]
     if (token) qs.set('pageToken', token)
 
@@ -152,7 +173,7 @@ export default function EmailsPage() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [view, activeQuery, pageTokens, pageIndex])
+  }, [view, inboxCategory, activeQuery, pageTokens, pageIndex])
 
   useEffect(() => {
     ;(async () => {
@@ -235,6 +256,7 @@ export default function EmailsPage() {
 
   function changeView(next: string) {
     setView(next)
+    setInboxCategory(DEFAULT_INBOX_TAB)
     setActiveQuery('')
     setSearch('')
     setOpenId(null)
@@ -242,6 +264,15 @@ export default function EmailsPage() {
     setPageTokens([null])
     setPageIndex(0)
     setSidebarOpen(false)
+  }
+
+  /** Bascule d'onglet dans la boîte de réception (Principal, Promotions, …). */
+  function changeInboxCategory(next: string) {
+    setInboxCategory(next)
+    setOpenId(null)
+    setSelected(new Set())
+    setPageTokens([null])
+    setPageIndex(0)
   }
 
   function submitSearch(e: React.FormEvent) {
@@ -677,6 +708,40 @@ export default function EmailsPage() {
                   <ChevronRight className="h-[18px] w-[18px]" />
                 </button>
               </div>
+
+              {/* Onglets de catégories, comme Gmail : la boîte principale ne
+                  montre que le courrier « Principal » ; pubs, réseaux sociaux
+                  et notifications sont rangés dans leurs propres onglets. */}
+              {view === 'INBOX' && !activeQuery && (
+                <div className="flex items-stretch gap-1 overflow-x-auto border-b px-2">
+                  {INBOX_TABS.filter(
+                    t => t.id === DEFAULT_INBOX_TAB || !labels.length || labels.some(l => l.id === t.id)
+                  ).map(t => {
+                    const active = inboxCategory === t.id
+                    const unread = labels.find(l => l.id === t.id)?.messagesUnread
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => changeInboxCategory(t.id)}
+                        className={cn(
+                          'flex flex-shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition-colors',
+                          active
+                            ? 'border-[#E0674C] font-semibold text-[#8C2F17]'
+                            : 'border-transparent text-gray-600 hover:bg-gray-50'
+                        )}
+                      >
+                        <t.icon className={cn('h-4 w-4 flex-shrink-0', active && 'text-[#E0674C]')} />
+                        <span>{t.label}</span>
+                        {!!unread && (
+                          <span className={cn('text-xs font-semibold', active ? 'text-[#8C2F17]' : 'text-[#E0674C]')}>
+                            {unread}
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
 
               {/* Liste. overflow-x-hidden explicite : un conteneur dont un axe
                   n'est pas « visible » bascule l'autre axe en « auto », ce qui

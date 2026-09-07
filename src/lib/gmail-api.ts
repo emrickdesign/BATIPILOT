@@ -268,7 +268,12 @@ export async function listLabels(accessToken: string): Promise<GmailLabel[]> {
   const labels: GmailLabel[] = res?.labels || []
   // Le compteur d'un label n'est pas dans /labels : il faut un get par label.
   // On ne le fait que pour ceux qu'on affiche avec une pastille non-lus.
-  const wanted = new Set(['INBOX', 'STARRED', 'DRAFT', 'SPAM', 'SNOOZED'])
+  const wanted = new Set([
+    'INBOX', 'STARRED', 'DRAFT', 'SPAM', 'SNOOZED',
+    // Onglets de catégories de la boîte de réception, comme Gmail.
+    'CATEGORY_PERSONAL', 'CATEGORY_SOCIAL', 'CATEGORY_PROMOTIONS',
+    'CATEGORY_UPDATES', 'CATEGORY_FORUMS',
+  ])
   const needsCount = labels.filter(l => l.type === 'user' || wanted.has(l.id))
   const counts = await pooled(needsCount, 10, async l => {
     try {
