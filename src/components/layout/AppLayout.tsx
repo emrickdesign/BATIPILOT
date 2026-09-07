@@ -11,6 +11,7 @@ import {
 import { useState, useEffect } from 'react'
 import { isPole } from '@/lib/roles'
 import NotificationBell from '@/components/NotificationBell'
+import AssistantLauncher from '@/components/assistant/AssistantLauncher'
 
 type NavLink = { href: string; label: string; icon: any }
 
@@ -347,6 +348,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      {/* Assistant IA flottant, présent sur toutes les pages */}
+      <AssistantLauncher />
     </div>
   )
 }

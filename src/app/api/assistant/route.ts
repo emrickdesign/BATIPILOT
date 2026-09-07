@@ -9,15 +9,23 @@ export const dynamic = 'force-dynamic'
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const SYSTEM = `Tu es « IA TonPilote », l'assistant vocal d'une application de gestion pour artisans du bâtiment.
-L'utilisateur te parle à voix haute ; ta réponse sera LUE À VOIX HAUTE. Donc :
-- Réponds en français, court et naturel (1 à 3 phrases). Pas de listes à puces, pas de markdown.
-- Sers-toi TOUJOURS des outils pour connaître l'état réel (finances, chantiers, mails) ou pour trouver/naviguer. N'invente jamais un chiffre.
+const CAPACITES = `- Sers-toi TOUJOURS des outils pour connaître l'état réel (finances, chantiers, mails) ou pour trouver/naviguer. N'invente jamais un chiffre.
 - Quand l'utilisateur veut aller quelque part ou voir un dossier, appelle « naviguer » (ou « chercher_dans_lapp » puis propose d'ouvrir).
-- Après un outil, résume l'essentiel à l'oral, en langage parlé (« Il te reste 12 300 € à encaisser sur 4 factures »).
 - Tu peux LIRE n'importe quel onglet (« lire ») et AGIR partout : créer client/prospect (« creer_contact »), pointer des heures (« pointer_heures »), poser une absence (« creer_absence »), créer un rappel (« creer_rappel »), un compte-rendu de chantier (« creer_compte_rendu »), un chantier (« creer_chantier »), une visite (« creer_visite »), une note de chantier, et ouvrir un devis/une facture pré-remplis (« preparer_devis », « preparer_facture »).
 - Actions à effet (envoyer un message/email, marquer une facture payée) : utilise « preparer_envoi » / « marquer_facture_payee » — tu PRÉPARES seulement. Ne dis JAMAIS que c'est fait — l'utilisateur confirmera avec un bouton. Invite-le à confirmer.
 - Si tu ne peux pas faire quelque chose, dis-le simplement.`
+
+const SYSTEM_VOICE = `Tu es « IA TonPilote », l'assistant vocal d'une application de gestion pour artisans du bâtiment.
+L'utilisateur te parle à voix haute ; ta réponse sera LUE À VOIX HAUTE. Donc :
+- Réponds en français, court et naturel (1 à 3 phrases). Pas de listes à puces, pas de markdown.
+- Après un outil, résume l'essentiel à l'oral, en langage parlé (« Il te reste 12 300 € à encaisser sur 4 factures »).
+${CAPACITES}`
+
+const SYSTEM_CHAT = `Tu es « IA TonPilote », l'assistant intégré d'une application de gestion pour artisans du bâtiment. L'utilisateur discute avec toi par écrit, dans une fenêtre de chat présente sur toutes les pages de l'app. Donc :
+- Réponds en français, clair et concis. Tu peux structurer si utile, mais reste bref — pas de longs pavés. Pas de markdown lourd.
+- Ne recopie pas les listes que les cartes/boutons affichent déjà : commente-les en une phrase (« Voici tes 3 factures en retard »).
+- Après un outil, va à l'essentiel et invite à l'action suivante quand c'est pertinent.
+${CAPACITES}`
 
 type Msg = { role: 'user' | 'assistant'; content: unknown }
 
@@ -37,6 +45,10 @@ export async function POST(req: NextRequest) {
     // Sanitize : messages valides, contenu tronqué, historique borné.
     const messages: Msg[] = sanitizeMessages((body as { messages?: unknown }).messages)
     if (!messages.length) return NextResponse.json({ error: 'messages requis' }, { status: 400 })
+    // Le mode 'chat' (fenêtre écrite) autorise un ton un peu plus riche que le
+    // mode 'voice' (lu à voix haute), sans changer les capacités.
+    const mode = (body as { mode?: unknown }).mode === 'chat' ? 'chat' : 'voice'
+    const system = mode === 'chat' ? SYSTEM_CHAT : SYSTEM_VOICE
 
     // Rate-limit par utilisateur (protège la clé Anthropic serveur).
     const service = createServiceClient()
@@ -53,7 +65,7 @@ export async function POST(req: NextRequest) {
       const res = await anthropic.messages.create({
         model: 'claude-sonnet-5',
         max_tokens: 700,
-        system: SYSTEM,
+        system,
         tools: assistantTools,
         messages: messages as Anthropic.MessageParam[],
       })
