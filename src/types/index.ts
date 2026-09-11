@@ -57,6 +57,11 @@ export interface Company {
   google_review_url?: string | null
   accountant_email?: string | null
   template_style?: Record<string, unknown> | null
+  /** Facture électronique : régime de TVA, option pour les débits, nature des opérations. */
+  vat_regime?: 'normal' | 'franchise'
+  vat_on_debits?: boolean
+  operation_category?: 'services' | 'goods' | 'mixed'
+  bic?: string | null
   created_at: string
 }
 
@@ -72,6 +77,8 @@ export interface Client {
   billing_address?: string
   site_address?: string
   siret?: string
+  /** N° de TVA intracommunautaire (client professionnel). */
+  vat_number?: string | null
   notes?: string
   status: ClientStatus
   created_at: string
@@ -352,6 +359,13 @@ export interface Invoice {
   retention_release_date?: string | null
   /** Avoir : facture d'origine créditée. */
   credited_invoice_id?: string | null
+  /** Facture électronique : transmission à la plateforme agréée et statut du cycle de vie. */
+  einvoice_status?: string | null
+  einvoice_provider?: string | null
+  einvoice_external_id?: string | null
+  einvoice_sent_at?: string | null
+  einvoice_updated_at?: string | null
+  einvoice_message?: string | null
   created_at: string
   clients?: Client
 }

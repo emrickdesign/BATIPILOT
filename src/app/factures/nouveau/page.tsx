@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
+import { insertWithNextNumber } from '@/lib/invoice-number'
 import type { Client } from '@/types'
 
 type Line = { tempId: string; designation: string; quantity: number; unit: string; unit_price_ht: number; vat_rate: number; total_ht: number }
@@ -57,12 +58,10 @@ function NouvelleFactureForm() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
 
-    const { count } = await supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-    const invoiceNumber = `FAC-${new Date().getFullYear()}-${String((count || 0) + 1).padStart(3, '0')}`
     const dueDate = new Date()
     dueDate.setDate(dueDate.getDate() + parseInt(dueDays || '30'))
 
-    const { data: invoice, error } = await supabase.from('invoices').insert({
+    const { data: invoice, error } = await insertWithNextNumber(supabase, user.id, 'FAC', invoiceNumber => supabase.from('invoices').insert({
       user_id: user.id,
       client_id: clientId,
       invoice_number: invoiceNumber,
@@ -76,7 +75,7 @@ function NouvelleFactureForm() {
       deposit_already_paid: 0,
       amount_due: totalTTC,
       legal_mentions: 'TVA à taux réduit — Article 279-0 bis du CGI (travaux de rénovation)',
-    }).select().single()
+    }).select().single())
 
     if (error || !invoice) { toast.error('Erreur création facture'); setSaving(false); return }
 

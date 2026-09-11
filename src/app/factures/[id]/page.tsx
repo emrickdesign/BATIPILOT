@@ -7,7 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import InvoiceActions from './InvoiceActions'
+import EInvoicePanel, { type EInvoiceEvent } from './EInvoicePanel'
 import SignatureStatus from '@/components/SignatureStatus'
+import { buildEInvoice, loadFacturXContext } from '@/lib/facturx/model'
+import { getConnectionInfo } from '@/lib/einvoicing/service'
+import { connectorLabel } from '@/lib/einvoicing/providers'
+import { isLocked } from '@/lib/einvoicing/status'
 
 const statusLabels: Record<string, string> = {
   brouillon: 'À préparer', envoyee: 'Envoyée', payee_partiellement: 'Partiellement payée',
@@ -44,6 +49,18 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
+
+  // Facture électronique : contrôles de conformité (sans générer le PDF), plateforme connectée, historique.
+  const [ctx, connection, { data: events }] = await Promise.all([
+    loadFacturXContext(supabase, invoice),
+    getConnectionInfo(user.id),
+    supabase.from('einvoice_events').select('status, message, created_at')
+      .eq('invoice_id', id).order('created_at', { ascending: false }).limit(8),
+  ])
+  const einvoice = buildEInvoice(invoice, company, ctx)
+  const platformName = invoice.einvoice_provider
+    ? connectorLabel(invoice.einvoice_provider, connection?.accountLabel)
+    : connection ? connectorLabel(connection.provider, connection.accountLabel) : null
 
   const client = invoice.clients as any
   const lines = (invoice.invoice_lines as any[]).sort((a, b) => a.sort_order - b.sort_order)
@@ -103,9 +120,25 @@ export default async function FactureDetailPage({ params }: { params: Promise<{ 
         totalVat={invoice.total_vat}
         totalTtc={invoice.total_ttc}
         amountDue={invoice.amount_due}
+        autoTransmit={!!connection?.autoSend && !einvoice.b2c}
+        einvoiceLocked={isLocked(invoice.einvoice_status)}
       />
 
       <SignatureStatus signature={signature} />
+
+      <EInvoicePanel
+        invoiceId={id}
+        status={invoice.einvoice_status ?? null}
+        message={invoice.einvoice_message ?? null}
+        sentAt={invoice.einvoice_sent_at ?? null}
+        platformName={platformName}
+        connected={!!connection}
+        autoSend={!!connection?.autoSend}
+        b2c={einvoice.b2c}
+        cancelled={invoice.status === 'annulee'}
+        issues={einvoice.issues}
+        events={(events as EInvoiceEvent[] | null) || []}
+      />
 
       <Card>
         <CardContent className="p-4 space-y-4">

@@ -21,7 +21,7 @@ export default function EntreprisePage() {
   const [form, setForm] = useState({
     trade_name: '', legal_name: '', siret: '', vat_number: '', legal_status: '', trade: '',
     address: '', phone: '', email: '', website: '',
-    insurance_decennale: '', insurance_rc: '', iban: '',
+    insurance_decennale: '', insurance_rc: '', iban: '', bic: '',
     payment_terms: '30 jours à réception de facture',
     quote_validity_days: '30', default_deposit_percent: '30',
     default_vat_rate: '10', legal_mentions: 'TVA à taux réduit — Article 279-0 bis du CGI',
@@ -49,6 +49,7 @@ export default function EntreprisePage() {
             insurance_decennale: data.insurance_decennale || '',
             insurance_rc: data.insurance_rc || '',
             iban: data.iban || '',
+            bic: data.bic || '',
             payment_terms: data.payment_terms || '30 jours à réception de facture',
             quote_validity_days: String(data.quote_validity_days || 30),
             default_deposit_percent: String(data.default_deposit_percent || 30),
@@ -99,6 +100,7 @@ export default function EntreprisePage() {
       insurance_decennale: form.insurance_decennale || null,
       insurance_rc: form.insurance_rc || null,
       iban: form.iban || null,
+      bic: form.bic.replace(/\s/g, '').toUpperCase() || null,
       payment_terms: form.payment_terms,
       quote_validity_days: parseInt(form.quote_validity_days) || 30,
       default_deposit_percent: parseFloat(form.default_deposit_percent) || 30,
@@ -224,9 +226,15 @@ export default function EntreprisePage() {
         <Card>
           <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-base">Facturation</CardTitle></CardHeader>
           <CardContent className="px-4 pb-4 space-y-3">
-            <div className="space-y-1">
-              <Label>IBAN (affiché sur les factures)</Label>
-              <Input value={form.iban} onChange={e => set('iban', e.target.value)} placeholder="FR76 1234 5678 9012 3456 7890 123" />
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-1 col-span-2">
+                <Label>IBAN (affiché sur les factures)</Label>
+                <Input value={form.iban} onChange={e => set('iban', e.target.value)} placeholder="FR76 1234 5678 9012 3456 7890 123" />
+              </div>
+              <div className="space-y-1">
+                <Label>BIC</Label>
+                <Input value={form.bic} onChange={e => set('bic', e.target.value)} placeholder="BNPAFRPP" />
+              </div>
             </div>
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-1">
@@ -254,6 +262,10 @@ export default function EntreprisePage() {
               <Label>Mentions légales (affichées sur les documents)</Label>
               <Textarea value={form.legal_mentions} onChange={e => set('legal_mentions', e.target.value)} rows={3} />
             </div>
+            <p className="text-xs text-gray-500">
+              Régime de TVA, nature de vos opérations et plateforme agréée :{' '}
+              <Link href="/parametres/facturation-electronique" className="text-primary font-medium hover:underline">Facturation électronique</Link>
+            </p>
           </CardContent>
         </Card>
 

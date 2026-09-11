@@ -55,6 +55,7 @@ export default function ClientForm({ client }: { client?: Client }) {
       billing_address: data.get('billing_address') as string || null,
       site_address: data.get('site_address') as string || null,
       siret: data.get('siret') as string || null,
+      vat_number: type === 'professionnel' ? ((data.get('vat_number') as string || '').replace(/\s/g, '').toUpperCase() || null) : null,
       notes: data.get('notes') as string || null,
     }
 
@@ -131,9 +132,16 @@ export default function ClientForm({ client }: { client?: Client }) {
             <Input id="email" name="email" type="email" defaultValue={client?.email || ''} placeholder="jean@email.com" />
           </div>
           {type === 'professionnel' && (
-            <div className="space-y-1">
-              <Label htmlFor="siret">SIRET</Label>
-              <Input id="siret" name="siret" value={siret} onChange={(e) => setSiret(e.target.value)} placeholder="123 456 789 00012" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label htmlFor="siret">SIRET</Label>
+                <Input id="siret" name="siret" value={siret} onChange={(e) => setSiret(e.target.value)} placeholder="123 456 789 00012" />
+                <p className="text-xs text-slate-400">Indispensable pour la facture électronique.</p>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="vat_number">N° TVA intracom.</Label>
+                <Input id="vat_number" name="vat_number" defaultValue={client?.vat_number || ''} placeholder="FR12345678901" />
+              </div>
             </div>
           )}
         </div>

@@ -14,14 +14,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
 
   if (!invoice) return NextResponse.json({ error: 'Introuvable' }, { status: 404 })
 
-  // Vrai PDF (pièce jointe email) : ?format=pdf
-  if (req.nextUrl.searchParams.get('format') === 'pdf') {
-    const { generateInvoicePDF } = await import('@/lib/pdf-generator')
-    const pdf = await generateInvoicePDF(invoice, company)
-    return new NextResponse(new Uint8Array(pdf), {
+  // Facture électronique Factur-X (PDF/A-3 + XML EN 16931) : ?format=pdf (&download=1),
+  // données structurées seules : ?format=xml
+  const format = req.nextUrl.searchParams.get('format')
+  if (format === 'pdf' || format === 'xml') {
+    const [{ generateFacturX }, { loadFacturXContext }] = await Promise.all([
+      import('@/lib/pdf-generator'), import('@/lib/facturx/model'),
+    ])
+    const fx = await generateFacturX(invoice, company, undefined, await loadFacturXContext(supabase, invoice))
+    const filename = String(invoice.invoice_number).replace(/[^\w.-]+/g, '_')
+    if (format === 'xml') {
+      return new NextResponse(fx.xml, {
+        headers: {
+          'Content-Type': 'application/xml; charset=utf-8',
+          'Content-Disposition': `attachment; filename="${filename}-factur-x.xml"`,
+        },
+      })
+    }
+    return new NextResponse(new Uint8Array(fx.pdf), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${invoice.invoice_number}.pdf"`,
+        'Content-Disposition': `${req.nextUrl.searchParams.get('download') === '1' ? 'attachment' : 'inline'}; filename="${filename}.pdf"`,
       },
     })
   }

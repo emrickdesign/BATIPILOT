@@ -17,8 +17,12 @@ function formatWhatsApp(phone: string) {
 
 export default function InvoiceActions({
   invoiceId, status, invoiceType, invoiceNumber, clientId, clientEmail, clientPhone, clientName, companyName,
-  issueDate, subtotalHt, totalVat, totalTtc, amountDue,
+  issueDate, subtotalHt, totalVat, totalTtc, amountDue, autoTransmit, einvoiceLocked,
 }: {
+  /** Plateforme agréée connectée avec envoi automatique, client professionnel. */
+  autoTransmit?: boolean
+  /** Déjà transmise à la plateforme : on ne l'annule plus, on fait un avoir. */
+  einvoiceLocked?: boolean
   invoiceId: string
   status: string
   invoiceType?: string
@@ -53,12 +57,20 @@ export default function InvoiceActions({
       newStatus === 'annulee' ? 'Facture annulée' :
       newStatus === 'envoyee' ? 'Facture marquée comme envoyée' : 'Statut mis à jour'
     )
+    // Facture électronique : envoyée au client → déposée sur la plateforme agréée.
+    if (newStatus === 'envoyee' && autoTransmit) {
+      const res = await fetch(`/api/factures/${invoiceId}/transmettre?auto=1`, { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (json.ok) toast.success('Facture électronique déposée sur votre plateforme agréée')
+      else if (!json.skipped && json.error) toast.warning(`Facture électronique non transmise : ${json.error}`)
+    }
     router.refresh()
     setLoading(null)
   }
 
+  // PDF Factur-X (PDF/A-3 + données XML) : le format de la facture électronique.
   function handleDownload() {
-    window.open(`/api/factures/${invoiceId}/pdf`, '_blank')
+    window.open(`/api/factures/${invoiceId}/pdf?format=pdf`, '_blank')
   }
 
   async function handleSendEmail() {
@@ -66,7 +78,12 @@ export default function InvoiceActions({
     setLoading('email')
     const res = await fetch(`/api/factures/${invoiceId}/envoyer`, { method: 'POST' })
     const json = await res.json()
-    if (res.ok) { toast.success(`Facture envoyée à ${clientEmail} !`); router.refresh() }
+    if (res.ok) {
+      toast.success(`Facture envoyée à ${clientEmail} !`)
+      if (json.einvoice?.ok) toast.success('Facture électronique déposée sur votre plateforme agréée')
+      else if (json.einvoice?.error) toast.warning(`Facture électronique non transmise : ${json.einvoice.error}`)
+      router.refresh()
+    }
     else { toast.error(json.error || 'Erreur envoi email') }
     setLoading(null)
   }
@@ -156,7 +173,7 @@ export default function InvoiceActions({
         </Button>
       )}
 
-      {status !== 'annulee' && status !== 'payee' && (
+      {status !== 'annulee' && status !== 'payee' && !einvoiceLocked && (
         <Button variant="destructive" className="gap-2" onClick={() => { if (confirm('Annuler cette facture ?')) updateStatus('annulee') }} disabled={!!loading}>
           <Ban className="w-4 h-4" /> Annuler
         </Button>

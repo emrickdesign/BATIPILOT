@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { insertWithNextNumber } from '@/lib/invoice-number'
 
 const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100
 
@@ -111,15 +112,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const typeMap: Record<string, string> = { acompte: 'acompte', situation: 'intermediaire', solde: 'solde', complete: 'complete' }
   const invType = typeMap[mode] || 'complete'
 
-  const { count } = await supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-  const invoiceNumber = `FAC-${new Date().getFullYear()}-${String((count || 0) + 1).padStart(3, '0')}`
   const dueDate = new Date(); dueDate.setDate(dueDate.getDate() + 30)
 
   const retentionNote = retentionPct > 0
     ? ` Retenue de garantie de ${retentionPct} % (${retentionAmount.toLocaleString('fr-FR')} €) libérable à la levée des réserves ou 1 an après réception.`
     : ''
 
-  const { data: invoice, error } = await supabase.from('invoices').insert({
+  const { data: invoice, error } = await insertWithNextNumber(supabase, user.id, 'FAC', invoiceNumber => supabase.from('invoices').insert({
     user_id: user.id, client_id: quote.client_id, project_id: quote.project_id, quote_id: quote.id,
     invoice_number: invoiceNumber, type: invType, status: 'brouillon',
     issue_date: new Date().toISOString().split('T')[0], due_date: dueDate.toISOString().split('T')[0],
@@ -128,7 +127,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     billed_percent: delta, situation_number: situationNumber, market_total_ht: r2(marketHt),
     retention_pct: retentionPct, retention_amount: retentionAmount,
     legal_mentions: (quote.legal_mentions || '') + retentionNote,
-  }).select().single()
+  }).select().single())
   if (error || !invoice) return NextResponse.json({ error: 'Erreur création facture' }, { status: 500 })
 
   await supabase.from('invoice_lines').insert(lines.map(l => ({ ...l, invoice_id: invoice.id })))

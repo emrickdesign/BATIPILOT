@@ -2,6 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ['pdfkit', 'mammoth', 'xlsx', '@huggingface/transformers', 'onnxruntime-node'],
+  // Polices embarquées des factures Factur-X (PDF/A), lues sur disque par les routes qui génèrent les PDF.
+  outputFileTracingIncludes: {
+    '/api/factures/**': ['./src/lib/pdf/fonts/**'],
+    '/api/signature/**': ['./src/lib/pdf/fonts/**'],
+    '/api/einvoicing/**': ['./src/lib/pdf/fonts/**'],
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',

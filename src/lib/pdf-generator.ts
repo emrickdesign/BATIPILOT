@@ -1,5 +1,13 @@
+import fs from 'node:fs'
+import path from 'node:path'
 import PDFDocument from 'pdfkit'
 import { getTemplateConfig, TemplateConfig } from './pdf-templates'
+import {
+  buildEInvoice, partyIdLines, round2,
+  type BuiltEInvoice, type ComplianceIssue, type EInvoice, type FacturXContext,
+} from './facturx/model'
+import { toCII } from './facturx/cii'
+import { FACTURX_XMP, FACTURX_XML_FILENAME } from './facturx/xmp'
 
 function hexToRgb(hex: string): [number, number, number] {
   const c = hex.replace(/^#/, '')
@@ -9,12 +17,63 @@ function hexToRgb(hex: string): [number, number, number] {
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(n || 0)
 const fmtDate = (d: string | null | undefined) => d ? new Date(d).toLocaleDateString('fr-FR') : ''
 
-// Font family resolution (pdfkit built-in fonts)
+// Font family resolution : polices standard pdfkit (devis, contrats) ou polices embarquées
+// (factures Factur-X : le PDF/A exige que les polices soient incluses dans le fichier).
 interface Fonts { reg: string; bold: string; italic: string }
+type PdfConfig = TemplateConfig & { fontSet?: Fonts }
 function fonts(cfg: TemplateConfig): Fonts {
+  const embedded = (cfg as PdfConfig).fontSet
+  if (embedded) return embedded
   return cfg.fontFamily === 'serif'
     ? { reg: 'Times-Roman', bold: 'Times-Bold', italic: 'Times-Italic' }
     : { reg: 'Helvetica', bold: 'Helvetica-Bold', italic: 'Helvetica-Oblique' }
+}
+
+// Arimo / Tinos (licence SIL OFL) : mêmes métriques qu'Helvetica / Times, donc mise en page
+// identique. Fichiers joints aux fonctions serverless via outputFileTracingIncludes.
+const FONT_DIR = path.join(process.cwd(), 'src/lib/pdf/fonts')
+let embeddedFontFiles: Record<string, Buffer> | null = null
+
+function embedFonts(doc: PDFKit.PDFDocument, family: TemplateConfig['fontFamily']): Fonts {
+  embeddedFontFiles ??= {
+    'TP-Sans': fs.readFileSync(path.join(FONT_DIR, 'Arimo-Regular.ttf')),
+    'TP-Sans-Bold': fs.readFileSync(path.join(FONT_DIR, 'Arimo-Bold.ttf')),
+    'TP-Serif': fs.readFileSync(path.join(FONT_DIR, 'Tinos-Regular.ttf')),
+    'TP-Serif-Bold': fs.readFileSync(path.join(FONT_DIR, 'Tinos-Bold.ttf')),
+  }
+  for (const [name, file] of Object.entries(embeddedFontFiles)) doc.registerFont(name, file)
+  guardGlyphs(doc)
+  return family === 'serif'
+    ? { reg: 'TP-Serif', bold: 'TP-Serif-Bold', italic: 'TP-Serif' }
+    : { reg: 'TP-Sans', bold: 'TP-Sans-Bold', italic: 'TP-Sans' }
+}
+
+// PDF/A interdit d'afficher un glyphe absent de la police : les caractères non couverts
+// (émojis, symboles…) sont remplacés avant d'écrire ou de mesurer le texte.
+const GLYPH_FALLBACK: Record<string, string> = {
+  '→': '->', '←': '<-', '✓': '', '✔': '', '•': '-', '…': '...', '’': "'", '‘': "'", '“': '"', '”': '"', '–': '-', '—': '-', '€': 'EUR',
+}
+type TextMethod = (value: unknown, ...rest: unknown[]) => unknown
+function guardGlyphs(doc: PDFKit.PDFDocument) {
+  // Police courante de pdfkit (propriété interne) → objet fontkit qui connaît ses glyphes.
+  const current = () => (doc as unknown as { _font?: { font?: { hasGlyphForCodePoint?: (cp: number) => boolean } } })._font?.font
+  const clean = (value: unknown) => {
+    const font = current()
+    if (typeof value !== 'string' || !font?.hasGlyphForCodePoint) return value
+    let out = ''
+    for (const ch of value) {
+      const cp = ch.codePointAt(0) ?? 0
+      if (cp === 9 || cp === 10 || cp === 13 || font.hasGlyphForCodePoint(cp)) out += ch
+      else if (cp === 0x202f || cp === 0xa0) out += font.hasGlyphForCodePoint(0xa0) ? '\u00a0' : ' '
+      else out += GLYPH_FALLBACK[ch] ?? ''
+    }
+    return out
+  }
+  const methods = doc as unknown as Record<string, TextMethod>
+  for (const method of ['text', 'heightOfString', 'widthOfString']) {
+    const original = methods[method].bind(doc)
+    methods[method] = (value, ...rest) => original(clean(value), ...rest)
+  }
 }
 
 // ─── BOX DRAWING ──────────────────────────────────────────────────────────────
@@ -133,12 +192,15 @@ function partyContent(doc: any, cfg: TemplateConfig, label: string, name: string
   let iy = y + 36
   doc.fontSize(8).font(F.reg)
   infoLines.forEach(line => {
-    doc.fillColor(line.startsWith('SIRET') ? '#aaa' : '#555').text(line, x, iy, { width: w - 8 })
+    doc.fillColor(/^(SIRET|SIREN|N° TVA)/.test(line) ? '#aaa' : '#555').text(line, x, iy, { width: w - 8 })
     iy += doc.heightOfString(line, { width: w - 8 }) + 3
   })
 }
 
-function renderParties(doc: any, cfg: TemplateConfig, company: any, client: any, clientName: string, startY: number): number {
+function renderParties(
+  doc: any, cfg: TemplateConfig, company: any, client: any, clientName: string, startY: number,
+  extra?: { seller?: string[]; client?: string[] },
+): number {
   const ML = cfg.margin
   const CW = doc.page.width - 2 * ML
   const F = fonts(cfg)
@@ -146,6 +208,7 @@ function renderParties(doc: any, cfg: TemplateConfig, company: any, client: any,
   const prestatLines = [
     company?.address || '',
     company?.siret ? `SIRET : ${company.siret}` : '',
+    ...(extra?.seller || []),
     [company?.email, company?.phone].filter(Boolean).join(' · '),
   ].filter(Boolean)
   const clientLines = [
@@ -153,6 +216,7 @@ function renderParties(doc: any, cfg: TemplateConfig, company: any, client: any,
     client?.billing_address || '',
     client?.email || '',
     client?.siret ? `SIRET : ${client.siret}` : '',
+    ...(extra?.client || []),
   ].filter(Boolean)
 
   doc.fontSize(8).font(F.reg)
@@ -290,19 +354,31 @@ function renderTable(doc: any, cfg: TemplateConfig, lines: any[], startY: number
 
 // ─── TOTALS ────────────────────────────────────────────────────────────────────
 
-function renderTotals(doc: any, cfg: TemplateConfig, subtotalHt: number, totalVat: number, totalTtc: number, totalLabel: string, startY: number): number {
+// Lignes de TVA sous le total HT : une par taux (facture), ou mention sans montant (franchise…).
+interface VatLine { label: string; amount: number | null }
+
+function renderTotals(doc: any, cfg: TemplateConfig, subtotalHt: number, totalVat: number, totalTtc: number, totalLabel: string, startY: number, vatLines?: VatLine[]): number {
   const ML = cfg.margin
   const CW = doc.page.width - 2 * ML
   const P = hexToRgb(cfg.primaryColor)
   const F = fonts(cfg)
   let y = startY + 8
+  const vats: VatLine[] = vatLines ?? (totalVat > 0 ? [{ label: 'TVA', amount: totalVat }] : [])
+  const lastGap = vatLines ? 16 : 10 // ventilation détaillée (factures) : un peu d'air avant le total
+  const printVats = (tx: number) => {
+    vats.forEach((v, i) => {
+      doc.text(v.label, tx, y)
+      if (v.amount !== null) doc.text(fmt(v.amount), ML, y, { align: 'right', width: CW - 4 })
+      y += i === vats.length - 1 ? lastGap : 14
+    })
+  }
 
   if (cfg.totalStyle === 'darkbar') {
-    if (totalVat > 0) {
+    if (vats.length) {
       const tx = ML + CW - 200
       doc.fillColor('#555').fontSize(8.5).font(F.reg).text('Total HT', tx, y).text(fmt(subtotalHt), ML, y, { align: 'right', width: CW - 4 })
       y += 14
-      doc.text('TVA', tx, y).text(fmt(totalVat), ML, y, { align: 'right', width: CW - 4 }); y += 10
+      printVats(tx)
     }
     if (cfg.rounded) doc.roundedRect(ML, y, CW, 36, 8).fill([19, 19, 31])
     else doc.rect(ML, y, CW, 36).fill([26, 26, 26])
@@ -315,7 +391,7 @@ function renderTotals(doc: any, cfg: TemplateConfig, subtotalHt: number, totalVa
     const tw = 220, tx = ML + CW - tw
     doc.fillColor('#555').fontSize(8.5).font(F.reg).text('Total HT', tx, y).text(fmt(subtotalHt), ML, y, { align: 'right', width: CW - 4 })
     y += 14
-    if (totalVat > 0) { doc.text('TVA', tx, y).text(fmt(totalVat), ML, y, { align: 'right', width: CW - 4 }); y += 10 }
+    printVats(tx)
     if (cfg.rounded) doc.roundedRect(tx - 10, y, tw + 10, 32, 6).fill(P)
     else doc.rect(tx - 10, y, tw + 10, 32).fill(P)
     doc.fillColor('white').fontSize(10).font(F.bold).text(totalLabel, tx - 4, y + 9)
@@ -327,7 +403,7 @@ function renderTotals(doc: any, cfg: TemplateConfig, subtotalHt: number, totalVa
   const tx = ML + CW - 200
   doc.fillColor('#555').fontSize(8.5).font(F.reg).text('Total HT', tx, y).text(fmt(subtotalHt), ML, y, { align: 'right', width: CW - 4 })
   y += 14
-  if (totalVat > 0) { doc.text('TVA', tx, y).text(fmt(totalVat), ML, y, { align: 'right', width: CW - 4 }); y += 10 }
+  printVats(tx)
   doc.moveTo(tx, y).lineTo(ML + CW, y).strokeColor(P).lineWidth(1.5).stroke()
   y += 5
   doc.fillColor(P).fontSize(11).font(F.bold).text(totalLabel, tx, y).text(fmt(totalTtc), ML, y, { align: 'right', width: CW - 4 })
@@ -408,6 +484,20 @@ function renderSignatureProof(doc: any, cfg: TemplateConfig, signature: ClientSi
   return startY + 12
 }
 
+// Mentions légales en petit (catégorie d'opération, TVA, pénalités, indemnité 40 €…).
+function renderMentions(doc: any, cfg: TemplateConfig, lines: string[], startY: number): number {
+  if (!lines.length) return startY
+  const ML = cfg.margin
+  const CW = doc.page.width - 2 * ML
+  const F = fonts(cfg)
+  const text = lines.join('\n')
+  doc.fontSize(7).font(F.reg)
+  const h = doc.heightOfString(text, { width: CW, lineGap: 1.5 })
+  const y = ensureSpace(doc, cfg, startY, h + 8)
+  doc.fillColor('#888').text(text, ML, y, { width: CW, lineGap: 1.5 })
+  return y + h + 10
+}
+
 function renderFooter(doc: any, cfg: TemplateConfig, company: any, footerNote: string, startY: number) {
   const ML = cfg.margin
   const CW = doc.page.width - 2 * ML
@@ -462,41 +552,112 @@ export async function generateQuotePDF(quote: any, company: any, signature?: Cli
   })
 }
 
-export async function generateInvoicePDF(invoice: any, company: any, signature?: ClientSignatureInfo): Promise<Buffer> {
+// ─── FACTURES : FACTUR-X (PDF/A-3 + XML EN 16931 embarqué) ─────────────────────
+
+function invoiceTitle(invoice: any): string {
+  switch (invoice.type) {
+    case 'avoir': return 'AVOIR'
+    case 'acompte': return "FACTURE D'ACOMPTE"
+    case 'intermediaire': return `FACTURE DE SITUATION${invoice.situation_number ? ` N°${invoice.situation_number}` : ''}`
+    case 'solde': return 'FACTURE DE SOLDE'
+    default: return 'FACTURE'
+  }
+}
+
+// Titre long (« FACTURE DE SITUATION N°2 ») : taille réduite pour tenir dans l'en-tête.
+const fitTitle = (size: number, title: string) => (title.length > 12 ? Math.max(15, Math.min(size, Math.round(size * 12 / title.length))) : size)
+const fmtRate = (n: number) => n.toLocaleString('fr-FR', { maximumFractionDigits: 2 })
+
+export interface FacturXResult {
+  pdf: Buffer
+  xml: string
+  model: EInvoice
+  issues: ComplianceIssue[]
+  /** Client particulier : hors facture électronique B2B */
+  b2c: boolean
+}
+
+/** Facture Factur-X complète : PDF lisible + données structurées + contrôles de conformité. */
+export async function generateFacturX(invoice: any, company: any, signature?: ClientSignatureInfo, ctx?: FacturXContext): Promise<FacturXResult> {
+  const built = buildEInvoice(invoice, company, ctx)
+  const xml = toCII(built.model)
+  const pdf = await renderInvoicePdf(invoice, company, built, xml, signature)
+  return { pdf, xml, model: built.model, issues: built.issues, b2c: built.b2c }
+}
+
+/** PDF d'une facture : toujours au format Factur-X (conforme à la réforme de la facture électronique). */
+export async function generateInvoicePDF(invoice: any, company: any, signature?: ClientSignatureInfo, ctx?: FacturXContext): Promise<Buffer> {
+  return (await generateFacturX(invoice, company, signature, ctx)).pdf
+}
+
+function renderInvoicePdf(invoice: any, company: any, built: BuiltEInvoice, xml: string, signature?: ClientSignatureInfo): Promise<Buffer> {
   return new Promise((resolve, reject) => {
     const chunks: Buffer[] = []
-    const cfg = getTemplateConfig(company)
-    const doc = new PDFDocument({ margin: cfg.margin, size: 'A4' })
+    const base = getTemplateConfig(company)
+    const title = invoiceTitle(invoice)
+    const now = new Date()
+    const doc = new PDFDocument({
+      margin: base.margin, size: 'A4', pdfVersion: '1.7', subset: 'PDF/A-3b', lang: 'fr-FR',
+      info: {
+        Title: `${invoice.type === 'avoir' ? 'Avoir' : 'Facture'} ${invoice.invoice_number}`.replace(/[<>&"']/g, ''),
+        Creator: 'TonPilote', Producer: 'TonPilote', CreationDate: now,
+      },
+    })
     doc.on('data', (chunk: Buffer) => chunks.push(chunk))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
     doc.on('error', reject)
 
+    const cfg: PdfConfig = { ...base, fontSet: embedFonts(doc, base.fontFamily), titleFontSize: fitTitle(base.titleFontSize, title) }
+    const F = fonts(cfg)
+    doc.font(F.reg)
+    const { model, sign } = built
+    const t = model.totals
     const client = invoice.clients
-    const lines = [...(invoice.invoice_lines || [])].sort((a: any, b: any) => a.sort_order - b.sort_order)
+    const rows = [...(invoice.invoice_lines || [])].sort((a: any, b: any) => a.sort_order - b.sort_order)
+    // Ancienne facture sans lignes : on imprime la ligne générée pour le XML.
+    const lines = rows.length ? rows : model.lines.map(l => ({
+      designation: l.name, description: l.description, quantity: l.quantity,
+      unit_price_ht: l.netPrice * sign, vat_rate: l.vatRate, total_ht: l.netAmount * sign,
+    }))
     const clientName = client?.type === 'professionnel'
       ? (client.company_name || 'Client')
       : `${client?.first_name || ''} ${client?.last_name || ''}`.trim() || 'Client'
-    const F = fonts(cfg)
     const ML = cfg.margin, CW = doc.page.width - 2 * ML
     const P = hexToRgb(cfg.primaryColor)
 
-    let y = renderHeader(doc, cfg, 'FACTURE', invoice.invoice_number, invoice.issue_date, invoice.due_date, 'Échéance :', company)
-    y = renderParties(doc, cfg, company, client, clientName, y)
+    let y = renderHeader(doc, cfg, title, invoice.invoice_number, invoice.issue_date, invoice.due_date, 'Échéance :', company)
+    const site = model.delivery?.address
+    const siteText = site ? [site.line1, site.line2, [site.postcode, site.city].filter(Boolean).join(' ')].filter(Boolean).join(', ') : ''
+    y = renderParties(doc, cfg, company, client, clientName, y, {
+      seller: partyIdLines(model.seller, { showSiren: false }),
+      client: [...partyIdLines(model.buyer, { showSiren: !built.b2c }), ...(siteText ? [`Lieu d’exécution : ${siteText}`] : [])],
+    })
     y = renderTable(doc, cfg, lines, y)
     y = ensureSpace(doc, cfg, y, 120)
-    y = renderTotals(doc, cfg, invoice.subtotal_ht, invoice.total_vat, invoice.total_ttc, 'Total TTC', y)
 
-    if (invoice.deposit_already_paid > 0) {
-      y = ensureSpace(doc, cfg, y, 26)
+    // Totaux = ceux du XML (TVA ventilée par taux) : le PDF et les données restent identiques.
+    const vatLines: VatLine[] = model.vat.map(g => g.category === 'S'
+      ? { label: model.vat.length > 1 ? `TVA ${fmtRate(g.rate)} % sur ${fmt(g.base * sign)}` : `TVA ${fmtRate(g.rate)} %`, amount: g.amount * sign }
+      : { label: g.category === 'AE' ? 'TVA autoliquidée par le client' : g.exemptionReason || 'TVA non applicable', amount: null })
+    y = renderTotals(doc, cfg, t.taxBasis * sign, t.tax * sign, t.grandTotal * sign, invoice.type === 'avoir' ? 'Total avoir TTC' : 'Total TTC', y, vatLines)
+
+    // Acompte déjà versé / retenue de garantie : alignés sous le total, dans la colonne des montants.
+    const tw = 220, tx = ML + CW - tw
+    const deductions: [string, number][] = []
+    if (t.prepaid > 0) deductions.push(['Acompte déjà versé', t.prepaid])
+    if (built.retention > 0) deductions.push([`Retenue de garantie (${fmtRate(Number(invoice.retention_pct) || 0)} %)`, built.retention])
+    for (const [label, value] of deductions) {
+      y = ensureSpace(doc, cfg, y, 22)
       doc.fillColor('#555').fontSize(8.5).font(F.reg)
-        .text('Acompte versé', ML + 4, y + 4).text(`- ${fmt(invoice.deposit_already_paid)}`, ML, y + 4, { align: 'right', width: CW - 4 })
-      y += 22
+        .text(label, tx, y + 2).text(`- ${fmt(value)}`, ML, y + 2, { align: 'right', width: CW - 4 })
+      y += 16
     }
     y = ensureSpace(doc, cfg, y, 40)
-    const tw = 220, tx = ML + CW - tw
     doc.moveTo(tx, y).lineTo(ML + CW, y).strokeColor('#e5e7eb').lineWidth(0.5).stroke()
     y += 6
-    doc.fillColor('#dc2626').fontSize(11).font(F.bold).text('Reste à payer', tx, y).text(fmt(invoice.amount_due), ML, y, { align: 'right', width: CW - 4 })
+    doc.fillColor('#dc2626').fontSize(11).font(F.bold)
+      .text(invoice.type === 'avoir' ? 'Montant de l’avoir' : 'Reste à payer', tx, y)
+      .text(fmt(round2((t.due - built.retention) * sign)), ML, y, { align: 'right', width: CW - 4 })
     y += 26
 
     // Coordonnées bancaires + RÉFÉRENCE de paiement à rappeler dans le motif du virement
@@ -508,7 +669,7 @@ export async function generateInvoicePDF(invoice: any, company: any, signature?:
       doc.fillColor(P).fontSize(7).font(F.bold).text('COORDONNÉES BANCAIRES', ML + 12, y + 10)
       let ly = y + 22
       if (company?.iban) {
-        doc.fillColor('#333').fontSize(8.5).font(F.reg).text(`IBAN : ${company.iban}`, ML + 12, ly)
+        doc.fillColor('#333').fontSize(8.5).font(F.reg).text(`IBAN : ${company.iban}${company?.bic ? `  ·  BIC : ${company.bic}` : ''}`, ML + 12, ly)
         ly += 12
       }
       doc.fillColor('#333').fontSize(8.5).font(F.reg)
@@ -520,8 +681,18 @@ export async function generateInvoicePDF(invoice: any, company: any, signature?:
     y = ensureSpace(doc, cfg, y, signature ? 130 : 100)
     y = renderSignatures(doc, cfg, company, invoice.issue_date, y, 'ACQUIT DE PAIEMENT — CLIENT', signature)
     if (signature) y = renderSignatureProof(doc, cfg, signature, y)
+    y = renderMentions(doc, cfg, built.mentions, y)
     y = ensureSpace(doc, cfg, y, 30)
-    renderFooter(doc, cfg, company, 'En cas de retard : pénalités 3× taux légal + indemnité forfaitaire 40 €', y)
+    renderFooter(doc, cfg, company, 'Facture électronique Factur-X (EN 16931)', y)
+
+    // Factur-X : métadonnées XMP + XML CII joint (relation « Alternative » : même contenu que le PDF).
+    // pdfkit gère AFRelationship, mais @types/pdfkit ne déclare pas encore l'option `relationship`.
+    doc.appendXML(FACTURX_XMP)
+    const attach = doc.file.bind(doc) as (src: Buffer, options: Record<string, unknown>) => void
+    attach(Buffer.from(xml, 'utf-8'), {
+      name: FACTURX_XML_FILENAME, type: 'text/xml', relationship: 'Alternative',
+      description: 'Facture électronique Factur-X (profil EN 16931)', creationDate: now, modifiedDate: now,
+    })
     doc.end()
   })
 }

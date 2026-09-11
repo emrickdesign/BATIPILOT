@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getValidGmailToken } from '@/lib/gmail-token'
 import { sendGmailHtml } from '@/lib/gmail-send'
 import { phasesBefore } from '@/lib/clients'
+import { transmitInvoice } from '@/lib/einvoicing/service'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -105,7 +106,18 @@ ${company?.iban ? `<div class="iban"><strong>Coordonnées bancaires :</strong><b
         .eq('id', client.id).in('status', phasesBefore('facture_envoyee'))
     }
 
-    return NextResponse.json({ success: true, signUrl })
+    // Facture électronique : dépôt automatique sur la plateforme agréée (client professionnel,
+    // envoi automatique activé). Best-effort : l'email est parti quoi qu'il arrive.
+    let einvoice: { ok: boolean; error?: string } | null = null
+    try {
+      const result = await transmitInvoice(supabase, user.id, id, { auto: true })
+      if (result.ok) einvoice = { ok: true }
+      else if (!result.skipped) einvoice = { ok: false, error: result.error }
+    } catch (e) {
+      console.error('Transmission plateforme agréée :', e)
+    }
+
+    return NextResponse.json({ success: true, signUrl, einvoice })
   } catch (err: any) {
     console.error('Envoyer facture error:', err)
     return NextResponse.json({ error: err?.message || 'Erreur serveur' }, { status: 500 })

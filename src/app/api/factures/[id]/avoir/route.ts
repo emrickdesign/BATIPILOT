@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { insertWithNextNumber } from '@/lib/invoice-number'
 
 const r2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100
 
@@ -24,17 +25,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!src) return NextResponse.json({ error: 'Facture introuvable' }, { status: 404 })
   if (src.type === 'avoir') return NextResponse.json({ error: 'Un avoir ne peut pas être avoiré' }, { status: 400 })
 
-  const { count } = await supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-  const number = `AV-${new Date().getFullYear()}-${String((count || 0) + 1).padStart(3, '0')}`
-
-  const { data: avoir, error } = await supabase.from('invoices').insert({
+  const { data: avoir, error } = await insertWithNextNumber(supabase, user.id, 'AV', number => supabase.from('invoices').insert({
     user_id: user.id, client_id: src.client_id, project_id: src.project_id, quote_id: src.quote_id,
     invoice_number: number, type: 'avoir', status: 'brouillon', credited_invoice_id: src.id,
     issue_date: new Date().toISOString().split('T')[0],
     subtotal_ht: r2(-src.subtotal_ht), total_vat: r2(-src.total_vat), total_ttc: r2(-src.total_ttc),
     deposit_already_paid: 0, amount_due: r2(-src.total_ttc),
     legal_mentions: `Avoir sur facture ${src.invoice_number}.`,
-  }).select().single()
+  }).select().single())
   if (error || !avoir) return NextResponse.json({ error: 'Erreur création avoir' }, { status: 500 })
 
   const lines = ((src.invoice_lines as LineRow[]) || []).map((l, i) => ({

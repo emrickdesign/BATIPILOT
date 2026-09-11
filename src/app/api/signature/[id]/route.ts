@@ -3,6 +3,7 @@ import { createHash } from 'crypto'
 import { z } from 'zod'
 import { createServiceClient } from '@/lib/supabase/service'
 import { generateQuotePDF, generateInvoicePDF, generateContractPDF, type ClientSignatureInfo } from '@/lib/pdf-generator'
+import { loadFacturXContext } from '@/lib/facturx/model'
 import { getValidGmailToken } from '@/lib/gmail-token'
 import { sendGmailWithPdf } from '@/lib/gmail-send'
 import { isProspect } from '@/lib/clients'
@@ -96,8 +97,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!quote && !invoice && !contract) return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
 
     // Hash du document tel que présenté au signataire (preuve d'intégrité)
-    const genUnsigned = () => quote ? generateQuotePDF(quote, company) : invoice ? generateInvoicePDF(invoice, company) : generateContractPDF(contract, contract.subcontractors, company)
-    const genSigned = (s: ClientSignatureInfo) => quote ? generateQuotePDF(quote, company, s) : invoice ? generateInvoicePDF(invoice, company, s) : generateContractPDF(contract, contract.subcontractors, company, s)
+    const invoiceCtx = invoice ? await loadFacturXContext(service, invoice) : undefined
+    const genUnsigned = () => quote ? generateQuotePDF(quote, company) : invoice ? generateInvoicePDF(invoice, company, undefined, invoiceCtx) : generateContractPDF(contract, contract.subcontractors, company)
+    const genSigned = (s: ClientSignatureInfo) => quote ? generateQuotePDF(quote, company, s) : invoice ? generateInvoicePDF(invoice, company, s, invoiceCtx) : generateContractPDF(contract, contract.subcontractors, company, s)
     const unsignedBuffer = await genUnsigned()
     const documentHash = createHash('sha256').update(unsignedBuffer).digest('hex')
 

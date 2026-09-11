@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { insertWithNextNumber } from '@/lib/invoice-number'
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -17,15 +18,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!quote) return NextResponse.json({ error: 'Devis introuvable' }, { status: 404 })
   if (quote.status !== 'accepte') return NextResponse.json({ error: 'Le devis doit être accepté' }, { status: 400 })
 
-  const { count } = await supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('user_id', user.id)
-  const invoiceNumber = `FAC-${new Date().getFullYear()}-${String((count || 0) + 1).padStart(3, '0')}`
-
   const dueDate = new Date()
   dueDate.setDate(dueDate.getDate() + 30)
 
   const amountDue = quote.total_ttc - (quote.deposit_amount || 0)
 
-  const { data: invoice } = await supabase.from('invoices').insert({
+  const { data: invoice } = await insertWithNextNumber(supabase, user.id, 'FAC', invoiceNumber => supabase.from('invoices').insert({
     user_id: user.id,
     client_id: quote.client_id,
     project_id: quote.project_id,
@@ -41,7 +39,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     deposit_already_paid: quote.deposit_amount || 0,
     amount_due: amountDue,
     legal_mentions: quote.legal_mentions,
-  }).select().single()
+  }).select().single())
 
   if (!invoice) return NextResponse.json({ error: 'Erreur création facture' }, { status: 500 })
 

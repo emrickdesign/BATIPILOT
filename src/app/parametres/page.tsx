@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
-import { Building2, Mail, User, FileText, ShieldCheck, Landmark, Calculator, Truck, Bell, HardHat, Sparkles } from 'lucide-react'
+import { Building2, Mail, User, FileText, ShieldCheck, Landmark, Calculator, Truck, Bell, HardHat, Sparkles, BadgeCheck } from 'lucide-react'
 
 type Item = { href?: string; icon: typeof Building2; title: string; desc: string; soon?: boolean }
 type Group = { title: string; items: Item[] }
@@ -23,6 +23,7 @@ const groups: Group[] = [
   {
     title: 'Connexions',
     items: [
+      { href: '/parametres/facturation-electronique', icon: BadgeCheck, title: 'Facturation électronique', desc: 'Factures Factur-X et connexion à votre plateforme agréée (Pennylane…)' },
       { href: '/parametres/gmail', icon: Mail, title: 'Email (Gmail)', desc: 'Connectez ou gérez votre compte Gmail' },
       { href: '/parametres/banque', icon: Landmark, title: 'Connexion bancaire', desc: 'Connectez votre compte : les virements reçus sont rapprochés automatiquement' },
       { href: '/comptable', icon: Calculator, title: 'Comptable', desc: 'Exports mensuels à transmettre à votre comptable' },
