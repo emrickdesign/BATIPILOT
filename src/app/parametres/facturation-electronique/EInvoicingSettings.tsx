@@ -438,6 +438,10 @@ function PennylaneConnect({ oauthReady, onDone }: { oauthReady: boolean; onDone:
                 Dans Pennylane : <b>Paramètres</b> › <b>Connectivité</b> › <b>Développeurs</b> › <b>Générer un token API</b>.
                 Donnez l’accès <b>lecture et écriture</b> aux factures clients et aux clients, durée <b>illimitée</b>, puis collez le token ici.
               </p>
+              <p className="text-xs text-gray-500">
+                Le token API demande l’offre Pennylane Essentiel (ou supérieure) et le rôle administrateur. Avec un compte
+                Pennylane gratuit, il n’est pas disponible : la connexion en un clic sera proposée prochainement.
+              </p>
               <div className="relative">
                 <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <Input
