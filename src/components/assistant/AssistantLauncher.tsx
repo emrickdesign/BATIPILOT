@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Sparkles } from 'lucide-react'
 import AssistantChat from './AssistantChat'
 import AssistantVoiceMode from './AssistantVoiceMode'
@@ -13,6 +14,11 @@ import AssistantVoiceMode from './AssistantVoiceMode'
 export default function AssistantLauncher() {
   const [chatOpen, setChatOpen] = useState(false)
   const [voiceOpen, setVoiceOpen] = useState(false)
+  const pathname = usePathname()
+
+  // Sur le tableau de bord, l'assistant est déjà ancré à droite (DashboardShell) :
+  // on masque le lanceur flottant global pour ne pas avoir deux assistants.
+  if (pathname === '/dashboard') return null
 
   return (
     <>
