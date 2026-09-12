@@ -6,6 +6,9 @@ import { assistantTools, executeTool, type AssistantCard, type PendingAction, ty
 import { sanitizeMessages, withinRateLimit, MAX_BODY_BYTES } from '@/lib/assistant/guard'
 
 export const dynamic = 'force-dynamic'
+// La composition d'un devis (outil composer_devis → appel modèle ~15 s) peut s'ajouter
+// aux autres appels de la boucle : on laisse jusqu'à 60 s pour ne pas couper la réponse.
+export const maxDuration = 60
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 

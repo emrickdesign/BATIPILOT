@@ -5,6 +5,7 @@ import { withinRateLimit, MAX_BODY_BYTES } from '@/lib/assistant/guard'
 import { saveDevisDraft, normalizeLines, type DraftKind } from '@/lib/assistant/devis'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60  // enregistrement + envoi (Gmail) éventuel
 
 // Enregistre le devis/facture composé dans l'assistant, et l'envoie au client si demandé.
 export async function POST(req: NextRequest) {

@@ -5,6 +5,7 @@ import { withinRateLimit, MAX_BODY_BYTES } from '@/lib/assistant/guard'
 import { composeLines, normalizeLines, type DraftKind, type DraftLine } from '@/lib/assistant/devis'
 
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60  // génération/modification IA des lignes (~15 s)
 
 // Génère OU modifie les lignes d'un devis/facture en cours d'édition dans l'assistant.
 export async function POST(req: NextRequest) {

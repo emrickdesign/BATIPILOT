@@ -101,11 +101,14 @@ Retourne UNIQUEMENT ce JSON (sans texte autour) :
 RÈGLES : "unit" ∈ {m2, ml, u, forfait, h, j, piece} ; "vat_rate" ∈ {5.5, 10, 20} ; nombres purs (pas de €). N'invente pas de dimensions : quantité inconnue = 1.`
 
   const message = await anthropic.messages.create({
-    model: 'claude-sonnet-5',
+    // Sonnet 4.6 : pas de bloc « thinking » en tête (contrairement à Sonnet 5), et
+    // modèle déjà éprouvé par /api/devis/generer pour ce chiffrage. Plus rapide ici.
+    model: 'claude-sonnet-4-6',
     max_tokens: 4000,
     messages: [{ role: 'user', content: [{ type: 'text', text: prompt }] }],
   })
-  const rawText = message.content[0]?.type === 'text' ? message.content[0].text : ''
+  // On concatène TOUS les blocs texte (robuste si un bloc thinking précède le texte).
+  const rawText = message.content.map(b => (b.type === 'text' ? b.text : '')).join('\n')
   const jsonMatch = rawText.match(/```json\n?([\s\S]*?)\n?```/) || rawText.match(/(\{[\s\S]*\})/)
   if (!jsonMatch) throw new Error('Réponse IA illisible')
   let parsed: { title?: unknown; lignes?: unknown }
