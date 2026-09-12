@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createServiceClient } from '@/lib/supabase/service'
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { assistantTools, executeTool, type AssistantCard, type PendingAction } from '@/lib/assistant/tools'
+import { assistantTools, executeTool, type AssistantCard, type PendingAction, type DevisDraft } from '@/lib/assistant/tools'
 import { sanitizeMessages, withinRateLimit, MAX_BODY_BYTES } from '@/lib/assistant/guard'
 
 export const dynamic = 'force-dynamic'
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
 
     let navigateTo: string | undefined
     let pendingAction: PendingAction | undefined
+    let draft: DevisDraft | undefined
     const cards: AssistantCard[] = []
     let reply = ''
 
@@ -82,14 +83,15 @@ export async function POST(req: NextRequest) {
         const outcome = await executeTool(tu.name, (tu.input || {}) as Record<string, unknown>, supabase, user.id)
         if (outcome.navigateTo) navigateTo = outcome.navigateTo
         if (outcome.pendingAction) pendingAction = outcome.pendingAction
+        if (outcome.draft) draft = outcome.draft
         if (outcome.cards) cards.push(...outcome.cards)
         toolResults.push({ type: 'tool_result', tool_use_id: tu.id, content: outcome.result })
       }
       messages.push({ role: 'user', content: toolResults })
     }
 
-    if (!reply) reply = navigateTo ? "Je t'y emmène." : pendingAction ? 'Je te prépare ça.' : "Je n'ai pas de réponse pour ça."
-    return NextResponse.json({ reply, navigateTo, cards: cards.slice(0, 8), pendingAction })
+    if (!reply) reply = navigateTo ? "Je t'y emmène." : draft ? 'Voici ta proposition.' : pendingAction ? 'Je te prépare ça.' : "Je n'ai pas de réponse pour ça."
+    return NextResponse.json({ reply, navigateTo, cards: cards.slice(0, 8), pendingAction, draft })
   } catch (err) {
     console.error('Assistant error:', err)
     return NextResponse.json({ error: (err as Error)?.message || 'Erreur serveur' }, { status: 500 })

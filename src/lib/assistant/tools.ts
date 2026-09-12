@@ -4,6 +4,9 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getGmailAccessToken, fetchRecentInbox, MAIL_CATEGORY_LABEL, type MailCategory } from '@/lib/gmail-read'
+import { composeLines, findClientsByName, draftTotals, type DevisDraft } from '@/lib/assistant/devis'
+
+export type { DevisDraft } from '@/lib/assistant/devis'
 
 const num = (v: unknown) => Number(v) || 0
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
@@ -37,7 +40,7 @@ export type PendingAction =
   | { canal: 'message_interne'; targetKind: 'conversation'; conversationId: string; label: string; message: string }
   | { canal: 'marquer_facture_payee'; invoiceId: string; label: string; message: string }
 
-export type ToolOutcome = { result: string; cards?: AssistantCard[]; navigateTo?: string; pendingAction?: PendingAction }
+export type ToolOutcome = { result: string; cards?: AssistantCard[]; navigateTo?: string; pendingAction?: PendingAction; draft?: DevisDraft }
 
 // Sections navigables → routes. Couvre TOUS les onglets de l'app.
 // Sert aussi d'enum pour l'outil « naviguer ».
@@ -135,8 +138,21 @@ export const assistantTools = [
     },
   },
   {
+    name: 'composer_devis',
+    description: "Compose un devis (ou une facture) DIRECTEMENT dans l'assistant : à partir de la description des travaux, génère des lignes chiffrées éditables que l'utilisateur ajuste sans quitter la conversation. Utilise-le dès que l'utilisateur décrit des travaux à chiffrer : « fais un devis pour Dupont : rénovation salle de bain 8m² », « facture 2 jours de main d'œuvre à Martin ». Fournis `description` = les travaux décrits (le plus complet possible d'après la demande).",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        client: { type: 'string', description: 'Nom du client' },
+        kind: { type: 'string', enum: ['devis', 'facture'], description: 'devis (défaut) ou facture' },
+        description: { type: 'string', description: 'Les travaux/prestations à chiffrer, décrits' },
+      },
+      required: ['client', 'description'],
+    },
+  },
+  {
     name: 'preparer_devis',
-    description: "Ouvre un nouveau devis pré-rempli pour un client (l'utilisateur complète les lignes à l'écran). Pour « fais un devis pour … », « nouveau devis à … ».",
+    description: "Ouvre l'ÉDITEUR complet d'un nouveau devis pré-rempli pour un client (page dédiée). Utilise-le seulement si l'utilisateur veut ouvrir l'éditeur/la page devis sans décrire de travaux à chiffrer. Sinon, préfère « composer_devis ».",
     input_schema: {
       type: 'object' as const,
       properties: { client: { type: 'string', description: 'Nom du client' } },
@@ -498,6 +514,30 @@ export async function executeTool(
       if (error) return { result: "Je n'ai pas réussi à créer le contact." }
       const label = entreprise || nom
       return { result: `Contact ${label} créé.`, cards: [{ label, sublabel: 'Nouveau — fiche client', href: `/clients/${data.id}` }] }
+    }
+
+    case 'composer_devis': {
+      const client = String(input.client || '').trim()
+      const description = String(input.description || '').trim()
+      const kind = input.kind === 'facture' ? 'facture' : 'devis'
+      const docLabel = kind === 'facture' ? 'une facture' : 'un devis'
+      if (!client) return { result: 'Pour quel client ?' }
+      if (description.length < 4) return { result: `Que dois-je chiffrer sur ${docLabel} ? Décris les travaux.` }
+      const matches = await findClientsByName(supabase, userId, client)
+      if (!matches.length) return { result: `Aucun client trouvé pour « ${client} ». Je peux d'abord le créer.` }
+      if (matches.length > 1) return { result: `Plusieurs clients correspondent : ${matches.map(m => m.name).join(', ')}. Lequel ?` }
+      const c = matches[0]
+      try {
+        const { title, lines } = await composeLines(supabase, userId, { kind, instruction: description })
+        const { totalTTC } = draftTotals(lines)
+        const draft: DevisDraft = { kind, clientId: c.id, clientName: c.name, title, lines }
+        return {
+          result: `J'ai préparé ${docLabel} pour ${c.name} : ${lines.length} ligne${lines.length > 1 ? 's' : ''}, ${fmt(totalTTC)} TTC. Ajuste les lignes ou dis-moi quoi changer.`,
+          draft,
+        }
+      } catch (e) {
+        return { result: `Je n'ai pas réussi à chiffrer ça (${(e as Error)?.message || 'erreur'}). Reformule les travaux ?` }
+      }
     }
 
     case 'preparer_devis': {

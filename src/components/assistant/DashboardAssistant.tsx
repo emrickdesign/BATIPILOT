@@ -15,9 +15,11 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Sparkles, Send, Loader2, Check, Mail, MessageSquare, ChevronRight, Mic, MicOff, ArrowRight,
-  X, FileText, ReceiptText, Volume2, ExternalLink, AudioLines, Keyboard,
+  X, FileText, ReceiptText, Volume2, ExternalLink, AudioLines, Keyboard, Maximize2, Minimize2,
 } from 'lucide-react'
 import type { PendingAction, AssistantCard } from '@/lib/assistant/tools'
+import type { DevisDraft } from '@/lib/assistant/devis-shared'
+import DevisComposer from './DevisComposer'
 
 type Preview = { kind: 'devis' | 'facture' | 'lien'; title: string; desc?: string; href: string }
 type ChatMsg = {
@@ -42,7 +44,7 @@ function toPreview(navigateTo?: string | null, reply?: string): Preview | null {
   return { kind: 'lien', title: 'Ouvrir', desc: reply, href: navigateTo }
 }
 
-export default function DashboardAssistant({ onClose, demoSeed, initialMode }: { onClose?: () => void; demoSeed?: ChatMsg[]; initialMode?: 'chat' | 'voice' }) {
+export default function DashboardAssistant({ onClose, demoSeed, initialMode, demoDraft }: { onClose?: () => void; demoSeed?: ChatMsg[]; initialMode?: 'chat' | 'voice'; demoDraft?: DevisDraft }) {
   const router = useRouter()
   const [msgs, setMsgs] = useState<ChatMsg[]>(demoSeed || [])
   const [typed, setTyped] = useState('')
@@ -54,6 +56,8 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode }: {
   const [recording, setRecording] = useState(false)
   const [buffer, setBuffer] = useState('')
   const [size, setSize] = useState(DEFAULT_SIZE)
+  const [expanded, setExpanded] = useState(!!demoDraft || initialMode === 'voice')   // plein écran (mode vocal / visualisation)
+  const [draft, setDraft] = useState<DevisDraft | null>(demoDraft || null)  // devis/facture éditable en cours
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -128,6 +132,8 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode }: {
       if (!res.ok) throw new Error(data?.error || 'Erreur')
       const reply: string = data.reply || ''
       setMsgs(prev => [...prev, { role: 'assistant', text: reply, cards: Array.isArray(data.cards) ? data.cards : [], pending: data.pendingAction || null, preview: toPreview(data.navigateTo, reply) }])
+      // Un devis/facture composé s'ouvre dans le panneau de visualisation (plein écran).
+      if (data.draft && Array.isArray(data.draft.lines)) { setDraft(data.draft as DevisDraft); setExpanded(true) }
       if (modeRef.current === 'voice') speak(reply || 'C’est prêt.')
     } catch (e) {
       const msg = (e as Error)?.message?.includes('Trop de requêtes') ? 'Trop de requêtes d’un coup, patiente un instant.' : 'Désolé, je n’ai pas réussi à répondre.'
@@ -221,7 +227,7 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode }: {
     ask(q)
   }, [ask, buffer, stopListening])
 
-  const enterVoice = useCallback(() => { stopDictation(); modeRef.current = 'voice'; setMode('voice'); setVS('idle'); bufferRef.current = ''; setBuffer('') }, [stopDictation])
+  const enterVoice = useCallback(() => { stopDictation(); modeRef.current = 'voice'; setMode('voice'); setVS('idle'); setExpanded(true); bufferRef.current = ''; setBuffer('') }, [stopDictation])
   const exitVoice = useCallback(() => {
     modeRef.current = 'chat'; setMode('chat'); setRecording(false); bufferRef.current = ''; setBuffer('')
     try { recRef.current?.abort() } catch {}; recRef.current = null
@@ -234,19 +240,44 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode }: {
   const vStatus = voiceState === 'listening' ? 'Je t’écoute…' : voiceState === 'thinking' ? 'Je réfléchis…' : voiceState === 'speaking' ? 'Je te réponds…' : 'Prêt — appuie sur le micro'
   const last = msgs[msgs.length - 1]
 
+  // Devis/facture enregistré depuis le composeur : confirmation dans le fil + on referme le panneau.
+  const onDraftSaved = useCallback((info: { href: string; number: string; sent: boolean; sendError?: string }) => {
+    const kindLabel = draft?.kind === 'facture' ? 'Facture' : 'Devis'
+    const txt = info.sent ? `${kindLabel} ${info.number} enregistré et envoyé au client.`
+      : info.sendError ? `${kindLabel} ${info.number} enregistré. Envoi non fait : ${info.sendError}`
+      : `${kindLabel} ${info.number} enregistré.`
+    setMsgs(prev => [...prev, { role: 'assistant', text: txt, cards: [{ label: `Ouvrir ${info.number}`, href: info.href }] }])
+    setDraft(null)
+    if (modeRef.current === 'voice') speak(info.sent ? `${kindLabel} ${info.number} enregistré et envoyé.` : `${kindLabel} ${info.number} enregistré.`)
+  }, [draft, speak])
+
+  const openFull = useCallback((href: string) => {
+    try { recRef.current?.abort() } catch {}; try { window.speechSynthesis?.cancel() } catch {}
+    router.push(href)
+  }, [router])
+
+  // Panneau de visualisation (plein écran) : le devis en cours, sinon les éléments cités (mails…).
+  const lastAssist = [...msgs].reverse().find(m => m.role === 'assistant')
+  const vizCards = draft ? [] : (lastAssist?.cards || [])
+  const hasViz = expanded && (!!draft || vizCards.length > 0)
+
   return (
     <div
-      className="fixed bottom-4 right-4 z-[70] flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_18px_50px_rgba(20,10,0,.28)] sm:bottom-6 sm:right-6"
-      style={{ width: `min(${size.w}px, calc(100vw - 2rem))`, height: `min(${size.h}px, calc(100vh - 3rem))` }}
+      className={expanded
+        ? 'fixed inset-0 z-[80] flex flex-col overflow-hidden bg-white sm:inset-3 sm:rounded-2xl sm:border sm:border-black/10 sm:shadow-[0_18px_50px_rgba(20,10,0,.28)]'
+        : 'fixed bottom-4 right-4 z-[70] flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_18px_50px_rgba(20,10,0,.28)] sm:bottom-6 sm:right-6'}
+      style={expanded ? undefined : { width: `min(${size.w}px, calc(100vw - 2rem))`, height: `min(${size.h}px, calc(100vh - 3rem))` }}
       role="dialog" aria-label="Assistant IA TonPilote"
     >
-      {/* Poignée de redimensionnement (ordinateur) */}
-      <div onPointerDown={onResizeStart} title="Redimensionner" className="absolute left-0 top-0 z-20 hidden h-7 w-7 cursor-nwse-resize sm:block" aria-label="Redimensionner">
-        <svg viewBox="0 0 12 12" className="absolute left-1.5 top-1.5 h-3 w-3 text-white/60"><path d="M11 1L1 11M7 1L1 7M11 5L5 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
-      </div>
+      {/* Poignée de redimensionnement (ordinateur, uniquement en mode réduit) */}
+      {!expanded && (
+        <div onPointerDown={onResizeStart} title="Redimensionner" className="absolute left-0 top-0 z-20 hidden h-7 w-7 cursor-nwse-resize sm:block" aria-label="Redimensionner">
+          <svg viewBox="0 0 12 12" className="absolute left-1.5 top-1.5 h-3 w-3 text-white/60"><path d="M11 1L1 11M7 1L1 7M11 5L5 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
+        </div>
+      )}
 
       {/* En-tête */}
-      <div className="flex items-center gap-2.5 px-3.5 py-3 pl-6 text-white" style={{ background: 'radial-gradient(120% 160% at 100% 0%, #241a10 0%, #17130d 45%, #0c0c0e 100%)' }}>
+      <div className={`flex items-center gap-2.5 py-3 pr-3.5 text-white ${expanded ? 'pl-4' : 'pl-6'}`} style={{ background: 'radial-gradient(120% 160% at 100% 0%, #241a10 0%, #17130d 45%, #0c0c0e 100%)' }}>
         <span className={`grid h-9 w-9 place-items-center rounded-xl bg-[#F5A623] text-black ${mode === 'voice' && recording ? 'animate-pulse' : ''}`}><Sparkles className="h-5 w-5" /></span>
         <div className="min-w-0 flex-1">
           <div className="font-heading text-[15px] font-bold leading-tight">IA TonPilote</div>
@@ -261,9 +292,14 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode }: {
             <Keyboard className="h-4 w-4" /> Écrire
           </button>
         )}
+        <button onClick={() => setExpanded(e => !e)} aria-label={expanded ? 'Réduire' : 'Agrandir'} title={expanded ? 'Réduire' : 'Agrandir (plein écran)'} className="grid h-8 w-8 place-items-center rounded-full bg-white/10 hover:bg-white/20">
+          {expanded ? <Minimize2 className="h-[16px] w-[16px]" /> : <Maximize2 className="h-[16px] w-[16px]" />}
+        </button>
         {onClose && <button onClick={onClose} aria-label="Fermer" className="grid h-8 w-8 place-items-center rounded-full bg-white/10 hover:bg-white/20"><X className="h-[17px] w-[17px]" /></button>}
       </div>
 
+      <div className={`flex min-h-0 flex-1 ${hasViz ? 'flex-col-reverse lg:flex-row' : 'flex-col'}`}>
+        <div className={`flex min-h-0 flex-col ${hasViz ? 'max-lg:h-[34%] lg:w-[42%] lg:max-w-[520px] lg:border-r lg:border-black/5' : 'flex-1'}`}>
       {mode === 'voice' ? (
         /* ─── Mode vocal MANUEL ─── */
         <div className="relative flex min-h-0 flex-1 flex-col items-center px-5 py-5 text-center text-white" style={{ background: 'radial-gradient(120% 80% at 50% 0%, #17130d 0%, #0a0a0b 60%, #060607 100%)' }}>
@@ -364,8 +400,50 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode }: {
           </form>
         </>
       )}
+        </div>
+        {hasViz && (
+          <div className="flex min-h-0 flex-1 flex-col bg-[#0d0d0f] p-2.5 sm:p-3">
+            {draft
+              ? <DevisComposer draft={draft} setDraft={setDraft} onSaved={onDraftSaved} onOpenFull={openFull} />
+              : <CardsViz cards={vizCards} onOpen={openFull} />}
+          </div>
+        )}
+      </div>
 
       <style>{`@keyframes apDot{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-3px)}}@keyframes apBar{0%,100%{transform:scaleY(.35)}50%{transform:scaleY(1)}}@keyframes apGlow{0%,100%{opacity:.5}50%{opacity:1}}@keyframes apRing{0%{transform:scale(.6);opacity:.55}100%{transform:scale(2.1);opacity:0}}`}</style>
+    </div>
+  )
+}
+
+// Panneau de visualisation : les éléments cités par l'assistant (mails, factures, chantiers…),
+// affichés en grand quand on est en plein écran.
+function CardsViz({ cards, onOpen }: { cards: AssistantCard[]; onOpen: (href: string) => void }) {
+  const mailLike = cards.length > 0 && cards.every(c => c.href === '/emails')
+  return (
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#141317]">
+      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3 text-white/90">
+        {mailLike ? <Mail className="h-4 w-4 text-[#F5A623]" /> : <Sparkles className="h-4 w-4 text-[#F5A623]" />}
+        <span className="text-sm font-semibold">{mailLike ? 'Derniers mails' : 'En un coup d’œil'}</span>
+      </div>
+      <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-3">
+        {cards.length === 0 ? (
+          <div className="grid h-full place-items-center px-6 text-center">
+            <p className="text-sm text-white/40">Les mails, devis et factures dont on parle s’afficheront ici, en grand.</p>
+          </div>
+        ) : cards.map((c, i) => {
+          const inner = (
+            <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 transition-colors hover:border-[#F5A623]/40 hover:bg-white/[0.07]">
+              <span className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-white/10 text-[#F5A623]">{mailLike ? <Mail className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-white">{c.label}</div>
+                {c.sublabel && <div className="truncate text-[12px] text-white/50">{c.sublabel}</div>}
+              </div>
+              {c.href && <ExternalLink className="h-4 w-4 flex-none text-white/30" />}
+            </div>
+          )
+          return c.href ? <button key={i} onClick={() => onOpen(c.href!)} className="block w-full text-left">{inner}</button> : <div key={i}>{inner}</div>
+        })}
+      </div>
     </div>
   )
 }
