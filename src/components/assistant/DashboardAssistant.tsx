@@ -241,15 +241,20 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
   const last = msgs[msgs.length - 1]
 
   // Devis/facture enregistré depuis le composeur : confirmation dans le fil + on referme le panneau.
+  // On propose un bouton « Ouvrir » explicite (preview) — jamais de sortie automatique du chat.
   const onDraftSaved = useCallback((info: { href: string; number: string; sent: boolean; sendError?: string }) => {
-    const kindLabel = draft?.kind === 'facture' ? 'Facture' : 'Devis'
+    const isFac = draft?.kind === 'facture'
+    const kindLabel = isFac ? 'Facture' : 'Devis'
     const txt = info.sent ? `${kindLabel} ${info.number} enregistré et envoyé au client.`
       : info.sendError ? `${kindLabel} ${info.number} enregistré. Envoi non fait : ${info.sendError}`
       : `${kindLabel} ${info.number} enregistré.`
-    setMsgs(prev => [...prev, { role: 'assistant', text: txt, cards: [{ label: `Ouvrir ${info.number}`, href: info.href }] }])
+    setMsgs(prev => [...prev, { role: 'assistant', text: txt, preview: { kind: isFac ? 'facture' : 'devis', title: `Ouvrir ${info.number}`, href: info.href } }])
     setDraft(null)
     if (modeRef.current === 'voice') speak(info.sent ? `${kindLabel} ${info.number} enregistré et envoyé.` : `${kindLabel} ${info.number} enregistré.`)
   }, [draft, speak])
+
+  // Cliquer une carte = SÉLECTION : on renvoie son choix à l'IA qui continue, sans quitter le chat.
+  const selectCard = useCallback((c: AssistantCard) => { ask(c.send || c.label) }, [ask])
 
   const openFull = useCallback((href: string) => {
     try { recRef.current?.abort() } catch {}; try { window.speechSynthesis?.cancel() } catch {}
@@ -379,7 +384,14 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
                     </div>
                   )}
                   {m.doneText && <div className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700"><Check className="h-3.5 w-3.5" /> {m.doneText}</div>}
-                  {m.cards && m.cards.length > 0 && <div className="mt-2 space-y-1.5">{m.cards.map((c, j) => { const inner = <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm transition-colors hover:border-[#E0674C]/50 hover:bg-[#FDF3EF]"><div className="min-w-0 flex-1"><div className="truncate text-sm font-medium text-gray-800">{c.label}</div>{c.sublabel && <div className="truncate text-[11px] text-gray-400">{c.sublabel}</div>}</div>{c.href && <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-300" />}</div>; return c.href ? <button key={j} onClick={() => router.push(c.href!)} className="block w-full text-left">{inner}</button> : <div key={j}>{inner}</div> })}</div>}
+                  {m.cards && m.cards.length > 0 && <div className="mt-2 space-y-1.5">{m.cards.map((c, j) => (
+                    <button key={j} onClick={() => selectCard(c)} disabled={loading} className="block w-full text-left disabled:opacity-60">
+                      <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-sm transition-colors hover:border-[#E0674C]/50 hover:bg-[#FDF3EF]">
+                        <div className="min-w-0 flex-1"><div className="truncate text-sm font-medium text-gray-800">{c.label}</div>{c.sublabel && <div className="truncate text-[11px] text-gray-400">{c.sublabel}</div>}</div>
+                        <ChevronRight className="h-4 w-4 flex-shrink-0 text-gray-300" />
+                      </div>
+                    </button>
+                  ))}</div>}
                 </div>
               </div>
             ))}
@@ -405,7 +417,7 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
           <div className="flex min-h-0 flex-1 flex-col bg-[#0d0d0f] p-2.5 sm:p-3">
             {draft
               ? <DevisComposer draft={draft} setDraft={setDraft} onSaved={onDraftSaved} onOpenFull={openFull} />
-              : <CardsViz cards={vizCards} onOpen={openFull} />}
+              : <CardsViz cards={vizCards} onSelect={selectCard} loading={loading} />}
           </div>
         )}
       </div>
@@ -416,8 +428,9 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
 }
 
 // Panneau de visualisation : les éléments cités par l'assistant (mails, factures, chantiers…),
-// affichés en grand quand on est en plein écran.
-function CardsViz({ cards, onOpen }: { cards: AssistantCard[]; onOpen: (href: string) => void }) {
+// affichés en grand quand on est en plein écran. Cliquer = sélectionner (l'IA continue),
+// on ne quitte JAMAIS le chat automatiquement.
+function CardsViz({ cards, onSelect, loading }: { cards: AssistantCard[]; onSelect: (c: AssistantCard) => void; loading: boolean }) {
   const mailLike = cards.length > 0 && cards.every(c => c.href === '/emails')
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#141317]">
@@ -430,19 +443,18 @@ function CardsViz({ cards, onOpen }: { cards: AssistantCard[]; onOpen: (href: st
           <div className="grid h-full place-items-center px-6 text-center">
             <p className="text-sm text-white/40">Les mails, devis et factures dont on parle s’afficheront ici, en grand.</p>
           </div>
-        ) : cards.map((c, i) => {
-          const inner = (
+        ) : cards.map((c, i) => (
+          <button key={i} onClick={() => onSelect(c)} disabled={loading} className="block w-full text-left disabled:opacity-60">
             <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] px-3.5 py-3 transition-colors hover:border-[#F5A623]/40 hover:bg-white/[0.07]">
               <span className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-white/10 text-[#F5A623]">{mailLike ? <Mail className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</span>
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-white">{c.label}</div>
                 {c.sublabel && <div className="truncate text-[12px] text-white/50">{c.sublabel}</div>}
               </div>
-              {c.href && <ExternalLink className="h-4 w-4 flex-none text-white/30" />}
+              <ChevronRight className="h-4 w-4 flex-none text-white/30" />
             </div>
-          )
-          return c.href ? <button key={i} onClick={() => onOpen(c.href!)} className="block w-full text-left">{inner}</button> : <div key={i}>{inner}</div>
-        })}
+          </button>
+        ))}
       </div>
     </div>
   )

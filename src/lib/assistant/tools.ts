@@ -30,7 +30,9 @@ async function findClient(supabase: SupabaseClient, userId: string, name: string
   return data || []
 }
 
-export type AssistantCard = { label: string; sublabel?: string; href?: string }
+// `send` : cliquer la carte renvoie ce texte à l'assistant (sélection qui continue la
+// conversation, sans quitter le chat) au lieu de naviguer. Par défaut on renvoie le label.
+export type AssistantCard = { label: string; sublabel?: string; href?: string; send?: string }
 
 // Action d'envoi préparée mais NON exécutée : l'utilisateur doit confirmer
 // (bouton « Envoyer ») avant tout envoi réel. Exécutée par /api/assistant/execute.
@@ -525,7 +527,11 @@ export async function executeTool(
       if (description.length < 4) return { result: `Que dois-je chiffrer sur ${docLabel} ? Décris les travaux.` }
       const matches = await findClientsByName(supabase, userId, client)
       if (!matches.length) return { result: `Aucun client trouvé pour « ${client} ». Je peux d'abord le créer.` }
-      if (matches.length > 1) return { result: `Plusieurs clients correspondent : ${matches.map(m => m.name).join(', ')}. Lequel ?` }
+      if (matches.length > 1) return {
+        result: `Plusieurs clients correspondent. Lequel ?`,
+        // Cartes de sélection : cliquer choisit le client et je continue (sans quitter le chat).
+        cards: matches.map(m => ({ label: m.name, send: `C'est pour ${m.name}` })),
+      }
       const c = matches[0]
       try {
         const { title, lines } = await composeLines(supabase, userId, { kind, instruction: description })
