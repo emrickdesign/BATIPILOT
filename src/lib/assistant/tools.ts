@@ -3,7 +3,7 @@
 // texte pour Claude + éventuellement des cartes cliquables et une navigation.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { getGmailAccessToken, fetchRecentInbox } from '@/lib/gmail-read'
+import { getGmailAccessToken, fetchRecentInbox, MAIL_CATEGORY_LABEL, type MailCategory } from '@/lib/gmail-read'
 
 const num = (v: unknown) => Number(v) || 0
 const fmt = (n: number) => new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(n)
@@ -91,8 +91,18 @@ export const assistantTools = [
   },
   {
     name: 'recap_mails',
-    description: "Donne les tout derniers emails reçus, lus EN DIRECT dans Gmail (donc toujours à jour). Pour « recap de mes mails », « actualise et donne mes derniers mails », « qu'est-ce que j'ai reçu ».",
-    input_schema: { type: 'object' as const, properties: {}, required: [] },
+    description: "Donne les tout derniers emails reçus, lus EN DIRECT dans Gmail. Pour « recap de mes mails », « mes derniers mails », « qu'est-ce que j'ai reçu ». La boîte Gmail a des onglets/catégories : par défaut on lit l'onglet PRINCIPAL (les vrais mails importants), PAS les promotions ni les notifications. Précise `categorie` seulement si l'utilisateur le demande (ex. « mes promos », « les réseaux sociaux »).",
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        categorie: {
+          type: 'string',
+          enum: ['principal', 'promotions', 'reseaux_sociaux', 'notifications', 'forums', 'tous'],
+          description: "Onglet Gmail à lire. Défaut = principal. 'tous' = toute la boîte, toutes catégories confondues.",
+        },
+      },
+      required: [],
+    },
   },
   {
     name: 'lire',
@@ -318,16 +328,25 @@ export async function executeTool(
     }
 
     case 'recap_mails': {
+      // Onglet Gmail demandé (défaut = Principal). L'assistant ne mélange plus
+      // les promos/notifs avec les vrais mails importants.
+      const catMap: Record<string, MailCategory> = {
+        principal: 'primary', promotions: 'promotions', reseaux_sociaux: 'social',
+        notifications: 'updates', forums: 'forums', tous: 'all',
+      }
+      const category: MailCategory = catMap[String(input.categorie || 'principal')] || 'primary'
+      const catLabel = MAIL_CATEGORY_LABEL[category]
       // Live Gmail = vrais derniers mails. Repli sur la table locale si non connecté.
       const token = await getGmailAccessToken(supabase, userId)
       if (token) {
-        const mails = await fetchRecentInbox(token, 5)
+        const mails = await fetchRecentInbox(token, 5, category)
         if (mails.length) {
           return {
-            result: `${mails.length} derniers mails reçus : ` + mails.map(m => `${m.from} — ${m.subject}`).join(' | '),
+            result: `${mails.length} derniers mails — onglet ${catLabel} : ` + mails.map(m => `${m.from} — ${m.subject}`).join(' | '),
             cards: mails.map(m => ({ label: m.subject, sublabel: m.from, href: '/emails' })),
           }
         }
+        return { result: `Aucun mail récent dans l'onglet ${catLabel}.`, cards: [{ label: 'Ouvrir les mails', href: '/emails' }] }
       }
       const { data } = await supabase.from('emails')
         .select('from_name, from_email, subject, ai_summary, received_at')

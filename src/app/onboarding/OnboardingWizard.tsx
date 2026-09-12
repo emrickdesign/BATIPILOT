@@ -8,10 +8,12 @@ import { Textarea } from '@/components/ui/textarea'
 import EntrepriseSearch from '@/components/EntrepriseSearch'
 import { TRADES } from '@/lib/trades'
 import type { CompanyResult } from '@/lib/siret'
+import { pricingSummary, sizeBucket } from '@/lib/pricing'
 import { toast } from 'sonner'
 import {
   ArrowLeft, ArrowRight, Check, Loader2, Sparkles, ListChecks, Clock3, Building2,
   Users, Target, ReceiptText, FileText, Landmark, HardHat, Wallet, CalendarClock, BadgeCheck,
+  User, Minus, Plus, Gift,
 } from 'lucide-react'
 
 // ─── Types partagés avec la page (data) ────────────────────────────────────────
@@ -28,6 +30,7 @@ export interface OnboardingResult {
   primaryTrade: string
   secondaryTrades: string[]
   companySize: string
+  employeesCount: number
   interests: string[]
   priceChoice: PriceChoice
 }
@@ -35,6 +38,7 @@ export interface WizardInitial extends Partial<OnboardingForm> {
   trade?: string | null
   secondary_trades?: string[]
   company_size?: string | null
+  employees_count?: number
   interests?: string[]
 }
 
@@ -54,14 +58,6 @@ const STEPS = [
   { key: 'facturation', label: 'Facturation', hint: 'Devis & factures' },
   { key: 'prix', label: 'Base de prix', hint: 'Ton catalogue' },
 ] as const
-
-const SIZES = [
-  { id: 'solo', label: 'Je suis seul·e', icon: '👤' },
-  { id: '1_3', label: '1 à 3', icon: '👥' },
-  { id: '4_10', label: '4 à 10', icon: '👷' },
-  { id: '11_50', label: '11 à 50', icon: '🏗️' },
-  { id: '50_plus', label: 'Plus de 50', icon: '🏢' },
-]
 
 const GOALS: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'devis', label: 'Faire mes devis plus vite', icon: <FileText className="w-5 h-5" /> },
@@ -97,7 +93,9 @@ export default function OnboardingWizard({
   })
   const [primaryTrade, setPrimaryTrade] = useState(initial.trade || '')
   const [secondaryTrades, setSecondaryTrades] = useState<string[]>(Array.isArray(initial.secondary_trades) ? initial.secondary_trades : [])
-  const [companySize, setCompanySize] = useState(initial.company_size || '')
+  const [employees, setEmployees] = useState<number>(
+    typeof initial.employees_count === 'number' ? initial.employees_count
+      : (initial.company_size && initial.company_size !== 'solo' ? 2 : 0))
   const [interests, setInterests] = useState<string[]>(Array.isArray(initial.interests) ? initial.interests : [])
   const [priceChoice, setPriceChoice] = useState<PriceChoice>('seed')
 
@@ -111,11 +109,14 @@ export default function OnboardingWizard({
 
   const canNext = () => {
     if (step === 0) return form.trade_name.trim().length > 0
-    if (step === 1) return primaryTrade.length > 0 && companySize.length > 0
+    if (step === 1) return primaryTrade.length > 0
     return true
   }
 
-  function next() { if (step < STEPS.length - 1) setStep(s => s + 1); else onFinish({ form, primaryTrade, secondaryTrades: secondaryTrades.filter(t => t !== primaryTrade), companySize, interests, priceChoice }) }
+  function next() {
+    if (step < STEPS.length - 1) { setStep(s => s + 1); return }
+    onFinish({ form, primaryTrade, secondaryTrades: secondaryTrades.filter(t => t !== primaryTrade), companySize: sizeBucket(employees), employeesCount: employees, interests, priceChoice })
+  }
 
   return (
     <div className="min-h-screen flex bg-[#FBF9F5]">
@@ -177,7 +178,7 @@ export default function OnboardingWizard({
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-xl mx-auto w-full px-5 md:px-10 py-8 md:py-12">
             {step === 0 && <StepEntreprise form={form} set={set} applySirene={applySirene} />}
-            {step === 1 && <StepMetier {...{ primaryTrade, setPrimaryTrade, secondaryTrades, setSecondaryTrades, companySize, setCompanySize, toggle }} />}
+            {step === 1 && <StepMetier {...{ primaryTrade, setPrimaryTrade, secondaryTrades, setSecondaryTrades, employees, setEmployees, toggle }} />}
             {step === 2 && <StepObjectifs {...{ interests, setInterests, toggle }} />}
             {step === 3 && <StepFacturation form={form} set={set} />}
             {step === 4 && <StepPrix priceChoice={priceChoice} setPriceChoice={setPriceChoice} />}
@@ -251,12 +252,13 @@ function StepEntreprise({ form, set, applySirene }: { form: OnboardingForm; set:
 }
 
 // ─── Étape 2 : métier & équipe ───────────────────────────────────────────────────
-function StepMetier({ primaryTrade, setPrimaryTrade, secondaryTrades, setSecondaryTrades, companySize, setCompanySize, toggle }: {
+function StepMetier({ primaryTrade, setPrimaryTrade, secondaryTrades, setSecondaryTrades, employees, setEmployees, toggle }: {
   primaryTrade: string; setPrimaryTrade: (v: string) => void
   secondaryTrades: string[]; setSecondaryTrades: (v: string[]) => void
-  companySize: string; setCompanySize: (v: string) => void
+  employees: number; setEmployees: (v: number) => void
   toggle: (arr: string[], v: string) => string[]
 }) {
+  const hasTeam = employees > 0
   return (
     <div>
       <Head icon={<HardHat className="w-6 h-6" />} title="Ton métier & ton équipe" sub="On personnalise ta base de prix, tes catégories et l’app selon ton corps d’état." />
@@ -293,17 +295,93 @@ function StepMetier({ primaryTrade, setPrimaryTrade, secondaryTrades, setSeconda
         </div>
       )}
 
+      {/* Effectif : seul ou équipe */}
       <Label className="flex items-center gap-1.5"><Users className="w-4 h-4 text-slate-400" /> Ton effectif *</Label>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
-        {SIZES.map(s => {
-          const active = companySize === s.id
-          return (
-            <button key={s.id} type="button" onClick={() => setCompanySize(s.id)}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-sm transition-all ${active ? 'border-primary bg-accent ring-1 ring-primary' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
-              <span className="text-base">{s.icon}</span><span className="font-medium text-marine">{s.label}</span>
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        <button type="button" onClick={() => setEmployees(0)}
+          className={`flex items-center gap-2.5 rounded-xl border px-4 py-3.5 text-left text-sm transition-all ${!hasTeam ? 'border-primary bg-accent ring-1 ring-primary shadow-[var(--shadow-sm)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+          <span className={`grid place-items-center w-9 h-9 rounded-lg flex-none ${!hasTeam ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}><User className="w-5 h-5" /></span>
+          <span><span className="block font-semibold text-marine leading-tight">Je suis seul</span><span className="block text-xs text-slate-500">Dirigeant, sans salarié</span></span>
+        </button>
+        <button type="button" onClick={() => setEmployees(employees > 0 ? employees : 1)}
+          className={`flex items-center gap-2.5 rounded-xl border px-4 py-3.5 text-left text-sm transition-all ${hasTeam ? 'border-primary bg-accent ring-1 ring-primary shadow-[var(--shadow-sm)]' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+          <span className={`grid place-items-center w-9 h-9 rounded-lg flex-none ${hasTeam ? 'bg-primary text-white' : 'bg-slate-100 text-slate-500'}`}><Users className="w-5 h-5" /></span>
+          <span><span className="block font-semibold text-marine leading-tight">J’ai une équipe</span><span className="block text-xs text-slate-500">Un ou plusieurs salariés</span></span>
+        </button>
+      </div>
+
+      {hasTeam && (
+        <div className="mt-3 flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 animate-fade-up">
+          <span className="text-sm font-medium text-marine">Nombre de salariés</span>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={() => setEmployees(Math.max(1, employees - 1))} disabled={employees <= 1}
+              className="grid place-items-center w-9 h-9 rounded-lg border border-slate-200 text-marine transition-colors hover:bg-slate-50 disabled:opacity-30" aria-label="Retirer un salarié">
+              <Minus className="w-4 h-4" />
             </button>
-          )
-        })}
+            <span className="w-8 text-center font-heading font-extrabold text-xl text-marine tabular-nums">{employees}</span>
+            <button type="button" onClick={() => setEmployees(employees + 1)}
+              className="grid place-items-center w-9 h-9 rounded-lg border border-slate-200 text-marine transition-colors hover:bg-slate-50" aria-label="Ajouter un salarié">
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      <TarifCard employees={employees} />
+    </div>
+  )
+}
+
+// ─── Récapitulatif tarifaire (dégressif par salarié) ─────────────────────────────
+function TarifCard({ employees }: { employees: number }) {
+  const p = pricingSummary(employees)
+  return (
+    <div className="mt-5 rounded-2xl border border-primary/20 overflow-hidden animate-fade-up">
+      {/* bandeau prix */}
+      <div className="relative p-5 text-white" style={{ background: 'linear-gradient(150deg,#E5735A 0%,#D05C43 60%,#C14E33 120%)' }}>
+        <div className="absolute -top-16 -right-10 w-52 h-52 rounded-full opacity-30" style={{ background: 'radial-gradient(circle,#F4A088,transparent 65%)' }} />
+        <div className="relative z-10 flex items-center gap-2 text-[13px] font-semibold text-white/90">
+          <Gift className="w-4 h-4" /> 1er mois offert
+        </div>
+        <div className="relative z-10 mt-1.5 flex items-end gap-2">
+          <span className="font-heading font-extrabold text-[2.6rem] leading-none tracking-tight">{p.total} €</span>
+          <span className="mb-1.5 text-white/85 text-sm">/ mois ensuite</span>
+        </div>
+        <p className="relative z-10 mt-1 text-[13px] text-white/80">
+          {p.hasTeam
+            ? `${p.employees} salarié${p.employees > 1 ? 's' : ''} · gratuit le 1er mois, puis ${p.total} €/mois`
+            : `Dirigeant seul · gratuit le 1er mois, puis ${p.total} €/mois`}
+        </p>
+      </div>
+
+      {/* détail */}
+      <div className="bg-white p-4 space-y-1.5 text-sm">
+        <div className="flex items-center justify-between text-marine">
+          <span>{p.hasTeam ? 'Abonnement équipe' : 'Abonnement solo'}</span>
+          <span className="font-semibold tabular-nums">{p.base} €</span>
+        </div>
+        {p.seats.map(s => (
+          <div key={s.rank} className="flex items-center justify-between text-slate-600">
+            <span className="flex items-center gap-2">
+              Salarié {s.rank}
+              {s.discounted && <span className="text-[11px] font-bold text-primary bg-accent rounded-full px-2 py-0.5">dégressif</span>}
+            </span>
+            <span className="tabular-nums">+{s.unit} €</span>
+          </div>
+        ))}
+        {p.savings > 0 && (
+          <div className="flex items-center justify-between pt-1.5 mt-1.5 border-t border-dashed border-slate-200 text-primary font-semibold">
+            <span>Réduction dégressive</span>
+            <span className="tabular-nums">−{p.savings} €/mois</span>
+          </div>
+        )}
+        <div className="flex items-center justify-between pt-2 mt-1 border-t border-slate-100 text-marine font-heading font-extrabold text-base">
+          <span>Total / mois</span>
+          <span className="tabular-nums">{p.total} €</span>
+        </div>
+        {p.hasTeam && (
+          <p className="text-[12px] text-slate-400 pt-1">Plus l’équipe grandit, moins chaque salarié coûte — la baisse est déjà appliquée ci-dessus.</p>
+        )}
       </div>
     </div>
   )

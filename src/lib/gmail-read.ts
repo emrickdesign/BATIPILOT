@@ -34,10 +34,20 @@ export async function getGmailAccessToken(supabase: SupabaseClient, userId: stri
 
 export type RecentMail = { from: string; subject: string; dateMs: number }
 
-// Les N derniers mails de l'INBOX, triés du plus récent au plus ancien.
-export async function fetchRecentInbox(accessToken: string, n = 5): Promise<RecentMail[]> {
+// Catégories de la boîte Gmail (onglets). 'primary' = onglet Principal.
+export type MailCategory = 'primary' | 'promotions' | 'social' | 'updates' | 'forums' | 'all'
+
+export const MAIL_CATEGORY_LABEL: Record<MailCategory, string> = {
+  primary: 'Principal', promotions: 'Promotions', social: 'Réseaux sociaux',
+  updates: 'Notifications', forums: 'Forums', all: 'toute la boîte',
+}
+
+// Les N derniers mails d'une catégorie de l'INBOX (par défaut « Principal »),
+// triés du plus récent au plus ancien. La catégorie mappe l'onglet Gmail.
+export async function fetchRecentInbox(accessToken: string, n = 5, category: MailCategory = 'primary'): Promise<RecentMail[]> {
+  const q = category === 'all' ? 'in:inbox' : `in:inbox category:${category}`
   const listRes = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${n}&labelIds=INBOX`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?maxResults=${n}&q=${encodeURIComponent(q)}`,
     { headers: { Authorization: `Bearer ${accessToken}` } },
   )
   if (!listRes.ok) return []

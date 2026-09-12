@@ -37,7 +37,8 @@ export default function OnboardingPage() {
             default_vat_rate: data.default_vat_rate ?? undefined,
             legal_mentions: data.legal_mentions || undefined,
             trade: data.trade, secondary_trades: data.secondary_trades,
-            company_size: data.company_size, interests: data.interests,
+            company_size: data.company_size, employees_count: data.employees_count ?? undefined,
+            interests: data.interests,
           })
         }
         setReady(true)
@@ -74,6 +75,7 @@ export default function OnboardingPage() {
       trade: r.primaryTrade || null,
       secondary_trades: r.secondaryTrades,
       company_size: r.companySize || null,
+      employees_count: r.employeesCount,
       interests: r.interests,
       onboarding_completed_at: new Date().toISOString(),
     }

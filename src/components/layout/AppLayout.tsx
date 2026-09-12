@@ -13,7 +13,7 @@ import { isPole } from '@/lib/roles'
 import NotificationBell from '@/components/NotificationBell'
 import AssistantLauncher from '@/components/assistant/AssistantLauncher'
 
-type NavLink = { href: string; label: string; icon: any }
+type NavLink = { href: string; label: string; icon: any; teamOnly?: boolean }
 
 // Accès direct (hors groupes), épinglé en haut
 const topNav: NavLink[] = [
@@ -42,11 +42,11 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
     label: 'Chantiers & équipes',
     items: [
       { href: '/chantiers', label: 'Chantiers', icon: HardHat },
-      { href: '/planning', label: 'Planning', icon: CalendarDays },
-      { href: '/heures', label: 'Heures', icon: Clock },
-      { href: '/equipe', label: 'Salariés', icon: Users2 },
+      { href: '/planning', label: 'Planning', icon: CalendarDays, teamOnly: true },
+      { href: '/heures', label: 'Heures', icon: Clock, teamOnly: true },
+      { href: '/equipe', label: 'Salariés', icon: Users2, teamOnly: true },
       { href: '/sous-traitants', label: 'Sous-traitants', icon: Handshake },
-      { href: '/vehicules', label: 'Véhicules', icon: Truck },
+      { href: '/vehicules', label: 'Véhicules', icon: Truck, teamOnly: true },
       { href: '/comptes-rendus', label: 'Comptes-rendus', icon: ClipboardList },
     ],
   },
@@ -137,6 +137,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<{ name: string; role: string; initials: string }>({ name: '', role: 'Artisan', initials: '' })
   const [collapsed, setCollapsed] = useState(false)
   const [counts, setCounts] = useState<Record<string, number>>({})
+  // Modules « équipe » (planning, heures, salariés, véhicules) : masqués quand
+  // l'artisan est seul. Valeur optimiste depuis le cache local pour éviter le flash.
+  const [hasTeam, setHasTeam] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    return localStorage.getItem('tp_has_team') !== '0'
+  })
 
   // Pastilles sidebar : rafraîchies au montage et à chaque navigation (après une action).
   useEffect(() => {
@@ -169,12 +175,21 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       const initials = name.split(' ').map((w: string) => w[0]).slice(0, 2).join('').toUpperCase() || 'BP'
       setProfile({ name, role: 'Artisan', initials })
 
+      // Fiche entreprise : sert au gate d'onboarding ET à l'adaptation des modules
+      // selon l'effectif (une équipe débloque planning/heures/salariés/véhicules).
+      const { data: company } = await supabase
+        .from('companies').select('onboarding_completed_at, employees_count, company_size').eq('user_id', user.id).maybeSingle()
+
+      const team = company
+        ? ((company.employees_count ?? 0) > 0 || (!!company.company_size && company.company_size !== 'solo'))
+        : true
+      setHasTeam(team)
+      if (typeof window !== 'undefined') localStorage.setItem('tp_has_team', team ? '1' : '0')
+
       // Gate d'onboarding : un patron sans fiche entreprise finalisée est envoyé
       // vers le wizard. Cache de session (clé = user.id, pour ne pas hériter du
       // cache d'un autre compte connecté dans le même onglet).
       if (typeof window !== 'undefined' && sessionStorage.getItem('bp_onboarded') === user.id) return
-      const { data: company } = await supabase
-        .from('companies').select('onboarding_completed_at').eq('user_id', user.id).maybeSingle()
       if (company?.onboarding_completed_at) {
         sessionStorage.setItem('bp_onboarded', user.id)
       } else {
@@ -199,7 +214,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
-  const groupHasActive = (id: string) => navGroups.find(g => g.id === id)?.items.some(i => isActive(i.href)) ?? false
+  // Masque les modules réservés à l'équipe quand l'artisan est seul.
+  const visibleItems = (items: NavLink[]) => items.filter(i => !i.teamOnly || hasTeam)
+  const groupHasActive = (id: string) => visibleItems(navGroups.find(g => g.id === id)?.items ?? []).some(i => isActive(i.href))
 
   // null = laisser ouvert le groupe actif ; true/false = choix explicite de l'utilisateur
   const [openOverride, setOpenOverride] = useState<Record<string, boolean>>({})
@@ -213,6 +230,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <NavItem key={item.href} {...item} badge={counts[item.href]} active={isActive(item.href)} mobile={mobile} collapsed={rail} onClick={mobile ? () => setMenuOpen(false) : undefined} />
         ))}
         {navGroups.map(group => {
+          const items = visibleItems(group.items)
+          if (items.length === 0) return null
           const open = isGroupOpen(group.id)
           return (
             <div key={group.id} className={rail ? 'pt-2' : 'pt-3'}>
@@ -229,7 +248,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               )}
               {(rail || open) && (
                 <div className="mt-1 space-y-1">
-                  {group.items.map(item => (
+                  {items.map(item => (
                     <NavItem key={item.href} {...item} badge={counts[item.href]} active={isActive(item.href)} mobile={mobile} collapsed={rail} onClick={mobile ? () => setMenuOpen(false) : undefined} />
                   ))}
                 </div>
