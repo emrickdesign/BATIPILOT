@@ -628,64 +628,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Trésorerie : solde bancaire réel (affiché seulement si une banque est connectée) */}
-      {d.tresorerie.has && (
-        <Link href="/banque" className="block animate-fade-up">
-          <div className="flex items-center justify-between gap-4 rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-white px-5 py-4 shadow-[var(--shadow-xs)] hover:shadow-[var(--shadow-sm)] transition-shadow">
-            <div className="flex items-center gap-3.5">
-              <span className="grid place-items-center w-11 h-11 rounded-xl bg-emerald-100 text-emerald-600 flex-shrink-0">
-                <Landmark className="w-5 h-5" />
-              </span>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-emerald-700/70">Trésorerie disponible</p>
-                <p className="text-2xl md:text-[28px] font-bold font-heading text-marine tabular-nums leading-tight">{formatCurrency(d.tresorerie.total)}</p>
-              </div>
-            </div>
-            <div className="text-right hidden sm:block">
-              <p className="text-xs text-gray-400">Solde réel des comptes</p>
-              {d.tresorerie.maj && (
-                <p className="text-xs text-gray-400 mt-0.5">
-                  màj {new Date(d.tresorerie.maj).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
-                </p>
-              )}
-            </div>
-          </div>
-        </Link>
-      )}
-
-      {/* Sorties du mois + répartition par catégorie (depuis les débits bancaires) */}
-      {d.depenses.hasBank && d.depenses.sortiesMois > 0 && (
-        <div className="rounded-2xl border border-gray-200 bg-white px-5 py-4 shadow-[var(--shadow-xs)] animate-fade-up">
-          <div className="flex items-center justify-between gap-4 mb-3">
-            <div className="flex items-center gap-3.5">
-              <span className="grid place-items-center w-11 h-11 rounded-xl bg-orange-100 text-orange-600 flex-shrink-0">
-                <Banknote className="w-5 h-5" />
-              </span>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">Sorties du mois</p>
-                <p className="text-2xl md:text-[28px] font-bold font-heading text-marine tabular-nums leading-tight">{formatCurrency(d.depenses.sortiesMois)}</p>
-              </div>
-            </div>
-            <Link href="/banque" className="text-xs text-primary hover:underline flex-shrink-0">Détail →</Link>
-          </div>
-          <div className="space-y-1.5">
-            {d.depenses.topCategories.map(c => {
-              const pct = Math.round((c.montant / d.depenses.sortiesMois) * 100)
-              return (
-                <div key={c.key} className="flex items-center gap-3">
-                  <span className="w-40 text-xs text-gray-600 flex-shrink-0 truncate">{c.label}</span>
-                  <span className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
-                    <span className="block h-full rounded-full bg-gradient-to-r from-[#F09A80] to-[#D05C43]" style={{ width: `${Math.max(pct, 3)}%` }} />
-                  </span>
-                  <span className="w-24 text-right text-xs font-semibold text-marine tabular-nums flex-shrink-0">{formatCurrency(c.montant)}</span>
-                  <span className="w-9 text-right text-[11px] text-gray-400 flex-shrink-0">{pct}%</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       {/* 1. Chiffres vitaux */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
         {finCards.map((k, i) => (
