@@ -54,6 +54,9 @@ export interface Company {
   secondary_trades?: string[]
   /** NULL tant que le wizard d'onboarding n'est pas terminé. */
   onboarding_completed_at?: string | null
+  /** Onboarding : effectif ('solo','1_3','4_10','11_50','50_plus') et objectifs choisis. */
+  company_size?: string | null
+  interests?: string[]
   google_review_url?: string | null
   accountant_email?: string | null
   template_style?: Record<string, unknown> | null
