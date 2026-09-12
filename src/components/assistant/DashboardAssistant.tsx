@@ -304,7 +304,7 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
       </div>
 
       <div className={`flex min-h-0 flex-1 ${hasViz ? 'flex-col-reverse lg:flex-row' : 'flex-col'}`}>
-        <div className={`flex min-h-0 flex-col ${hasViz ? 'max-lg:h-[34%] lg:w-[42%] lg:max-w-[520px] lg:border-r lg:border-black/5' : 'flex-1'}`}>
+        <div className={`flex min-h-0 flex-col ${hasViz ? 'max-lg:h-[28%] lg:w-[42%] lg:max-w-[520px] lg:border-r lg:border-black/5' : 'flex-1'}`}>
       {mode === 'voice' ? (
         /* ─── Mode vocal MANUEL ─── */
         <div className="relative flex min-h-0 flex-1 flex-col items-center px-5 py-5 text-center text-white" style={{ background: 'radial-gradient(120% 80% at 50% 0%, #17130d 0%, #0a0a0b 60%, #060607 100%)' }}>
