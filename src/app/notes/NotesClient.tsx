@@ -138,7 +138,7 @@ export default function NotesClient({
                   }`}>{count}</span>
                 </div>
                 {last ? (
-                  <p className="mt-3 text-[12px] text-gray-500 line-clamp-2 leading-relaxed">{last.body}</p>
+                  <p className="mt-3 text-[12px] text-gray-500 line-clamp-2 leading-relaxed break-words">{last.body}</p>
                 ) : (
                   <p className="mt-3 text-[12px] text-gray-300 italic">Aucune note</p>
                 )}
@@ -202,7 +202,7 @@ export default function NotesClient({
           ) : selectedNotes.map(n => (
             <Card key={n.id} className="group">
               <CardContent className="p-3.5">
-                <p className="text-sm text-gray-800 whitespace-pre-line">{n.body}</p>
+                <p className="text-sm text-gray-800 whitespace-pre-line break-words">{n.body}</p>
                 <div className="flex items-center justify-between mt-2">
                   <span className="text-[11px] text-gray-400">
                     <span className={n.author_employee_id ? 'text-[#3F7A2E] font-medium' : 'text-[#C14E33] font-medium'}>{n.author_name || 'Note'}</span> · {fmt(n.created_at)}
@@ -220,9 +220,9 @@ export default function NotesClient({
   })()
 
   return (
-    <div className="lg:grid lg:grid-cols-[minmax(320px,400px)_1fr] lg:gap-6 lg:items-start">
+    <div className="min-w-0 lg:grid lg:grid-cols-[minmax(320px,400px)_1fr] lg:gap-6 lg:items-start">
       {listPane}
-      <div className="lg:sticky lg:top-4">{detailPane}</div>
+      <div className="min-w-0 lg:sticky lg:top-4">{detailPane}</div>
     </div>
   )
 }

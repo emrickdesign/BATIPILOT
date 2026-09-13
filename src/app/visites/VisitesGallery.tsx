@@ -3,7 +3,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import { Camera, Search, Image as ImageIcon, MapPin, ClipboardList, CheckCircle2, Clock, Archive } from 'lucide-react'
+import { Camera, Search, Image as ImageIcon, MapPin, Archive } from 'lucide-react'
 import { visitStatusLabels } from '@/lib/visites'
 import ArchiveVisitButton from './ArchiveVisitButton'
 
@@ -63,45 +63,27 @@ export default function VisitesGallery({ visits }: { visits: VisitItem[] }) {
   }, [visits, q, filter, sort])
 
   return (
-    <div className="space-y-5">
-      {/* Stats — mini-cartes compactes (icône + chiffre + libellé sur une ligne) */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 animate-fade-up">
-        {([
-          { icon: ClipboardList, value: stats.total, label: 'Visites', tint: 'bg-[#FCE7DE] text-[#C14E33]' },
-          { icon: CheckCircle2, value: stats.valide, label: 'Validées', tint: 'bg-[#EDF4E0] text-[#4C6F18]' },
-          { icon: Clock, value: stats.encours, label: 'En cours', tint: 'bg-[#FBEFD4] text-[#8A5A08]' },
-          { icon: ImageIcon, value: stats.photos, label: 'Photos', tint: 'bg-[#E3ECFB] text-[#2F6BE8]' },
-        ] as const).map(s => (
-          <div key={s.label} className="flex items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-3 py-2.5">
-            <span className={`grid place-items-center w-8 h-8 rounded-lg flex-shrink-0 ${s.tint}`}>
-              <s.icon className="w-4 h-4" strokeWidth={2.2} />
-            </span>
-            <div className="min-w-0 leading-none">
-              <div className="text-lg font-bold tabular-nums text-marine">{s.value}</div>
-              <div className="text-[11px] text-gray-500 mt-0.5 truncate">{s.label}</div>
-            </div>
-          </div>
-        ))}
+    <div className="space-y-4">
+      {/* Recherche */}
+      <div className="relative animate-fade-up">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher une visite (titre, client, adresse)…"
+          className="w-full h-11 rounded-lg border border-gray-300 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
       </div>
 
-      {/* Filtres + recherche */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 animate-fade-up">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher (titre, client, adresse)…"
-            className="w-full h-10 rounded-lg border border-gray-300 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30" />
-        </div>
-        <div className="flex items-center gap-1.5 flex-wrap">
+      {/* Filtres sur une seule ligne (défilables horizontalement si besoin) + tri */}
+      <div className="flex items-center gap-2 animate-fade-up">
+        <div className="flex items-center gap-1.5 overflow-x-auto flex-1 -mx-1 px-1 [-webkit-overflow-scrolling:touch]">
           {FILTERS.map(f => (
             <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`text-xs font-medium px-3 h-8 rounded-full border transition-colors ${
+              className={`text-xs font-medium px-3 h-8 rounded-full border whitespace-nowrap flex-shrink-0 transition-colors ${
                 filter === f.key ? 'bg-primary text-white border-primary' : 'bg-white text-gray-600 border-gray-200 hover:border-primary/40'}`}>
               {f.label}
             </button>
           ))}
         </div>
         <select value={sort} onChange={e => setSort(e.target.value as Sort)}
-          className="h-9 rounded-lg border border-gray-200 bg-white px-2 text-sm text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary/30 sm:ml-auto">
+          className="h-8 rounded-lg border border-gray-200 bg-white px-2 text-xs text-gray-600 flex-shrink-0 focus:outline-none focus:ring-2 focus:ring-primary/30">
           <option value="recent">Plus récentes</option>
           <option value="ancien">Plus anciennes</option>
           <option value="titre">Titre A–Z</option>
