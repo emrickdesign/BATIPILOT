@@ -1,15 +1,15 @@
 'use client'
 /* eslint-disable @typescript-eslint/no-explicit-any */
-// Widget d'autocomplétion Google Places (Maps JavaScript API) — le même moteur
-// que la barre de recherche Maps, capable de trouver les petites fiches d'artisan
-// (contrairement au web service Places). L'artisan tape son nom, choisit sa fiche,
-// on récupère le place_id → on construit le lien d'avis.
+// Recherche de fiche Google (Places) avec NOTRE PROPRE champ contrôlé + liste de
+// résultats, alimentée par le service de prédictions Google (AutocompleteService)
+// et les détails (PlacesService). On n'utilise plus le widget Google injecté :
+// il remplaçait/masquait le champ et fermait le clavier mobile au 1er caractère.
 
 import { useEffect, useRef, useState } from 'react'
-import { toast } from 'sonner'
+import { Search, Loader2, MapPin, Building2 } from 'lucide-react'
 import { loadGoogleMaps } from '@/lib/googleMaps'
 
-const INPUT_CLASS = 'w-full h-11 rounded-md border border-gray-200 bg-white px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary'
+const INPUT_CLASS = 'w-full h-11 rounded-md border border-gray-200 bg-white pl-9 pr-9 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:bg-gray-50 disabled:text-gray-400'
 
 export type SelectedFiche = {
   placeId: string; name: string; address: string
@@ -17,115 +17,141 @@ export type SelectedFiche = {
   reviews?: { author: string; rating: number; text: string }[]
 }
 
+type Pred = { placeId: string; primary: string; secondary: string }
+
 export default function FicheAutocomplete({
   apiKey, onSelect, biasLat, biasLng,
 }: { apiKey: string; onSelect: (r: SelectedFiche) => void; biasLat?: number; biasLng?: number }) {
-  const inputRef = useRef<HTMLInputElement>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
+  const [q, setQ] = useState('')
+  const [preds, setPreds] = useState<Pred[]>([])
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [ready, setReady] = useState(false)
   const [detail, setDetail] = useState<string | null>(null)
-  // Phase de chargement : tant que Google Maps n'est pas prêt, on NE laisse PAS
-  // taper dans le champ simple — sinon, quand Maps finit de charger, on masque/
-  // remplace ce champ et le clavier mobile se ferme en plein milieu de la saisie.
-  const [phase, setPhase] = useState<'loading' | 'legacy' | 'element' | 'error'>('loading')
+  const boxRef = useRef<HTMLDivElement>(null)
+  const acRef = useRef<any>(null)
+  const placesRef = useRef<any>(null)
+  const tokenRef = useRef<any>(null)
   const onSelectRef = useRef(onSelect)
   useEffect(() => { onSelectRef.current = onSelect }, [onSelect])
 
+  // Initialise les services une fois Maps chargé.
   useEffect(() => {
     if (!apiKey) return
-    let cleanup = () => {}
     let cancelled = false
-
     loadGoogleMaps(apiKey).then(() => {
       if (cancelled) return
       const places = (window as any).google?.maps?.places
-      if (!places) throw new Error('google.maps.places indisponible.')
+      if (!places?.AutocompleteService) throw new Error('Places indisponible.')
+      acRef.current = new places.AutocompleteService()
+      placesRef.current = new places.PlacesService(document.createElement('div'))
+      tokenRef.current = places.AutocompleteSessionToken ? new places.AutocompleteSessionToken() : undefined
+      setReady(true)
+    }).catch((e: any) => { if (!cancelled) setDetail(String(e?.message || e)) })
+    return () => { cancelled = true }
+  }, [apiKey])
 
+  // Prédictions (debounce) — notre champ reste contrôlé, aucun remplacement DOM.
+  useEffect(() => {
+    const term = q.trim()
+    if (!ready || term.length < 3) { setPreds([]); setLoading(false); return }
+    setLoading(true)
+    const t = setTimeout(() => {
       const g = (window as any).google
-      // Biais géographique vers l'adresse de l'artisan : sa fiche locale remonte
-      // (comme la barre Maps qui connaît la position de l'utilisateur).
-      let bounds: any = undefined
+      const req: any = { input: term, componentRestrictions: { country: 'fr' } }
+      if (tokenRef.current) req.sessionToken = tokenRef.current
       if (typeof biasLat === 'number' && typeof biasLng === 'number' && g?.maps?.LatLng) {
-        const d = 0.6 // ~65 km autour de l'adresse
-        bounds = new g.maps.LatLngBounds(
+        const d = 0.6
+        req.bounds = new g.maps.LatLngBounds(
           new g.maps.LatLng(biasLat - d, biasLng - d),
           new g.maps.LatLng(biasLat + d, biasLng + d),
         )
       }
+      acRef.current.getPlacePredictions(req, (res: any[] | null, status: string) => {
+        setLoading(false)
+        const ok = status === g.maps.places.PlacesServiceStatus.OK
+        setPreds(ok && Array.isArray(res)
+          ? res.map(p => ({
+              placeId: p.place_id,
+              primary: p.structured_formatting?.main_text || p.description,
+              secondary: p.structured_formatting?.secondary_text || '',
+            }))
+          : [])
+        setOpen(true)
+      })
+    }, 300)
+    return () => clearTimeout(t)
+  }, [q, ready, biasLat, biasLng])
 
-      // 1) Widget legacy : le plus compatible, sur un simple <input>.
-      if (places.Autocomplete && inputRef.current) {
-        const ac = new places.Autocomplete(inputRef.current, {
-          fields: ['place_id', 'name', 'formatted_address', 'rating', 'user_ratings_total', 'reviews'],
-          componentRestrictions: { country: 'fr' },
-          ...(bounds ? { bounds } : {}),
-          // Pas de filtre `types` : beaucoup d'artisans sont des fiches « zone de
-          // service » (sans local), que le type "establishment" tend à exclure.
-        })
-        ac.addListener('place_changed', () => {
-          const p = ac.getPlace()
-          if (!p?.place_id) { toast.error('Sélectionnez votre fiche dans la liste déroulante.'); return }
-          onSelectRef.current({
-            placeId: p.place_id,
-            name: p.name || '',
-            address: p.formatted_address || '',
-            rating: typeof p.rating === 'number' ? p.rating : undefined,
-            reviewsCount: typeof p.user_ratings_total === 'number' ? p.user_ratings_total : undefined,
-            reviews: Array.isArray(p.reviews) ? p.reviews.slice(0, 3).map((rv: any) => ({ author: rv.author_name || '', rating: rv.rating || 0, text: rv.text || '' })) : [],
-          })
-        })
-        setPhase('legacy')
+  // Ferme la liste au clic extérieur (mousedown : le bouton étant DANS boxRef,
+  // le clic sur un résultat n'est pas annulé).
+  useEffect(() => {
+    function onClick(e: MouseEvent) { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  function pick(pred: Pred) {
+    setOpen(false); setQ(pred.primary)
+    const g = (window as any).google
+    const req: any = { placeId: pred.placeId, fields: ['place_id', 'name', 'formatted_address', 'rating', 'user_ratings_total', 'reviews'] }
+    if (tokenRef.current) req.sessionToken = tokenRef.current
+    placesRef.current.getDetails(req, (p: any, status: string) => {
+      const places = g?.maps?.places
+      tokenRef.current = places?.AutocompleteSessionToken ? new places.AutocompleteSessionToken() : undefined
+      if (status !== g.maps.places.PlacesServiceStatus.OK || !p) {
+        onSelectRef.current({ placeId: pred.placeId, name: pred.primary, address: pred.secondary })
         return
       }
-
-      // 2) Repli : nouveau PlaceAutocompleteElement.
-      if (places.PlaceAutocompleteElement && containerRef.current) {
-        const el: any = new places.PlaceAutocompleteElement({ includedRegionCodes: ['fr'], ...(bounds ? { locationBias: bounds } : {}) })
-        el.style.width = '100%'
-        setPhase('element') // masque le champ simple (via `hidden`) proprement
-        containerRef.current.appendChild(el)
-        cleanup = () => { if (el.parentNode) el.parentNode.removeChild(el) }
-        el.addEventListener('gmp-select', async (event: any) => {
-          try {
-            const place = event.placePrediction.toPlace()
-            await place.fetchFields({ fields: ['id', 'displayName', 'formattedAddress', 'rating', 'userRatingCount', 'reviews'] })
-            onSelectRef.current({
-              placeId: place.id,
-              name: (typeof place.displayName === 'string' ? place.displayName : place.displayName?.text) || '',
-              address: place.formattedAddress || '',
-              rating: typeof place.rating === 'number' ? place.rating : undefined,
-              reviewsCount: typeof place.userRatingCount === 'number' ? place.userRatingCount : undefined,
-              reviews: Array.isArray(place.reviews) ? place.reviews.slice(0, 3).map((rv: any) => ({ author: rv.authorAttribution?.displayName || '', rating: rv.rating || 0, text: (typeof rv.text === 'string' ? rv.text : rv.text?.text) || '' })) : [],
-            })
-          } catch (e: any) { toast.error('Fiche non récupérée — réessayez.'); console.error('[avis][maps][select]', e) }
-        })
-        return
-      }
-
-      throw new Error('Aucun widget d\'autocomplétion disponible.')
-    }).catch((e: any) => {
-      console.error('[avis][maps]', e)
-      if (!cancelled) { setDetail(String(e?.message || e)); setPhase('error') }
+      onSelectRef.current({
+        placeId: p.place_id,
+        name: p.name || pred.primary,
+        address: p.formatted_address || '',
+        rating: typeof p.rating === 'number' ? p.rating : undefined,
+        reviewsCount: typeof p.user_ratings_total === 'number' ? p.user_ratings_total : undefined,
+        reviews: Array.isArray(p.reviews) ? p.reviews.slice(0, 3).map((rv: any) => ({ author: rv.author_name || '', rating: rv.rating || 0, text: rv.text || '' })) : [],
+      })
     })
-
-    return () => { cancelled = true; cleanup() }
-  }, [apiKey])
+  }
 
   if (!apiKey) return null
   return (
-    <div className="space-y-1.5">
-      <input
-        ref={inputRef}
-        type="text"
-        // Désactivé tant que Maps charge : évite de taper dans un champ qui va être
-        // remplacé (le clavier se fermait au 1er caractère). Masqué en mode « element ».
-        disabled={phase === 'loading'}
-        hidden={phase === 'element'}
-        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
-        placeholder={phase === 'loading' ? 'Chargement de la recherche…' : 'Tapez le nom de votre entreprise…'}
-        className={`${INPUT_CLASS} disabled:bg-gray-50 disabled:text-gray-400`}
-      />
-      <div ref={containerRef} className="w-full" />
-      {detail && <p className="text-xs text-rose-600 break-words">Recherche indisponible : {detail} — utilisez la méthode manuelle ci-dessous.</p>}
+    <div ref={boxRef} className="relative">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        {loading && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />}
+        <input
+          value={q}
+          onChange={e => setQ(e.target.value)}
+          onFocus={() => preds.length > 0 && setOpen(true)}
+          disabled={!ready}
+          autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+          placeholder={ready ? 'Tapez le nom de votre entreprise…' : 'Chargement de la recherche…'}
+          className={INPUT_CLASS}
+        />
+      </div>
+
+      {open && q.trim().length >= 3 && (
+        <div className="absolute z-30 mt-1 w-full rounded-xl border border-gray-200 bg-white shadow-lg overflow-hidden">
+          {preds.length === 0 && !loading && <p className="px-4 py-3 text-sm text-gray-500">Aucune fiche trouvée.</p>}
+          {preds.map(p => (
+            <button key={p.placeId} type="button" onClick={() => pick(p)}
+              className="w-full text-left px-4 py-2.5 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0">
+              <div className="flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-primary flex-shrink-0" />
+                <span className="font-medium text-marine text-sm truncate">{p.primary}</span>
+              </div>
+              {p.secondary && (
+                <div className="flex items-center gap-1 mt-0.5 text-xs text-gray-500 truncate">
+                  <MapPin className="w-3 h-3 flex-shrink-0" /> {p.secondary}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {detail && <p className="text-xs text-rose-600 break-words mt-1">Recherche indisponible : {detail} — utilisez la méthode manuelle ci-dessous.</p>}
     </div>
   )
 }

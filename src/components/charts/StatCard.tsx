@@ -56,7 +56,7 @@ export default function StatCard({ label, value, icon: Icon, tone, delta, gauge,
     : delta?.dir === 'down' ? 'bg-black/20 text-white' : 'bg-white/15 text-white'
   return (
     <div
-      className={`group relative h-full ${sp ? 'min-h-[140px] sm:min-h-[150px]' : 'min-h-[104px]'} overflow-hidden rounded-xl p-4 text-white transition-all duration-200 hover:-translate-y-1`}
+      className={`group relative h-full ${sp ? 'min-h-[122px] sm:min-h-[150px]' : 'min-h-[88px] sm:min-h-[104px]'} overflow-hidden rounded-xl p-3 sm:p-4 text-white transition-all duration-200 hover:-translate-y-1`}
       style={{
         background: `linear-gradient(140deg, ${t.base} 0%, ${t.deep} 100%)`,
         boxShadow: `0 16px 34px -16px ${t.glow}`,
@@ -66,9 +66,9 @@ export default function StatCard({ label, value, icon: Icon, tone, delta, gauge,
       <div aria-hidden className="absolute -top-12 -right-10 w-40 h-40 rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle, rgba(255,255,255,.22), transparent 70%)' }} />
       <div className="relative">
-        <div className="flex items-start justify-between mb-3">
-          <span className="grid place-items-center w-9 h-9 rounded-lg bg-white/20 text-white flex-shrink-0 backdrop-blur-sm">
-            <Icon className="w-[18px] h-[18px]" strokeWidth={2} />
+        <div className="flex items-start justify-between mb-2 sm:mb-3">
+          <span className="grid place-items-center w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-white/20 text-white flex-shrink-0 backdrop-blur-sm">
+            <Icon className="w-4 h-4 sm:w-[18px] sm:h-[18px]" strokeWidth={2} />
           </span>
           {gauge !== undefined ? (
             <GaugeRing value={gauge} size={42} strokeWidth={5} trackColor="rgba(255,255,255,.30)" fillColor="#ffffff">
@@ -78,8 +78,8 @@ export default function StatCard({ label, value, icon: Icon, tone, delta, gauge,
             <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full backdrop-blur-sm ${deltaCls}`}>{delta.text}</span>
           ) : null}
         </div>
-        <div className="text-[26px] font-bold text-white leading-none tracking-tight tabular-nums">{value}</div>
-        <div className="text-[14px] text-white/90 mt-1.5 font-medium">{label}</div>
+        <div className="text-[21px] sm:text-[26px] font-bold text-white leading-none tracking-tight tabular-nums">{value}</div>
+        <div className="text-[13px] sm:text-[14px] text-white/90 mt-1 sm:mt-1.5 font-medium">{label}</div>
         {sp ? (
           <div className="-mx-4 -mb-4 mt-3">
             <svg className="w-full h-14 block" viewBox="0 0 120 40" preserveAspectRatio="none" aria-hidden>
