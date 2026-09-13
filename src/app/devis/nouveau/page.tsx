@@ -11,15 +11,19 @@ import { Card, CardContent } from '@/components/ui/card'
 import { FormSection, FormPageTitle } from '@/components/ui/form-section'
 import { entityColors } from '@/lib/entityColors'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus, Trash2, Search, GripVertical, ChevronDown, ChevronUp, User, HardHat, Receipt, ListChecks, Settings2, Sparkles, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Trash2, Search, ChevronDown, ChevronUp, User, HardHat, Receipt, ListChecks, Settings2, Sparkles, Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import DictationButton from '@/components/DictationButton'
 import ClientCombobox from '@/components/ClientCombobox'
-import { isProspect } from '@/lib/clients'
+import { isProspect, clientDisplayName } from '@/lib/clients'
+import { getTemplateConfig } from '@/lib/pdf-templates'
 import type { Client, PriceItem, QuoteLine } from '@/types'
 
 type LineItem = Omit<QuoteLine, 'id' | 'quote_id' | 'created_at'> & { tempId: string }
+
+// Cellule éditable « dans le document » (sans bordure, surlignée au focus).
+const DOC_CELL = 'w-full bg-transparent outline-none rounded px-1 py-1 focus:bg-[#FDF3EF] focus:ring-1 focus:ring-[#E0674C]/40'
 
 function DevisForm() {
   const router = useRouter()
@@ -54,6 +58,8 @@ function DevisForm() {
   const [companyDefaults, setCompanyDefaults] = useState<{
     default_vat_rate: number; legal_mentions: string | null
   }>({ default_vat_rate: 10, legal_mentions: null })
+  // En-tête + design du modèle choisi (pour le rendu « document » du devis).
+  const [company, setCompany] = useState<Record<string, any> | null>(null)
   // Édition d'un devis existant (?edit=<id>) : date d'ancrage = date de création,
   // pour que la validité ne « glisse » pas à chaque enregistrement.
   const [editAnchor, setEditAnchor] = useState<string | null>(null)
@@ -64,11 +70,12 @@ function DevisForm() {
       supabase.from('clients').select('*').order('created_at', { ascending: false }),
       supabase.from('price_items').select('*, price_categories(name)').eq('is_active', true).order('name'),
       supabase.from('projects').select('id, title, client_id, status').neq('status', 'archive').order('created_at', { ascending: false }),
-      supabase.from('companies').select('quote_validity_days, default_deposit_percent, default_vat_rate, legal_mentions').maybeSingle(),
+      supabase.from('companies').select('trade_name, address, phone, siret, quote_validity_days, default_deposit_percent, default_vat_rate, legal_mentions, template_style').maybeSingle(),
     ]).then(([{ data: c }, { data: p }, { data: pr }, { data: co }]) => {
       setClients(c || [])
       setPriceItems(p || [])
       setProjects(pr || [])
+      setCompany(co || null)
       if (co) {
         setCompanyDefaults({
           default_vat_rate: Number(co.default_vat_rate) || 10,
@@ -275,6 +282,14 @@ function DevisForm() {
   const optionsHT = optionLines.reduce((s, l) => s + l.total_ht, 0)
   const depositAmount = depositPercent ? totalTTC * parseFloat(depositPercent) / 100 : 0
 
+  // Rendu « document » : design du modèle + en-tête entreprise/client/dates.
+  const tpl = getTemplateConfig(company || {})
+  const serif = tpl.fontFamily === 'serif'
+  const selectedClient = clients.find(c => c.id === selectedClientId) || null
+  const docToday = new Date()
+  const docValidUntil = new Date(); docValidUntil.setDate(docValidUntil.getDate() + (parseInt(validDays) || 30))
+  const dFr = (d: Date) => d.toLocaleDateString('fr-FR')
+
   async function handleSave(status: 'brouillon' | 'pret') {
     if (!selectedClientId) { toast.error('Choisissez un client'); return }
     if (!lines.length) { toast.error('Ajoutez au moins une prestation'); return }
@@ -450,7 +465,37 @@ function DevisForm() {
         title="Prestations"
         description={`${lines.length} ligne${lines.length > 1 ? 's' : ''}`}
       >
-        <div className="space-y-2">
+        <div className="space-y-2" style={{ fontFamily: serif ? 'Georgia, "Times New Roman", serif' : undefined }}>
+          {/* En-tête « document » : rendu réel au design du modèle choisi */}
+          <div className="rounded-lg border border-gray-100 bg-white p-3 sm:p-4 mb-1">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0 text-[13px] leading-tight">
+                <p className="font-heading text-base font-extrabold text-marine">{company?.trade_name || 'Votre entreprise'}</p>
+                {company?.address && <p className="text-gray-500">{company.address}</p>}
+                {company?.phone && <p className="text-gray-500">{company.phone}</p>}
+                {company?.siret && <p className="text-[11px] text-gray-400">SIRET : {company.siret}</p>}
+              </div>
+              <p className="flex-none font-heading text-xl font-extrabold tracking-tight" style={{ color: tpl.primaryColor }}>DEVIS</p>
+            </div>
+            <div className="mt-3 grid grid-cols-2 gap-4 border-t border-gray-100 pt-3 text-[13px]">
+              <div>
+                <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Adressé à</p>
+                {selectedClient ? (
+                  <>
+                    <p className="font-semibold text-marine truncate">{clientDisplayName(selectedClient)}</p>
+                    {selectedClient.billing_address && <p className="text-gray-500 truncate">{selectedClient.billing_address}</p>}
+                    {selectedClient.email && <p className="text-gray-500 truncate">{selectedClient.email}</p>}
+                  </>
+                ) : <p className="italic text-gray-300">Choisis un client ci-dessus</p>}
+              </div>
+              <div className="text-right text-gray-600">
+                <p>Date : <span className="font-medium text-marine">{dFr(docToday)}</span></p>
+                <p>Valable jusqu’au : <span className="font-medium text-marine">{dFr(docValidUntil)}</span></p>
+              </div>
+            </div>
+            {title && <p className="mt-2 border-t border-gray-100 pt-2 text-[13px]"><span className="text-gray-400">Objet : </span><span className="font-medium text-marine">{title}</span></p>}
+          </div>
+
           {/* Générateur IA : décris le chantier → lignes chiffrées sur ta base de prix */}
           {showAi ? (
             <div className="border border-[#D05C43]/40 bg-[#D05C43]/5 rounded-lg p-3 space-y-2">
@@ -487,91 +532,58 @@ function DevisForm() {
             </Button>
           )}
 
-          {lines.map((line) => (
-            <div key={line.tempId} className={`border rounded-lg p-3 space-y-2 ${line.is_option ? 'border-dashed border-amber-300 bg-amber-50/40' : 'border-gray-200'}`}>
-              <div className="flex items-start gap-2">
-                <GripVertical className="w-4 h-4 text-gray-300 mt-2 flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <Input
-                    value={line.designation}
-                    onChange={e => updateLine(line.tempId, 'designation', e.target.value)}
-                    placeholder="Désignation"
-                    className="font-medium"
-                  />
-                  <Input
-                    value={line.description || ''}
-                    onChange={e => updateLine(line.tempId, 'description', e.target.value)}
-                    placeholder="Description (optionnel)"
-                    className="text-sm text-gray-500"
-                  />
-                  <div className="grid grid-cols-4 gap-2">
-                    <div>
-                      <Label className="text-xs text-gray-500">Qté</Label>
-                      <Input
-                        type="number"
-                        value={line.quantity}
-                        onChange={e => updateLine(line.tempId, 'quantity', parseFloat(e.target.value) || 0)}
-                        className="h-8 text-sm"
-                        min="0"
-                        step="0.1"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500">Unité</Label>
-                      <select
-                        value={line.unit}
-                        onChange={e => updateLine(line.tempId, 'unit', e.target.value)}
-                        className="w-full h-8 border border-gray-200 rounded-md px-2 text-sm bg-white"
-                      >
-                        {Object.entries(unitLabels).map(([v, l]) => (
-                          <option key={v} value={v}>{l}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500">Prix HT</Label>
-                      <Input
-                        type="number"
-                        value={line.unit_price_ht}
-                        onChange={e => updateLine(line.tempId, 'unit_price_ht', parseFloat(e.target.value) || 0)}
-                        className="h-8 text-sm"
-                        min="0"
-                        step="0.01"
-                      />
-                    </div>
-                    <div>
-                      <Label className="text-xs text-gray-500">TVA %</Label>
-                      <select
-                        value={line.vat_rate}
-                        onChange={e => updateLine(line.tempId, 'vat_rate', parseFloat(e.target.value))}
-                        className="w-full h-8 border border-gray-200 rounded-md px-2 text-sm bg-white"
-                      >
-                        <option value={5.5}>5.5%</option>
-                        <option value={10}>10%</option>
-                        <option value={20}>20%</option>
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                  <button onClick={() => removeLine(line.tempId)} className="text-gray-300 hover:text-red-500 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                  <span className="text-sm font-semibold text-gray-900 mt-1">
-                    {formatCurrency(line.total_ht)}
-                  </span>
-                  <span className="text-xs text-gray-400">HT</span>
-                  <button
-                    onClick={() => updateLine(line.tempId, 'is_option', !line.is_option)}
-                    className={`mt-1 text-[11px] px-1.5 py-0.5 rounded border ${line.is_option ? 'border-amber-400 bg-amber-100 text-amber-700' : 'border-gray-200 text-gray-400 hover:text-gray-600'}`}
-                    title="Une option est proposée au client mais n'est pas comptée dans le total"
-                  >
-                    {line.is_option ? '✓ Option' : 'Option'}
-                  </button>
-                </div>
-              </div>
+          {/* Table du document — éditable en place, au design du modèle choisi */}
+          {lines.length > 0 && (
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] border-collapse text-[13px]">
+                <thead>
+                  <tr className="text-[11px] uppercase tracking-wide" style={{ backgroundColor: tpl.tableHeaderBg, color: tpl.tableHeaderTextColor }}>
+                    <th className="py-1.5 pl-2 pr-2 text-left font-semibold">Désignation</th>
+                    <th className="w-14 px-1 py-1.5 text-right font-semibold">Qté</th>
+                    <th className="w-16 px-1 py-1.5 text-center font-semibold">Unité</th>
+                    <th className="w-24 px-1 py-1.5 text-right font-semibold">P.U. HT</th>
+                    <th className="w-14 px-1 py-1.5 text-center font-semibold">TVA</th>
+                    <th className="w-24 px-1 py-1.5 text-right font-semibold">Total HT</th>
+                    <th className="w-8" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((line, i) => (
+                    <tr key={line.tempId}
+                      className={`group border-b border-gray-100 align-top ${line.is_option ? 'bg-amber-50/50' : ''}`}
+                      style={!line.is_option && tpl.stripeRows && i % 2 === 1 ? { backgroundColor: tpl.secondaryBg } : undefined}>
+                      <td className="py-1.5 pr-2">
+                        <input value={line.designation} onChange={e => updateLine(line.tempId, 'designation', e.target.value)}
+                          placeholder="Prestation…" className={`${DOC_CELL} font-medium text-marine`} />
+                        <input value={line.description || ''} onChange={e => updateLine(line.tempId, 'description', e.target.value)}
+                          placeholder="détail (optionnel)" className={`${DOC_CELL} text-[11px] text-gray-400`} />
+                        {line.is_option && <span className="ml-1 text-[10px] font-medium text-amber-600">Option — hors total</span>}
+                      </td>
+                      <td className="px-0.5 py-1.5"><input type="number" min={0} step={0.1} value={line.quantity}
+                        onChange={e => updateLine(line.tempId, 'quantity', parseFloat(e.target.value) || 0)} className={`${DOC_CELL} text-right tabular-nums`} /></td>
+                      <td className="px-0.5 py-1.5"><select value={line.unit} onChange={e => updateLine(line.tempId, 'unit', e.target.value)} className={`${DOC_CELL} cursor-pointer text-center`}>
+                        {Object.entries(unitLabels).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                      </select></td>
+                      <td className="px-0.5 py-1.5"><input type="number" min={0} step={0.01} value={line.unit_price_ht}
+                        onChange={e => updateLine(line.tempId, 'unit_price_ht', parseFloat(e.target.value) || 0)} className={`${DOC_CELL} text-right tabular-nums`} /></td>
+                      <td className="px-0.5 py-1.5"><select value={line.vat_rate} onChange={e => updateLine(line.tempId, 'vat_rate', parseFloat(e.target.value))} className={`${DOC_CELL} cursor-pointer text-center`}>
+                        <option value={5.5}>5,5%</option><option value={10}>10%</option><option value={20}>20%</option>
+                      </select></td>
+                      <td className="px-1 py-2 text-right font-semibold tabular-nums text-marine">{formatCurrency(line.total_ht)}</td>
+                      <td className="py-2">
+                        <div className="flex flex-col items-end gap-1">
+                          <button onClick={() => removeLine(line.tempId)} title="Supprimer la ligne"
+                            className="grid h-5 w-5 place-items-center rounded text-gray-300 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button>
+                          <button onClick={() => updateLine(line.tempId, 'is_option', !line.is_option)} title="Option : proposée au client, hors du total"
+                            className={`text-[10px] px-1 rounded border ${line.is_option ? 'border-amber-400 bg-amber-100 text-amber-700' : 'border-gray-200 text-gray-400 opacity-0 group-hover:opacity-100'}`}>Opt</button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          ))}
+          )}
 
           {/* Recherche prestations */}
           {showSearch ? (
@@ -649,9 +661,9 @@ function DevisForm() {
                 <span className="text-gray-600">TVA</span>
                 <span>{formatCurrency(totalVAT)}</span>
               </div>
-              <div className="flex justify-between text-base font-bold border-t border-gray-200 pt-2 mt-2">
+              <div className="flex justify-between text-base font-bold text-white rounded px-3 py-1.5 mt-2" style={{ backgroundColor: tpl.primaryColor }}>
                 <span>Total TTC</span>
-                <span>{formatCurrency(totalTTC)}</span>
+                <span className="tabular-nums">{formatCurrency(totalTTC)}</span>
               </div>
               {depositAmount > 0 && (
                 <div className="flex justify-between text-blue-600">
