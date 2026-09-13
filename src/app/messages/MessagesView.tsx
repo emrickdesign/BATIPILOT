@@ -438,7 +438,7 @@ export default function MessagesView({ conversations, participants, employees, i
               )}
             </div>
             {sendError && <p className="px-4 pt-2 text-xs text-red-600">{sendError}</p>}
-            <div className="p-3 border-t border-[#F0EAE1]">
+            <div className="px-3 pt-3 border-t border-[#F0EAE1]" style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
               {recording ? (
                 <div className="flex items-center gap-2">
                   <div className="flex-1 h-11 rounded-full border border-red-200 bg-red-50 flex items-center gap-2 px-4 text-sm text-red-600">

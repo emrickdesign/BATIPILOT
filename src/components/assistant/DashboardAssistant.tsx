@@ -58,6 +58,7 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
   const [size, setSize] = useState(DEFAULT_SIZE)
   const [expanded, setExpanded] = useState(!!demoDraft || initialMode === 'voice')   // plein écran (mode vocal / visualisation)
   const [draft, setDraft] = useState<DevisDraft | null>(demoDraft || null)  // devis/facture éditable en cours
+  const [mobile, setMobile] = useState(false)   // téléphone : case en feuille du bas, pas un gros carré
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -76,6 +77,14 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
   // taille mémorisée
   useEffect(() => {
     try { const s = JSON.parse(localStorage.getItem('tp_assistant_size') || 'null'); if (s?.w && s?.h) { setSize(s); sizeRef.current = s } } catch {}
+  }, [])
+
+  // Détection mobile (feuille du bas au lieu du carré flottant).
+  useEffect(() => {
+    const m = window.matchMedia('(max-width: 640px)')
+    const on = () => setMobile(m.matches)
+    on(); m.addEventListener('change', on)
+    return () => m.removeEventListener('change', on)
   }, [])
 
   const scrollToEnd = useCallback(() => requestAnimationFrame(() => { const el = scrollRef.current; if (el) el.scrollTop = el.scrollHeight }), [])
@@ -270,12 +279,16 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
     <div
       className={expanded
         ? 'fixed inset-0 z-[80] flex flex-col overflow-hidden bg-white sm:inset-3 sm:rounded-2xl sm:border sm:border-black/10 sm:shadow-[0_18px_50px_rgba(20,10,0,.28)]'
-        : 'fixed bottom-4 right-4 z-[70] flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_18px_50px_rgba(20,10,0,.28)] sm:bottom-6 sm:right-6'}
-      style={expanded ? undefined : { width: `min(${size.w}px, calc(100vw - 2rem))`, height: `min(${size.h}px, calc(100vh - 3rem))` }}
+        : mobile
+          ? 'fixed inset-x-2 bottom-2 z-[70] flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_18px_50px_rgba(20,10,0,.28)]'
+          : 'fixed bottom-6 right-6 z-[70] flex flex-col overflow-hidden rounded-2xl border border-black/10 bg-white shadow-[0_18px_50px_rgba(20,10,0,.28)]'}
+      style={expanded ? undefined
+        : mobile ? { height: 'min(70vh, 560px)' }
+        : { width: `min(${size.w}px, calc(100vw - 2rem))`, height: `min(${size.h}px, calc(100vh - 3rem))` }}
       role="dialog" aria-label="Assistant IA TonPilote"
     >
       {/* Poignée de redimensionnement (ordinateur, uniquement en mode réduit) */}
-      {!expanded && (
+      {!expanded && !mobile && (
         <div onPointerDown={onResizeStart} title="Redimensionner" className="absolute left-0 top-0 z-20 hidden h-7 w-7 cursor-nwse-resize sm:block" aria-label="Redimensionner">
           <svg viewBox="0 0 12 12" className="absolute left-1.5 top-1.5 h-3 w-3 text-white/60"><path d="M11 1L1 11M7 1L1 7M11 5L5 11" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" /></svg>
         </div>

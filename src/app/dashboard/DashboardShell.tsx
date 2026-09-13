@@ -15,7 +15,12 @@ export default function DashboardShell({ children }: { children: React.ReactNode
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true)
-    try { setOpen(localStorage.getItem('tp_assistant_open') !== '0') } catch { setOpen(true) }
+    try {
+      const stored = localStorage.getItem('tp_assistant_open')
+      // Par défaut : ouvert sur ordinateur, FERMÉ sur mobile (pour ne pas couvrir l'écran).
+      if (stored != null) setOpen(stored !== '0')
+      else setOpen(!window.matchMedia('(max-width: 640px)').matches)
+    } catch { setOpen(true) }
   }, [])
   useEffect(() => { if (mounted) try { localStorage.setItem('tp_assistant_open', open ? '1' : '0') } catch {} }, [open, mounted])
 

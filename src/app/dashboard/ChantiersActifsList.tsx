@@ -65,7 +65,7 @@ function ValiderCard({ c }: { c: ChantierActif }) {
         <CalendarClock className="w-3.5 h-3.5" />
         Fin prévue le {fmtDate(c.endDate)}{c.retardJours > 0 ? ` · ${c.retardJours} j de retard` : ''} — chantier terminé&nbsp;?
       </p>
-      <div className="pl-11 mt-2.5">
+      <div className="mt-2.5 sm:pl-11">
         {replan ? (
           <div className="flex items-center gap-2 flex-wrap">
             <input type="date" value={newEnd} min={c.endDate ?? undefined} onChange={e => setNewEnd(e.target.value)}
@@ -76,13 +76,13 @@ function ValiderCard({ c }: { c: ChantierActif }) {
               className="h-8 px-3 rounded-lg text-gray-500 text-[13px] font-medium hover:text-gray-700">Annuler</button>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button onClick={valider} disabled={busy}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg bg-[#4C6F18] text-white text-[13px] font-medium hover:bg-[#3F5C16] disabled:opacity-50">
-              <Check className="w-3.5 h-3.5" /> Valider (terminé)
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg bg-[#4C6F18] text-white text-[13px] font-medium whitespace-nowrap hover:bg-[#3F5C16] disabled:opacity-50">
+              <Check className="w-3.5 h-3.5" /> Valider
             </button>
             <button onClick={() => setReplan(true)} disabled={busy}
-              className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg border border-gray-300 text-gray-600 text-[13px] font-medium hover:border-gray-400 disabled:opacity-50">
+              className="inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg border border-gray-300 text-gray-600 text-[13px] font-medium whitespace-nowrap hover:border-gray-400 disabled:opacity-50">
               <CalendarPlus className="w-3.5 h-3.5" /> Replanifier
             </button>
           </div>

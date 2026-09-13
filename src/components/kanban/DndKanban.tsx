@@ -17,7 +17,7 @@ function DraggableCard({ id, children }: { id: string; children: ReactNode }) {
       ref={setNodeRef}
       {...attributes}
       {...listeners}
-      className={`touch-none outline-none ${isDragging ? 'opacity-40' : ''}`}
+      className={`touch-auto outline-none ${isDragging ? 'opacity-40' : ''}`}
     >
       {children}
     </div>
@@ -27,7 +27,7 @@ function DraggableCard({ id, children }: { id: string; children: ReactNode }) {
 function DroppableColumn({ col, count, hideHeader, children }: { col: KanbanColumn; count: number; hideHeader?: boolean; children: ReactNode }) {
   const { setNodeRef, isOver } = useDroppable({ id: col.key })
   return (
-    <div className="flex flex-col min-w-0">
+    <div className="flex flex-col min-w-0 w-[82vw] max-w-[300px] shrink-0 snap-start xl:w-auto xl:max-w-none xl:shrink">
       {!hideHeader && (
         <div className="flex items-center justify-between px-1 mb-2">
           <span className="flex items-center gap-2 text-sm font-semibold text-gray-700">
@@ -84,7 +84,7 @@ export default function DndKanban<T extends KanbanItem>({
 
   return (
     <DndContext sensors={sensors} collisionDetection={pointerWithin} onDragStart={onStart} onDragEnd={onEnd} onDragCancel={() => setActiveId(null)}>
-      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 ${columns.length <= 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-5'}`}>
+      <div className={`flex gap-3 overflow-x-auto pb-3 snap-x [-webkit-overflow-scrolling:touch] xl:grid xl:overflow-visible xl:pb-0 ${columns.length <= 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-5'}`}>
         {columns.map(col => {
           const colItems = items.filter(i => i.col === col.key)
           return (

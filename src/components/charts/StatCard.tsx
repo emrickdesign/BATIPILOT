@@ -47,13 +47,16 @@ export type StatCardProps = {
 /** Carte KPI partagée : chip coloré + gros chiffre + jauge/badge + sparkline dégradé. */
 export default function StatCard({ label, value, icon: Icon, tone, delta, gauge, note, spark }: StatCardProps) {
   const t = STAT_TONES[tone]
-  const sp = spark ? sparkPath(spark, 120, 40, 5) : null
+  // Le sparkline n'est affiché que s'il y a de VRAIES données (sinon il laisse un grand
+  // vide plat sous le chiffre — le cas vert/rouge sans historique).
+  const hasSparkData = Array.isArray(spark) && spark.length >= 2 && spark.some(v => Number(v) > 0) && new Set(spark).size > 1
+  const sp = hasSparkData ? sparkPath(spark!, 120, 40, 5) : null
   const uid = `sp-${label.replace(/\W/g, '')}-${tone}`
   const deltaCls = delta?.dir === 'up' ? 'bg-white/25 text-white'
     : delta?.dir === 'down' ? 'bg-black/20 text-white' : 'bg-white/15 text-white'
   return (
     <div
-      className="group relative h-full min-h-[152px] overflow-hidden rounded-xl p-4 text-white transition-all duration-200 hover:-translate-y-1"
+      className={`group relative h-full ${sp ? 'min-h-[140px] sm:min-h-[150px]' : 'min-h-[104px]'} overflow-hidden rounded-xl p-4 text-white transition-all duration-200 hover:-translate-y-1`}
       style={{
         background: `linear-gradient(140deg, ${t.base} 0%, ${t.deep} 100%)`,
         boxShadow: `0 16px 34px -16px ${t.glow}`,
