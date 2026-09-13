@@ -12,7 +12,9 @@ export async function proxy(request: NextRequest) {
     path === '/sw.js' || path.startsWith('/icons') || path.startsWith('/reset-password') ||
     // Pages légales publiques (validation Google + liens du footer)
     path === '/confidentialite' || path === '/conditions' ||
-    path === '/cgv' || path === '/mentions-legales'
+    path === '/cgv' || path === '/mentions-legales' ||
+    // Fichier de validation de propriété Google Search Console (google<hash>.html)
+    /^\/google[0-9a-f]+\.html$/.test(path)
   ) {
     return NextResponse.next({ request })
   }
