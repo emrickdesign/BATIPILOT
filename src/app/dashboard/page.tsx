@@ -595,7 +595,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardShell>
-    <div className="relative space-y-7">
+    <div className="relative space-y-5">
       {/* Fond décoratif : grille blueprint très pâle + halo corail (sort des carrés blancs) */}
       <div
         aria-hidden
@@ -640,9 +640,9 @@ export default async function DashboardPage() {
       {/* 2. À traiter (moitié gauche) + Évolution des encaissements (moitié droite) */}
       <div className="grid lg:grid-cols-2 gap-4 items-stretch animate-fade-up" style={{ animationDelay: '120ms' }}>
         <div className="flex flex-col">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">À traiter aujourd&apos;hui</h2>
           <Card className="flex-1 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
             <CardContent className="p-3">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1.5">À traiter aujourd&apos;hui</h2>
               {d.todos.length === 0 ? (
                 <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
                   <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Rien d&apos;urgent — tout est à jour. Belle journée !
@@ -672,9 +672,9 @@ export default async function DashboardPage() {
           </Card>
         </div>
         <div className="flex flex-col">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Évolution des encaissements</h2>
           <Card className="flex-1 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
             <CardContent className="p-5">
+              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Évolution des encaissements</h2>
               <EncaissementsChart series={d.series} />
             </CardContent>
           </Card>
@@ -683,10 +683,6 @@ export default async function DashboardPage() {
 
       {/* 3. Suivi des chantiers */}
       <div className="animate-fade-up" style={{ animationDelay: '150ms' }}>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400">Suivi des chantiers</h2>
-          <Link href="/chantiers" className="text-xs font-medium text-primary hover:underline">Voir les chantiers</Link>
-        </div>
         <div className="grid lg:grid-cols-3 gap-4">
           <div className="lg:col-span-1">
             <DonutMetricCard
@@ -705,7 +701,13 @@ export default async function DashboardPage() {
           </div>
           <Card className="lg:col-span-2 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
             <CardContent className="p-5">
-              <h3 className="text-sm font-semibold text-gray-500 mb-4">Chantiers actifs · avancement</h3>
+              <div className="flex items-start justify-between mb-4 gap-3">
+                <div className="min-w-0">
+                  <span className="block text-xs font-semibold uppercase tracking-wider text-gray-400">Suivi des chantiers</span>
+                  <h3 className="text-sm font-semibold text-gray-500 mt-0.5">Chantiers actifs · avancement</h3>
+                </div>
+                <Link href="/chantiers" className="text-xs font-medium text-primary hover:underline flex-shrink-0 mt-0.5">Voir les chantiers</Link>
+              </div>
               <ChantiersActifsList items={d.chantiersActifs} />
             </CardContent>
           </Card>
