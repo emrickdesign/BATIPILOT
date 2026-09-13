@@ -15,9 +15,10 @@ import {
 import { formatCurrency } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { draftTotals, lineTotalHT, UNITS, type DevisDraft, type DraftLine, type Unit } from '@/lib/assistant/devis-shared'
+import { createRecognizer, getSpeechRecognitionCtor, speechLikelyBlocked } from '@/lib/speech'
+import { toast } from 'sonner'
 
 const UNIT_LABELS: Record<Unit, string> = { m2: 'm²', ml: 'ml', u: 'u', forfait: 'forfait', h: 'h', j: 'j', piece: 'pièce' }
-const getSR = () => (typeof window === 'undefined' ? null : (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null)
 const CELL = 'w-full bg-transparent outline-none rounded px-1 py-1 focus:bg-[#FDF3EF] focus:ring-1 focus:ring-[#E0674C]/40'
 
 type Company = { trade_name?: string; address?: string; phone?: string; siret?: string; legal_mentions?: string }
@@ -40,6 +41,8 @@ export default function DevisComposer({
   const [client, setClient] = useState<ClientRow | null>(null)
   const dictRef = useRef<any>(null)
   const dictBaseRef = useRef('')
+  const dictStoppedRef = useRef(false)
+  const dictFinalRef = useRef('')
 
   const totals = draftTotals(draft.lines)
   const isFacture = draft.kind === 'facture'
@@ -77,32 +80,44 @@ export default function DevisComposer({
     lines: [...draft.lines, { designation: '', description: '', category: '', quantity: 1, unit: 'u', unit_price_ht: 0, vat_rate: 10, discount_percent: 0 }],
   })
 
-  // ─── Dictée de la consigne IA ───
-  const toggleDictation = useCallback(() => {
-    if (dictating) { try { dictRef.current?.stop() } catch {}; return }
-    const SR = getSR()
-    if (!SR) return
-    const rec = new SR()
-    rec.lang = 'fr-FR'; rec.interimResults = true; rec.continuous = true
-    dictBaseRef.current = aiPrompt ? aiPrompt.replace(/\s+$/, '') + ' ' : ''
-    let finalAcc = ''
+  // ─── Dictée de la consigne IA (instance neuve à chaque relance : fiable mobile) ───
+  const beginDict = useCallback(() => {
+    const rec = createRecognizer()
+    if (!rec) { setDictating(false); return }
     rec.onresult = (e: any) => {
       let itm = '', fin = ''
       for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i]; if (r.isFinal) fin += r[0].transcript; else itm += r[0].transcript }
-      if (fin) finalAcc += fin
-      setAiPrompt((dictBaseRef.current + finalAcc + itm).replace(/\s+/g, ' ').trimStart())
+      if (fin) dictFinalRef.current += fin
+      setAiPrompt((dictBaseRef.current + dictFinalRef.current + itm).replace(/\s+/g, ' ').trimStart())
     }
-    rec.onerror = () => setDictating(false)
-    rec.onend = () => { setDictating(false); dictRef.current = null }
-    dictRef.current = rec; setDictating(true)
-    try { rec.start() } catch { setDictating(false) }
-  }, [dictating, aiPrompt])
+    rec.onerror = (ev: any) => { if (ev?.error === 'no-speech' || ev?.error === 'aborted') return; dictStoppedRef.current = true; setDictating(false) }
+    rec.onend = () => {
+      dictRef.current = null
+      if (!dictStoppedRef.current) { setTimeout(() => { if (!dictStoppedRef.current) beginDict() }, 250); return }
+      setDictating(false)
+    }
+    dictRef.current = rec
+    try { rec.start() } catch { /* onend relancera */ }
+  }, [])
+  const toggleDictation = useCallback(() => {
+    if (dictating) { dictStoppedRef.current = true; try { dictRef.current?.stop() } catch {}; setDictating(false); return }
+    if (!getSpeechRecognitionCtor()) { toast.error('Dictée non supportée par ce navigateur'); return }
+    if (speechLikelyBlocked()) { toast.error('La dictée est bloquée par iOS dans l’app installée — ouvrez TonPilote dans Safari.'); return }
+    dictBaseRef.current = aiPrompt ? aiPrompt.replace(/\s+$/, '') + ' ' : ''
+    dictFinalRef.current = ''
+    dictStoppedRef.current = false
+    setDictating(true)
+    beginDict()
+  }, [dictating, aiPrompt, beginDict])
+
+  // Coupe le micro (et bloque les relances) si le composeur se ferme.
+  useEffect(() => () => { dictStoppedRef.current = true; try { dictRef.current?.stop() } catch {} }, [])
 
   // ─── L'IA modifie les lignes ───
   const askAi = useCallback(async () => {
     const instruction = aiPrompt.trim()
     if (instruction.length < 4 || aiLoading) return
-    try { dictRef.current?.stop() } catch {}
+    dictStoppedRef.current = true; try { dictRef.current?.stop() } catch {}; setDictating(false)
     setAiLoading(true); setErr(null)
     try {
       const res = await fetch('/api/assistant/devis/compose', {
