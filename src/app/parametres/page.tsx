@@ -60,13 +60,13 @@ export default function ParametresPage() {
             {group.items.map(({ href, icon: Icon, title, desc, soon }) => {
               const inner = (
                 <Card className={`h-full transition-colors ${soon ? 'opacity-60' : 'hover:border-blue-300 cursor-pointer'}`}>
-                  <CardContent className="p-4 flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
-                      <Icon className="w-5 h-5 text-blue-600" />
+                  <CardContent className="p-3 sm:p-4 flex items-center gap-3 sm:gap-4">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
+                      <Icon className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                     </div>
                     <div className="min-w-0">
-                      <p className="font-semibold text-gray-900 flex items-center gap-2">{title}{soon && <span className="text-[10px] font-medium bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">Bientôt</span>}</p>
-                      <p className="text-sm text-gray-500">{desc}</p>
+                      <p className="font-semibold text-gray-900 text-[15px] sm:text-base flex items-center gap-2">{title}{soon && <span className="text-[10px] font-medium bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">Bientôt</span>}</p>
+                      <p className="text-[13px] sm:text-sm text-gray-500 leading-snug">{desc}</p>
                     </div>
                   </CardContent>
                 </Card>

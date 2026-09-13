@@ -121,13 +121,13 @@ export default function NotesClient({
             const active = p.id === selectedId
             return (
               <button key={p.id} onClick={() => { setSelectedId(p.id); setBody('') }}
-                className={`text-left rounded-2xl border bg-white p-4 transition-all group ${
+                className={`text-left rounded-2xl border bg-white p-3 sm:p-4 transition-all group ${
                   active
                     ? 'border-primary/60 shadow-[var(--shadow-md)] ring-1 ring-primary/20'
                     : 'border-gray-200/80 hover:border-primary/40 hover:shadow-[var(--shadow-md)] hover:-translate-y-0.5'
                 }`}>
                 <div className="flex items-start gap-3">
-                  <span className="grid place-items-center w-11 h-11 rounded-xl font-bold text-sm flex-shrink-0"
+                  <span className="grid place-items-center w-10 h-10 rounded-xl font-bold text-sm flex-shrink-0"
                     style={{ backgroundColor: bg, color: fg }}>{initialsOf(p.title)}</span>
                   <div className="min-w-0 flex-1">
                     <div className="text-[15px] font-bold text-marine leading-snug truncate">{p.title}</div>

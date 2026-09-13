@@ -145,19 +145,19 @@ export default async function ClientFiche({ id, base }: { id: string; base: '/cl
         {/* Colonne gauche : résumé financier (client) + coordonnées */}
         <div className="lg:col-span-2 space-y-3">
           {!prospect && (
-            <div className="grid grid-cols-3 gap-3">
-              <Card className="border border-[#CFDDF6] bg-[#EAF1FC]"><CardContent className="p-4">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#3E5C8A]"><Banknote className="w-3.5 h-3.5" /> Total facturé</div>
-                <div className="inline-block text-xl font-bold text-[#1F5FAE] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#CFDDF6]">{formatCurrency(totalFacture)}</div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              <Card className="border border-[#CFDDF6] bg-[#EAF1FC]"><CardContent className="p-2.5 sm:p-4">
+                <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-[#3E5C8A]"><Banknote className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" /> <span className="truncate">Total facturé</span></div>
+                <div className="inline-block text-base sm:text-xl font-bold text-[#1F5FAE] tabular-nums mt-1.5 sm:mt-2 rounded-lg bg-white/70 px-1.5 sm:px-2 py-0.5 border border-[#CFDDF6]">{formatCurrency(totalFacture)}</div>
               </CardContent></Card>
-              <Card className="border border-[#DDE9C9] bg-[#EEF6E4]"><CardContent className="p-4">
-                <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#4C6F35]"><Wallet className="w-3.5 h-3.5" /> Encaissé</div>
-                <div className="inline-block text-xl font-bold text-[#3F7A2E] tabular-nums mt-2 rounded-lg bg-white/70 px-2 py-0.5 border border-[#DDE9C9]">{formatCurrency(encaisse)}</div>
+              <Card className="border border-[#DDE9C9] bg-[#EEF6E4]"><CardContent className="p-2.5 sm:p-4">
+                <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-[#4C6F35]"><Wallet className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" /> Encaissé</div>
+                <div className="inline-block text-base sm:text-xl font-bold text-[#3F7A2E] tabular-nums mt-1.5 sm:mt-2 rounded-lg bg-white/70 px-1.5 sm:px-2 py-0.5 border border-[#DDE9C9]">{formatCurrency(encaisse)}</div>
               </CardContent></Card>
               <Link href="/banque">
-                <Card className="border border-[#F0E1C0] bg-[#FBF1D8] card-interactive h-full"><CardContent className="p-4">
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#8A6D2E]"><PiggyBank className="w-3.5 h-3.5" /> Reste à encaisser</div>
-                  <div className={`inline-block text-xl font-bold tabular-nums mt-2 rounded-lg px-2 py-0.5 border ${reste > 0 ? 'text-[#8A5A08] bg-white/70 border-[#F0E1C0]' : 'text-gray-400 bg-white/50 border-gray-200'}`}>{formatCurrency(reste)}</div>
+                <Card className="border border-[#F0E1C0] bg-[#FBF1D8] card-interactive h-full"><CardContent className="p-2.5 sm:p-4">
+                  <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-semibold text-[#8A6D2E]"><PiggyBank className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" /> <span className="truncate">Reste à encaisser</span></div>
+                  <div className={`inline-block text-base sm:text-xl font-bold tabular-nums mt-1.5 sm:mt-2 rounded-lg px-1.5 sm:px-2 py-0.5 border ${reste > 0 ? 'text-[#8A5A08] bg-white/70 border-[#F0E1C0]' : 'text-gray-400 bg-white/50 border-gray-200'}`}>{formatCurrency(reste)}</div>
                 </CardContent></Card>
               </Link>
             </div>
