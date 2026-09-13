@@ -73,7 +73,10 @@ export default function ClientForm({ client }: { client?: Client }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit}>
+      <div className="grid lg:grid-cols-2 gap-4 items-start">
+        {/* Colonne gauche : type + informations */}
+        <div className="space-y-4">
       {/* Type */}
       <FormSection icon={type === 'professionnel' ? Building2 : User} color={COLOR} title="Type de client">
         <div className="grid grid-cols-2 gap-3">
@@ -146,7 +149,10 @@ export default function ClientForm({ client }: { client?: Client }) {
           )}
         </div>
       </FormSection>
+        </div>
 
+        {/* Colonne droite : adresses + notes */}
+        <div className="space-y-4">
       {/* Adresses */}
       <FormSection icon={MapPin} color={COLOR} title="Adresses">
         <div className="space-y-3">
@@ -163,10 +169,12 @@ export default function ClientForm({ client }: { client?: Client }) {
 
       {/* Notes */}
       <FormSection icon={StickyNote} color={COLOR} title="Notes internes">
-        <Textarea name="notes" defaultValue={client?.notes || ''} rows={3} placeholder="Notes sur ce client (pas visibles par le client)..." />
+        <Textarea name="notes" defaultValue={client?.notes || ''} rows={5} placeholder="Notes sur ce client (pas visibles par le client)..." />
       </FormSection>
+        </div>
+      </div>
 
-      <Button type="submit" className="w-full h-12 text-base" disabled={loading}>
+      <Button type="submit" className="w-full h-12 text-base mt-4" disabled={loading}>
         {loading ? 'Enregistrement...' : isEdit ? 'Enregistrer les modifications' : 'Créer le client'}
       </Button>
     </form>

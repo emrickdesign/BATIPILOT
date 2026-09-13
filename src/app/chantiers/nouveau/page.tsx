@@ -8,7 +8,7 @@ import { entityColors } from '@/lib/entityColors'
 
 export default function NouveauChantierPage() {
   return (
-    <div className="space-y-4 max-w-2xl">
+    <div className="space-y-4 max-w-6xl">
       <Link href="/chantiers">
         <Button variant="ghost" size="sm" className="gap-1 -ml-2">
           <ArrowLeft className="w-4 h-4" /> Retour

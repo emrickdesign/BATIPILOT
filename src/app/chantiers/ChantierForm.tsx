@@ -103,7 +103,10 @@ export default function ChantierForm({ project }: { project?: Project }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 animate-fade-up">
+    <form onSubmit={handleSubmit} className="animate-fade-up">
+      <div className="grid lg:grid-cols-2 gap-4 items-start">
+        {/* Colonne gauche : identité + adresse/planning */}
+        <div className="space-y-4">
       {/* Identité du chantier */}
       <FormSection icon={HardHat} color={COLOR} title="Identité du chantier">
         <div className="space-y-4">
@@ -172,22 +175,26 @@ export default function ChantierForm({ project }: { project?: Project }) {
           </span>
         </button>
       </FormSection>
+        </div>
 
-      {/* Description & notes côte à côte */}
+        {/* Colonne droite : détails */}
+        <div className="space-y-4">
       <FormSection icon={StickyNote} color={COLOR} title="Détails">
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="description">Description des travaux</Label>
-            <Textarea id="description" name="description" rows={4} defaultValue={project?.description || ''}
+            <Textarea id="description" name="description" rows={8} defaultValue={project?.description || ''}
               placeholder="Nature et détail des travaux à réaliser..." />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="notes">Notes internes <span className="text-gray-400 font-normal">(privées)</span></Label>
-            <Textarea id="notes" name="notes" rows={4} defaultValue={project?.notes || ''}
+            <Textarea id="notes" name="notes" rows={5} defaultValue={project?.notes || ''}
               placeholder="Notes internes, non visibles par le client..." />
           </div>
         </div>
       </FormSection>
+        </div>
+      </div>
 
       {/* Barre d'action collante */}
       <div className="sticky bottom-0 -mx-1 bg-gradient-to-t from-[#FAFAF8] via-[#FAFAF8] to-transparent pt-4 pb-2">
