@@ -418,7 +418,7 @@ export default function EmailsPage() {
       .select()
       .single()
     if (error || !client) {
-      toast.error('Erreur création prospect')
+      toast.error('Erreur création du client potentiel')
       return
     }
     await supabase.from('emails').update({ linked_client_id: client.id }).eq('gmail_message_id', m.id)

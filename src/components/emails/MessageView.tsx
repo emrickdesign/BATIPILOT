@@ -212,7 +212,7 @@ export default function MessageView({
             <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 p-3">
               <p className="text-sm text-gray-500">Cet expéditeur n’est pas encore dans vos contacts.</p>
               <Button variant="outline" size="sm" onClick={() => onCreateProspect(message)} className="h-8 flex-shrink-0 gap-1.5 rounded-full border-emerald-200 text-emerald-700 hover:bg-emerald-50">
-                <UserPlus className="h-3.5 w-3.5" /> Créer un prospect
+                <UserPlus className="h-3.5 w-3.5" /> Créer un client potentiel
               </Button>
             </div>
           )}
@@ -270,7 +270,7 @@ export default function MessageView({
                 onClick={() => onCreateProspect(message)}
                 className="h-9 gap-2 rounded-full border-emerald-200 px-5 text-emerald-700 hover:bg-emerald-50"
               >
-                <UserPlus className="h-4 w-4" /> Créer un prospect
+                <UserPlus className="h-4 w-4" /> Créer un client potentiel
               </Button>
             )}
           </div>

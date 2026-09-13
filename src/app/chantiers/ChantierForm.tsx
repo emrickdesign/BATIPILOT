@@ -34,6 +34,11 @@ export default function ChantierForm({ project }: { project?: Project }) {
   const [clientId, setClientId] = useState<string>(project?.client_id || searchParams.get('client') || '')
   const [status, setStatus] = useState<ProjectStatus>(project?.status || 'a_planifier')
   const [isOutdoor, setIsOutdoor] = useState<boolean>(project?.is_outdoor ?? false)
+  // Artisan seul : on masque la météo et la section « Détails » (formulaire allégé).
+  const [hasTeam] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true
+    try { return localStorage.getItem('tp_has_team') !== '0' } catch { return true }
+  })
 
   useEffect(() => {
     const supabase = createClient()
@@ -104,7 +109,7 @@ export default function ChantierForm({ project }: { project?: Project }) {
 
   return (
     <form onSubmit={handleSubmit} className="animate-fade-up">
-      <div className="grid lg:grid-cols-2 gap-4 items-start">
+      <div className={`grid ${hasTeam ? 'lg:grid-cols-2' : ''} gap-4 items-start`}>
         {/* Colonne gauche : identité + adresse/planning */}
         <div className="space-y-4">
       {/* Identité du chantier */}
@@ -164,20 +169,24 @@ export default function ChantierForm({ project }: { project?: Project }) {
           </div>
         </div>
         <p className="mt-2 text-xs text-gray-400">Ces dates pilotent l&apos;avancement automatique du chantier et la détection des retards.</p>
-        <button type="button" onClick={() => setIsOutdoor(v => !v)}
-          className={`mt-3 flex items-start gap-3 w-full text-left rounded-xl border p-3 transition-colors ${isOutdoor ? 'border-primary/40 bg-primary/[0.04]' : 'border-gray-200 hover:border-gray-300'}`}>
-          <span className={`mt-0.5 grid place-items-center w-5 h-5 rounded-md border-2 flex-shrink-0 transition-colors ${isOutdoor ? 'bg-primary border-primary text-white' : 'border-gray-300'}`}>
-            {isOutdoor && <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none"><path d="M2.5 6.5l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-          </span>
-          <span>
-            <span className="block text-sm font-medium text-marine">Chantier extérieur / exposé aux intempéries</span>
-            <span className="block text-xs text-gray-500 mt-0.5">Active l&apos;alerte météo : TonPilote vous prévient et propose de décaler si pluie, gel ou vent fort est prévu les jours planifiés.</span>
-          </span>
-        </button>
+        {/* Alerte météo : uniquement pour les équipes (masquée en solo) */}
+        {hasTeam && (
+          <button type="button" onClick={() => setIsOutdoor(v => !v)}
+            className={`mt-3 flex items-start gap-3 w-full text-left rounded-xl border p-3 transition-colors ${isOutdoor ? 'border-primary/40 bg-primary/[0.04]' : 'border-gray-200 hover:border-gray-300'}`}>
+            <span className={`mt-0.5 grid place-items-center w-5 h-5 rounded-md border-2 flex-shrink-0 transition-colors ${isOutdoor ? 'bg-primary border-primary text-white' : 'border-gray-300'}`}>
+              {isOutdoor && <svg viewBox="0 0 12 12" className="w-3 h-3" fill="none"><path d="M2.5 6.5l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
+            </span>
+            <span>
+              <span className="block text-sm font-medium text-marine">Chantier extérieur / exposé aux intempéries</span>
+              <span className="block text-xs text-gray-500 mt-0.5">Active l&apos;alerte météo : TonPilote vous prévient et propose de décaler si pluie, gel ou vent fort est prévu les jours planifiés.</span>
+            </span>
+          </button>
+        )}
       </FormSection>
         </div>
 
-        {/* Colonne droite : détails */}
+        {/* Colonne droite : détails — masquée en solo (formulaire allégé) */}
+        {hasTeam && (
         <div className="space-y-4">
       <FormSection icon={StickyNote} color={COLOR} title="Détails">
         <div className="space-y-4">
@@ -194,6 +203,7 @@ export default function ChantierForm({ project }: { project?: Project }) {
         </div>
       </FormSection>
         </div>
+        )}
       </div>
 
       {/* Barre d'action collante */}
