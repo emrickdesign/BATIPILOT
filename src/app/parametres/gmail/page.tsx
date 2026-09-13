@@ -4,7 +4,8 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, Mail, CheckCircle, Loader2, ShieldCheck, Unlink } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { ArrowLeft, Mail, CheckCircle, Loader2, ShieldCheck, Unlink, ArrowRight, Lock } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
@@ -15,6 +16,9 @@ function GmailPageInner() {
   const [connectedEmail, setConnectedEmail] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
+  const [showHelp, setShowHelp] = useState(false)
+
+  function proceedToGoogle() { setBusy(true); window.location.href = '/api/auth/gmail/initiate' }
 
   useEffect(() => {
     const supabase = createClient()
@@ -83,7 +87,7 @@ function GmailPageInner() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => { window.location.href = '/api/auth/gmail/initiate' }}>
+                <Button variant="outline" size="sm" onClick={() => setShowHelp(true)}>
                   Reconnecter
                 </Button>
                 <Button variant="destructive-soft" size="sm" className="gap-1" onClick={disconnect} disabled={busy}>
@@ -96,14 +100,10 @@ function GmailPageInner() {
               <p className="text-sm text-gray-600">
                 Un clic, vous vous connectez avec votre compte Google, et c&apos;est fini. Aucune clé à créer.
               </p>
-              <Button className="gap-2 h-11" onClick={() => { setBusy(true); window.location.href = '/api/auth/gmail/initiate' }} disabled={busy}>
+              <Button className="gap-2 h-11" onClick={() => setShowHelp(true)} disabled={busy}>
                 {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mail className="w-4 h-4" />}
                 Connecter mon compte Gmail
               </Button>
-              <p className="text-xs text-gray-400">
-                Google affichera peut-être un écran « Application non validée » : c&apos;est normal pendant notre phase de test.
-                Cliquez sur <strong>Paramètres avancés</strong> puis <strong>Continuer vers TonPilote</strong>.
-              </p>
             </>
           )}
 
@@ -116,6 +116,45 @@ function GmailPageInner() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Écran d'explication AVANT Google : rassure et montre les 3 clics à faire,
+          pour que l'utilisateur n'ait pas peur de l'écran « application non validée ». */}
+      <Dialog open={showHelp} onOpenChange={setShowHelp}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Mail className="w-5 h-5 text-[#E0674C]" /> Avant de connecter Gmail</DialogTitle>
+          </DialogHeader>
+
+          <div className="rounded-xl bg-[#FBF3EF] border border-[#E0674C]/20 p-3 text-[13px] text-marine">
+            Google va afficher un écran <b>« Google n’a pas validé cette application »</b>. C’est <b>normal</b> : TonPilote est en cours de validation officielle. Il n’y a <b>aucun risque</b> — voici les 3 clics à faire :
+          </div>
+
+          <ol className="mt-1 space-y-2.5">
+            {[
+              <>Clique <b>« Continuer vers Google »</b> ci-dessous.</>,
+              <>Sur l’écran Google, en bas à gauche : clique <b>« Paramètres avancés »</b>.</>,
+              <>Puis clique <b>« Continuer vers TonPilote (non sécurisé) »</b> et autorise l’accès.</>,
+            ].map((txt, i) => (
+              <li key={i} className="flex items-start gap-3">
+                <span className="grid place-items-center w-6 h-6 rounded-full bg-[#E0674C] text-white text-xs font-bold flex-shrink-0">{i + 1}</span>
+                <span className="text-sm text-gray-700 leading-snug">{txt}</span>
+              </li>
+            ))}
+          </ol>
+
+          <div className="mt-1 flex items-start gap-2 rounded-xl bg-[#F1F6E9] border border-[#4C6F18]/20 p-3">
+            <Lock className="w-4 h-4 text-[#4C6F18] flex-shrink-0 mt-0.5" />
+            <p className="text-[12px] text-[#3A5613] leading-snug">
+              « Non sécurisé » est juste un message d’attente de Google. TonPilote ne lit et n’envoie des e-mails <b>que quand tu le demandes</b>, ne voit jamais ton mot de passe, et tu peux te déconnecter à tout moment.
+            </p>
+          </div>
+
+          <Button className="w-full h-11 gap-2 mt-1" onClick={proceedToGoogle} disabled={busy}>
+            {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowRight className="w-4 h-4" />} Continuer vers Google
+          </Button>
+          <button onClick={() => setShowHelp(false)} className="w-full text-center text-xs text-gray-400 hover:text-gray-600">Annuler</button>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
