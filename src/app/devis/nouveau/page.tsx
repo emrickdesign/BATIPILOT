@@ -377,124 +377,69 @@ function DevisForm() {
     m2: 'm²', ml: 'ml', u: 'unité', forfait: 'forfait', h: 'heure', j: 'jour', piece: 'pièce'
   }
 
+  const clientOptions = clients
+    .map(c => ({
+      id: c.id,
+      label: (c.type === 'professionnel' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`.trim()) || 'Sans nom',
+      group: isProspect(c.status) ? 'Prospect' : 'Client',
+    }))
+    .sort((a, b) => (a.group === b.group ? a.label.localeCompare(b.label) : a.group === 'Prospect' ? -1 : 1))
+
   return (
-    <div className="space-y-4 max-w-3xl">
-      <div className="flex items-center gap-3">
-        <Link href="/devis">
-          <Button variant="ghost" size="sm" className="gap-1">
-            <ArrowLeft className="w-4 h-4" /> Retour
-          </Button>
-        </Link>
+    <div className="rounded-2xl bg-[#e9e7e2] p-3 sm:p-6">
+      {/* Barre du haut : retour + enregistrement */}
+      <div className="mx-auto mb-3 flex max-w-[820px] items-center justify-between gap-2">
+        <Link href="/devis"><Button variant="ghost" size="sm" className="gap-1 bg-white/70 hover:bg-white"><ArrowLeft className="w-4 h-4" /> Retour</Button></Link>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="bg-white" onClick={() => handleSave('brouillon')} disabled={saving}>Brouillon</Button>
+          <Button size="sm" onClick={() => handleSave('pret')} disabled={saving}>{saving ? 'Enregistrement…' : editId ? 'Enregistrer' : 'Créer le devis'}</Button>
+        </div>
       </div>
-      <FormPageTitle icon={Receipt} color={entityColors.devis} title={editId ? 'Modifier le devis' : 'Nouveau devis'} />
 
-      {/* Client ou prospect */}
-      <FormSection icon={User} color={entityColors.devis} title="Client ou prospect *">
-        <div className="space-y-3">
-          <ClientCombobox
-            options={clients
-              .map(c => ({
-                id: c.id,
-                label: (c.type === 'professionnel' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`.trim()) || 'Sans nom',
-                group: isProspect(c.status) ? 'Prospect' : 'Client',
-              }))
-              .sort((a, b) => (a.group === b.group ? a.label.localeCompare(b.label) : a.group === 'Prospect' ? -1 : 1))}
-            value={selectedClientId}
-            onChange={setSelectedClientId}
-            placeholder="Rechercher un client ou prospect…"
-            allowNone={false}
-          />
-          <Link href="/clients/nouveau" className="text-sm text-blue-600 hover:underline">
-            + Créer un nouveau client / prospect
-          </Link>
-        </div>
-      </FormSection>
-
-      {/* Projet */}
-      <FormSection icon={HardHat} color={entityColors.devis} title="Projet">
-        <div className="space-y-3">
-          {projectInfo ? (
-            <div className="flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-sm text-blue-700">
-              <HardHat className="w-4 h-4 flex-shrink-0" />
-              <span>Devis rattaché au chantier <strong>{projectInfo.title}</strong></span>
-            </div>
-          ) : (
-            <div className="space-y-1">
-              <Label>Chantier</Label>
-              <select
-                value={selectedProjectId}
-                onChange={e => setSelectedProjectId(e.target.value)}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white"
-              >
-                <option value="">— Nouveau chantier —</option>
-                {projects
-                  .filter(p => !selectedClientId || p.client_id === selectedClientId)
-                  .map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-              </select>
-              <p className="text-[11px] text-gray-400">Rattachez un chantier existant, ou laissez « Nouveau chantier » (créé à l&apos;acceptation). Repère interne, non affiché sur le devis.</p>
-            </div>
-          )}
-          <div className="space-y-1">
-            <Label>Objet du devis</Label>
-            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Rénovation salle de bain" />
-            <p className="text-[11px] text-gray-400">Affiché sur le devis, en tête.</p>
+      {/* LA FEUILLE A4 — le devis, 100 % prévisualisé et éditable en place */}
+      <div className="mx-auto max-w-[820px] rounded-lg bg-white p-5 text-[#22201b] shadow-[0_2px_20px_rgba(20,10,0,.16)] sm:p-9"
+        style={{ fontFamily: serif ? 'Georgia, "Times New Roman", serif' : undefined }}>
+        {/* En-tête entreprise / DEVIS */}
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0 text-[13px] leading-tight">
+            <p className="font-heading text-lg font-extrabold text-marine">{company?.trade_name || 'Votre entreprise'}</p>
+            {company?.address && <p className="text-gray-500">{company.address}</p>}
+            {company?.phone && <p className="text-gray-500">{company.phone}</p>}
+            {company?.siret && <p className="text-[11px] text-gray-400">SIRET : {company.siret}</p>}
           </div>
-          <div className="space-y-1">
-            <Label>Durée de validité du devis</Label>
-            <div className="flex items-center gap-2 flex-wrap">
-              <Input type="number" value={validDays} onChange={e => setValidDays(e.target.value)} min="1" className="w-24" />
-              <span className="text-sm text-gray-500">jours — valable jusqu&apos;au <strong className="text-gray-700">{new Date((editId && editAnchor ? new Date(editAnchor).getTime() : Date.now()) + (parseInt(validDays || '30') || 30) * 86400000).toLocaleDateString('fr-FR')}</strong></span>
-            </div>
-            <p className="text-[11px] text-gray-400">Modifiable ici. Mémorisée comme votre défaut pour les prochains devis.</p>
-          </div>
-          <div className="space-y-1">
-            <Label>Adresse du chantier</Label>
-            <Textarea value={siteAddress} onChange={e => setSiteAddress(e.target.value)} rows={2} placeholder="Adresse des travaux" />
-          </div>
-          <div className="space-y-1">
-            <Label>Description générale (optionnel)</Label>
-            <Textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Décrivez brièvement les travaux..." />
+          <div className="flex-none text-right">
+            <p className="font-heading text-2xl font-extrabold tracking-tight" style={{ color: tpl.primaryColor }}>DEVIS</p>
+            <span className="mt-1 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">Brouillon</span>
           </div>
         </div>
-      </FormSection>
 
-      {/* Lignes de devis */}
-      <FormSection
-        icon={ListChecks}
-        color={entityColors.devis}
-        title="Prestations"
-        description={`${lines.length} ligne${lines.length > 1 ? 's' : ''}`}
-      >
-        <div className="space-y-2" style={{ fontFamily: serif ? 'Georgia, "Times New Roman", serif' : undefined }}>
-          {/* En-tête « document » : rendu réel au design du modèle choisi */}
-          <div className="rounded-lg border border-gray-100 bg-white p-3 sm:p-4 mb-1">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0 text-[13px] leading-tight">
-                <p className="font-heading text-base font-extrabold text-marine">{company?.trade_name || 'Votre entreprise'}</p>
-                {company?.address && <p className="text-gray-500">{company.address}</p>}
-                {company?.phone && <p className="text-gray-500">{company.phone}</p>}
-                {company?.siret && <p className="text-[11px] text-gray-400">SIRET : {company.siret}</p>}
+        {/* Client (sélection dans le document) + dates */}
+        <div className="mt-5 grid gap-4 border-t border-gray-100 pt-4 text-[13px] sm:grid-cols-2">
+          <div>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Adressé à</p>
+            <ClientCombobox options={clientOptions} value={selectedClientId} onChange={setSelectedClientId} placeholder="Choisir un client / prospect…" allowNone={false} />
+            {selectedClient && (
+              <div className="mt-1 leading-snug text-gray-500">
+                {selectedClient.billing_address && <p className="truncate">{selectedClient.billing_address}</p>}
+                {selectedClient.email && <p className="truncate">{selectedClient.email}</p>}
+                {selectedClient.phone && <p>{selectedClient.phone}</p>}
               </div>
-              <p className="flex-none font-heading text-xl font-extrabold tracking-tight" style={{ color: tpl.primaryColor }}>DEVIS</p>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-4 border-t border-gray-100 pt-3 text-[13px]">
-              <div>
-                <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Adressé à</p>
-                {selectedClient ? (
-                  <>
-                    <p className="font-semibold text-marine truncate">{clientDisplayName(selectedClient)}</p>
-                    {selectedClient.billing_address && <p className="text-gray-500 truncate">{selectedClient.billing_address}</p>}
-                    {selectedClient.email && <p className="text-gray-500 truncate">{selectedClient.email}</p>}
-                  </>
-                ) : <p className="italic text-gray-300">Choisis un client ci-dessus</p>}
-              </div>
-              <div className="text-right text-gray-600">
-                <p>Date : <span className="font-medium text-marine">{dFr(docToday)}</span></p>
-                <p>Valable jusqu’au : <span className="font-medium text-marine">{dFr(docValidUntil)}</span></p>
-              </div>
-            </div>
-            {title && <p className="mt-2 border-t border-gray-100 pt-2 text-[13px]"><span className="text-gray-400">Objet : </span><span className="font-medium text-marine">{title}</span></p>}
+            )}
+            <Link href="/clients/nouveau" className="mt-1 inline-block text-[12px] text-primary hover:underline">+ Nouveau client</Link>
           </div>
+          <div className="text-gray-600 sm:text-right">
+            <p>Date : <span className="font-medium text-marine">{dFr(docToday)}</span></p>
+            <p>Valable jusqu’au : <span className="font-medium text-marine">{dFr(docValidUntil)}</span></p>
+          </div>
+        </div>
+
+        {/* Objet (éditable, en tête du devis) */}
+        <div className="mt-3 flex items-center gap-2 text-[13px]">
+          <span className="flex-none text-gray-400">Objet :</span>
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="Objet du devis…" className={`${DOC_CELL} font-medium text-marine`} />
+        </div>
+
+        <div className="mt-4 space-y-2">
 
           {/* Générateur IA : décris le chantier → lignes chiffrées sur ta base de prix */}
           {showAi ? (
@@ -646,93 +591,54 @@ function DevisForm() {
             </div>
           )}
         </div>
-      </FormSection>
-
-      {/* Totaux */}
-      {lines.length > 0 && (
-        <Card>
-          <CardContent className="p-4">
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Total HT</span>
-                <span className="font-semibold">{formatCurrency(subtotalHT)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">TVA</span>
-                <span>{formatCurrency(totalVAT)}</span>
-              </div>
-              <div className="flex justify-between text-base font-bold text-white rounded px-3 py-1.5 mt-2" style={{ backgroundColor: tpl.primaryColor }}>
-                <span>Total TTC</span>
-                <span className="tabular-nums">{formatCurrency(totalTTC)}</span>
-              </div>
-              {depositAmount > 0 && (
-                <div className="flex justify-between text-blue-600">
-                  <span>Acompte ({depositPercent}%)</span>
-                  <span className="font-semibold">{formatCurrency(depositAmount)}</span>
-                </div>
-              )}
-              {optionsHT > 0 && (
-                <div className="flex justify-between text-amber-600 border-t border-dashed border-amber-200 pt-2 mt-2">
-                  <span>Options proposées (hors total) — {optionLines.length} ligne{optionLines.length > 1 ? 's' : ''}</span>
-                  <span className="font-semibold">+ {formatCurrency(optionsHT)} HT</span>
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Options */}
-      <FormSection icon={Settings2} color={entityColors.devis} title="Options (acompte, validité, notes)">
-        <div className="space-y-3">
-          <button
-            type="button"
-            onClick={() => setShowDepot(!showDepot)}
-            className="flex items-center justify-between w-full text-sm text-gray-500 hover:text-gray-700 transition-colors"
-          >
-            <span>{showDepot ? 'Masquer les options' : 'Afficher les options'}</span>
-            {showDepot ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-          </button>
-          {showDepot && (
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label>Acompte (%)</Label>
-                <Input
-                  type="number"
-                  value={depositPercent}
-                  onChange={e => setDepositPercent(e.target.value)}
-                  placeholder="ex: 30"
-                  min="0"
-                  max="100"
-                  className="w-32"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label>Modalités de paiement <span className="text-gray-400 font-normal">(visible sur le devis)</span></Label>
-                <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Ex: 30% d'acompte à la commande, solde à réception des travaux" />
-              </div>
-            </div>
-          )}
+        {/* Totaux — dans le document, réactifs */}
+        <div className="mt-5 flex justify-end">
+          <div className="w-64 space-y-1 text-[13px]">
+            <div className="flex justify-between"><span className="text-gray-500">Total HT</span><span className="font-medium tabular-nums">{formatCurrency(subtotalHT)}</span></div>
+            <div className="flex justify-between"><span className="text-gray-500">TVA</span><span className="tabular-nums">{formatCurrency(totalVAT)}</span></div>
+            <div className="mt-1 flex justify-between rounded px-3 py-1.5 text-base font-bold text-white" style={{ backgroundColor: tpl.primaryColor }}><span>Total TTC</span><span className="tabular-nums">{formatCurrency(totalTTC)}</span></div>
+            {depositAmount > 0 && <div className="flex justify-between pt-1 text-[12px] text-gray-600"><span>Acompte ({depositPercent}%)</span><span className="font-semibold tabular-nums">{formatCurrency(depositAmount)}</span></div>}
+            {optionsHT > 0 && <div className="mt-1 flex justify-between border-t border-dashed border-amber-200 pt-1 text-[12px] text-amber-600"><span>Options (hors total)</span><span className="font-semibold tabular-nums">+ {formatCurrency(optionsHT)}</span></div>}
+          </div>
         </div>
-      </FormSection>
 
-      {/* Actions */}
-      <div className="flex gap-3 pb-6">
-        <Button
-          variant="outline"
-          className="flex-1 h-12"
-          onClick={() => handleSave('brouillon')}
-          disabled={saving}
-        >
-          Enregistrer brouillon
-        </Button>
-        <Button
-          className="flex-1 h-12 text-base"
-          onClick={() => handleSave('pret')}
-          disabled={saving}
-        >
-          {saving ? 'Enregistrement...' : editId ? 'Enregistrer les modifications' : 'Créer le devis'}
-        </Button>
+        {/* Modalités + mentions légales */}
+        {notes && <p className="mt-4 text-[12px] text-gray-500"><span className="font-medium">Modalités de paiement : </span>{notes}</p>}
+        <p className="mt-4 border-t border-gray-100 pt-3 text-[11px] leading-snug text-gray-400">{companyDefaults.legal_mentions || 'TVA à taux réduit — Article 279-0 bis du CGI (travaux de rénovation)'}</p>
+      </div>{/* fin feuille A4 */}
+
+      {/* Réglages secondaires (repliés) — chantier, validité, acompte, paiement, adresse */}
+      <div className="mx-auto mt-3 max-w-[820px]">
+        <details className="rounded-xl border border-gray-200 bg-white px-4 py-2">
+          <summary className="flex cursor-pointer list-none items-center justify-between py-1 text-sm font-medium text-gray-600">
+            Réglages du devis <span className="text-xs font-normal text-gray-400">chantier · validité · acompte · paiement</span>
+          </summary>
+          <div className="mt-1 space-y-3 border-t border-gray-100 pt-3">
+            {projectInfo ? (
+              <div className="flex items-center gap-2 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                <HardHat className="w-4 h-4 flex-shrink-0" /><span>Rattaché au chantier <strong>{projectInfo.title}</strong></span>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                <Label>Chantier <span className="font-normal text-gray-400">(repère interne, non affiché)</span></Label>
+                <select value={selectedProjectId} onChange={e => setSelectedProjectId(e.target.value)} className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2.5 text-sm">
+                  <option value="">— Nouveau chantier —</option>
+                  {projects.filter(p => !selectedClientId || p.client_id === selectedClientId).map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1"><Label>Validité (jours)</Label><Input type="number" value={validDays} onChange={e => setValidDays(e.target.value)} min="1" className="w-28" /></div>
+              <div className="space-y-1"><Label>Acompte (%)</Label><Input type="number" value={depositPercent} onChange={e => setDepositPercent(e.target.value)} placeholder="ex: 30" min="0" max="100" className="w-28" /></div>
+            </div>
+            <div className="space-y-1">
+              <Label>Modalités de paiement <span className="font-normal text-gray-400">(affiché sur le devis)</span></Label>
+              <Textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Ex : 30% d'acompte à la commande, solde à réception des travaux" />
+            </div>
+            <div className="space-y-1"><Label>Adresse du chantier</Label><Textarea value={siteAddress} onChange={e => setSiteAddress(e.target.value)} rows={2} placeholder="Adresse des travaux" /></div>
+            <div className="space-y-1"><Label>Description interne <span className="font-normal text-gray-400">(optionnel)</span></Label><Textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} placeholder="Notes internes sur les travaux…" /></div>
+          </div>
+        </details>
       </div>
     </div>
   )
