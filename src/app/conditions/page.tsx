@@ -30,7 +30,7 @@ export default function ConditionsPage() {
         </Section>
 
         <Section title="2. Éditeur">
-          <p>Le Service est édité par <b>[Raison sociale à compléter]</b>, SIRET <b>[SIRET]</b>, <b>[Adresse]</b>. Contact : <a href="mailto:contact@tonpilote.com">contact@tonpilote.com</a>.</p>
+          <p>Le Service est édité par <b>PERILLIAT EMRICK — entrepreneur individuel (micro-entreprise)</b>, SIRET <b>990 572 117 00010</b>, <b>4 avenue Maurice Franck, 73110 Valgelon-la-Rochette</b>. Contact : <a href="mailto:potentiel.web@gmail.com">potentiel.web@gmail.com</a>.</p>
         </Section>
 
         <Section title="3. Description du service">
@@ -74,7 +74,7 @@ export default function ConditionsPage() {
         </Section>
 
         <Section title="13. Contact">
-          <p><a href="mailto:contact@tonpilote.com">contact@tonpilote.com</a></p>
+          <p><a href="mailto:potentiel.web@gmail.com">potentiel.web@gmail.com</a></p>
         </Section>
       </article>
 

@@ -28,7 +28,7 @@ export default function ConfidentialitePage() {
         <p className="mt-2 text-sm text-gray-500">Dernière mise à jour : {maj}</p>
 
         <Section title="1. Responsable du traitement">
-          <p>TonPilote (« l’Application », « nous ») est édité par <b>[Raison sociale à compléter]</b>, SIRET <b>[SIRET]</b>, dont le siège est situé <b>[Adresse]</b>. Pour toute question relative à vos données : <a href="mailto:contact@tonpilote.com">contact@tonpilote.com</a>.</p>
+          <p>TonPilote (« l’Application », « nous ») est édité par <b>PERILLIAT EMRICK — entrepreneur individuel (micro-entreprise)</b>, SIRET <b>990 572 117 00010</b>, dont le siège est situé <b>4 avenue Maurice Franck, 73110 Valgelon-la-Rochette</b>. Pour toute question relative à vos données : <a href="mailto:potentiel.web@gmail.com">potentiel.web@gmail.com</a>.</p>
         </Section>
 
         <Section title="2. Données que nous collectons">
@@ -74,7 +74,7 @@ export default function ConfidentialitePage() {
         </Section>
 
         <Section title="8. Vos droits (RGPD)">
-          <p>Vous disposez d’un droit d’accès, de rectification, d’effacement, de limitation, d’opposition et de portabilité de vos données. Pour les exercer, écrivez à <a href="mailto:contact@tonpilote.com">contact@tonpilote.com</a>. Vous pouvez aussi introduire une réclamation auprès de la CNIL (cnil.fr).</p>
+          <p>Vous disposez d’un droit d’accès, de rectification, d’effacement, de limitation, d’opposition et de portabilité de vos données. Pour les exercer, écrivez à <a href="mailto:potentiel.web@gmail.com">potentiel.web@gmail.com</a>. Vous pouvez aussi introduire une réclamation auprès de la CNIL (cnil.fr).</p>
         </Section>
 
         <Section title="9. Cookies">
@@ -82,7 +82,7 @@ export default function ConfidentialitePage() {
         </Section>
 
         <Section title="10. Contact">
-          <p>Pour toute question : <a href="mailto:contact@tonpilote.com">contact@tonpilote.com</a>.</p>
+          <p>Pour toute question : <a href="mailto:potentiel.web@gmail.com">potentiel.web@gmail.com</a>.</p>
         </Section>
       </article>
 
