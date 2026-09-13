@@ -10,8 +10,9 @@ export async function proxy(request: NextRequest) {
   if (
     path === '/' || path.startsWith('/landing') || path === '/manifest.json' ||
     path === '/sw.js' || path.startsWith('/icons') || path.startsWith('/reset-password') ||
-    // Pages légales publiques (requises pour la validation Google : confidentialité + CGU)
-    path === '/confidentialite' || path === '/conditions'
+    // Pages légales publiques (validation Google + liens du footer)
+    path === '/confidentialite' || path === '/conditions' ||
+    path === '/cgv' || path === '/mentions-legales'
   ) {
     return NextResponse.next({ request })
   }
