@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import EntrepriseSearch from '@/components/EntrepriseSearch'
 import { toast } from 'sonner'
 import {
   Handshake, Plus, Search, Phone, Mail, ShieldAlert, ShieldCheck,
@@ -129,11 +131,19 @@ export default function SousTraitantsList({ subs, meta }: { subs: Subcontractor[
         </div>
       )}
 
-      {/* Formulaire ajout */}
-      {showAdd && (
-        <Card>
-          <CardContent className="p-4 space-y-3">
-            <div className="grid sm:grid-cols-2 gap-3">
+      {/* Formulaire ajout — modale (s'ouvre au centre, plus en bas de page) */}
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent className="max-w-lg max-h-[90dvh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Ajouter un sous-traitant</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            {/* Recherche entreprise (annuaire public) : remplit nom + SIRET */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5"><Search className="w-3.5 h-3.5 text-primary" /> Rechercher l&apos;entreprise</Label>
+              <EntrepriseSearch onSelect={c => { setCompanyName(c.name); if (c.siret) setSiret(c.siret) }} />
+              <p className="text-xs text-gray-400">Tapez le nom, la ville ou le SIRET, puis sélectionnez la société : le nom et le SIRET se remplissent tout seuls.</p>
+            </div>
+
+            <div className="grid sm:grid-cols-2 gap-3 pt-1 border-t border-gray-100">
               <div className="sm:col-span-2">
                 <Label>Entreprise *</Label>
                 <Input value={companyName} onChange={e => setCompanyName(e.target.value)} placeholder="Ex : SARL Dupont Plomberie" />
@@ -151,24 +161,24 @@ export default function SousTraitantsList({ subs, meta }: { subs: Subcontractor[
               </div>
               <div>
                 <Label>Téléphone</Label>
-                <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="06 12 34 56 78" />
+                <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="06 12 34 56 78" inputMode="tel" />
               </div>
               <div>
                 <Label>Email</Label>
-                <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="contact@entreprise.fr" />
+                <Input value={email} onChange={e => setEmail(e.target.value)} placeholder="contact@entreprise.fr" inputMode="email" />
               </div>
               <div className="sm:col-span-2">
                 <Label>SIRET</Label>
-                <Input value={siret} onChange={e => setSiret(e.target.value)} placeholder="123 456 789 00012" />
+                <Input value={siret} onChange={e => setSiret(e.target.value)} placeholder="123 456 789 00012" inputMode="numeric" />
               </div>
             </div>
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={() => setShowAdd(false)}>Annuler</Button>
               <Button onClick={handleAdd} disabled={saving}>{saving ? 'Enregistrement…' : 'Enregistrer'}</Button>
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Recherche + filtre */}
       <div className="flex items-center gap-2 flex-wrap">
