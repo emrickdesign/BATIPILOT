@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Camera, SwitchCamera, Loader2 } from 'lucide-react'
@@ -8,8 +8,9 @@ import { Camera, SwitchCamera, Loader2 } from 'lucide-react'
 /**
  * Prise de photo par la caméra (webcam MacBook ou appareil mobile) via getUserMedia.
  * Aperçu live + capture → renvoie un File JPEG. Requiert un contexte sécurisé (HTTPS/localhost).
+ * `className`/`children` permettent un déclencheur personnalisé (grande tuile, etc.).
  */
-export default function CameraCapture({ onCapture, disabled }: { onCapture: (file: File) => void; disabled?: boolean }) {
+export default function CameraCapture({ onCapture, disabled, className, children }: { onCapture: (file: File) => void; disabled?: boolean; className?: string; children?: ReactNode }) {
   const [open, setOpen] = useState(false)
   const [facing, setFacing] = useState<'environment' | 'user'>('environment')
   const [ready, setReady] = useState(false)
@@ -64,9 +65,15 @@ export default function CameraCapture({ onCapture, disabled }: { onCapture: (fil
 
   return (
     <>
-      <Button size="sm" className="gap-1.5" disabled={disabled} onClick={() => setOpen(true)}>
-        <Camera className="w-4 h-4" /> Prendre une photo
-      </Button>
+      {className ? (
+        <button type="button" className={className} disabled={disabled} onClick={() => setOpen(true)}>
+          {children ?? (<><Camera className="w-4 h-4" /> Prendre une photo</>)}
+        </button>
+      ) : (
+        <Button size="sm" className="gap-1.5" disabled={disabled} onClick={() => setOpen(true)}>
+          <Camera className="w-4 h-4" /> Prendre une photo
+        </Button>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">

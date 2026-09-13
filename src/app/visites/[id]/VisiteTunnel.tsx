@@ -43,7 +43,6 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
   // Infos (client/adresse) repliées par défaut : on vient de les remplir à la création.
   const [editInfo, setEditInfo] = useState(!visit.client_id)
   const photoRef = useRef<HTMLInputElement>(null)
-  const cameraRef = useRef<HTMLInputElement>(null)
   const notesRef = useRef<HTMLTextAreaElement>(null)
 
   function focusNotes() {
@@ -213,18 +212,21 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
         </CardContent>
       </Card>
 
-      {/* Deux actions principales, bien visibles : écrire une note / prendre une photo */}
-      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
-        onChange={e => { if (e.target.files?.length) addPhotos(e.target.files); if (cameraRef.current) cameraRef.current.value = '' }} />
+      {/* Deux actions principales, bien visibles : écrire une note / prendre une photo.
+          La photo passe par CameraCapture (aperçu live + Capturer) : fiable sur mobile. */}
       <div className="grid grid-cols-2 gap-3">
         <button onClick={focusNotes}
           className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-[#E0674C]/25 bg-[#FCE7DE]/40 py-4 text-[#C14E33] font-semibold hover:bg-[#FCE7DE]/70 transition-colors">
           <PenLine className="w-6 h-6" /> Écrire une note
         </button>
-        <button onClick={() => cameraRef.current?.click()} disabled={uploading}
-          className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-[#4C6F18]/25 bg-[#EDF4E0]/50 py-4 text-[#3F5C16] font-semibold hover:bg-[#EDF4E0] transition-colors disabled:opacity-60">
-          {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />} Prendre une photo
-        </button>
+        <CameraCapture
+          onCapture={f => addPhotos([f])}
+          disabled={uploading}
+          className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-[#4C6F18]/25 bg-[#EDF4E0]/50 py-4 text-[#3F5C16] font-semibold hover:bg-[#EDF4E0] transition-colors disabled:opacity-60"
+        >
+          {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />}
+          <span>Prendre une photo</span>
+        </CameraCapture>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-5 items-start">
@@ -260,40 +262,38 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
           </div>
         </div>
 
-        {/* Colonne droite : photos */}
+        {/* Colonne droite : photos de la visite (affichage). L'ajout se fait par le
+            grand bouton « Prendre une photo » en haut, ou « Importer » ici. */}
         <Card className="border-0 shadow-[var(--shadow-sm)]">
-          <CardHeader className="pb-2 pt-4 px-4">
+          <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
             <CardTitle className="text-base flex items-center gap-2"><Camera className="w-4 h-4 text-gray-400" /> Photos {photos.length > 0 && <span className="text-sm font-normal text-gray-500">· {photos.length}</span>}</CardTitle>
+            <button onClick={() => photoRef.current?.click()} disabled={uploading}
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-primary hover:underline disabled:opacity-60">
+              {uploading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImagePlus className="w-3.5 h-3.5" />} Importer
+            </button>
           </CardHeader>
           <CardContent className="px-4 pb-4">
-            {/* Caméra live (webcam MacBook ou mobile) + import fichier/galerie */}
             <input ref={photoRef} type="file" accept="image/*" multiple className="hidden"
               onChange={e => { if (e.target.files?.length) addPhotos(e.target.files); if (photoRef.current) photoRef.current.value = '' }} />
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <CameraCapture onCapture={f => addPhotos([f])} disabled={uploading} />
-              <Button variant="outline" size="sm" className="gap-1.5" disabled={uploading} onClick={() => photoRef.current?.click()}>
-                {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />} Importer
-              </Button>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {photos.map(p => (
-                <div key={p.id} className="group relative">
-                  <div className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    {p.url ? <img src={p.url} alt={p.caption || 'Photo de visite'} className="w-full h-full object-cover" /> : null}
-                    <button onClick={() => removePhoto(p)} className="absolute top-1.5 right-1.5 grid place-items-center w-7 h-7 rounded-full bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity" title="Supprimer">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+            {photos.length === 0 ? (
+              <p className="text-sm text-gray-400 py-8 text-center">Aucune photo pour le moment. Utilisez « Prendre une photo » en haut.</p>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {photos.map(p => (
+                  <div key={p.id} className="group relative">
+                    <div className="relative aspect-square rounded-xl overflow-hidden border border-gray-200 bg-gray-50">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      {p.url ? <img src={p.url} alt={p.caption || 'Photo de visite'} className="w-full h-full object-cover" /> : null}
+                      <button onClick={() => removePhoto(p)} className="absolute top-1.5 right-1.5 grid place-items-center w-7 h-7 rounded-full bg-black/50 text-white opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity" title="Supprimer">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <Input defaultValue={p.caption || ''} onBlur={e => e.target.value !== (p.caption || '') && saveCaption(p, e.target.value)}
+                      placeholder="Légende…" className="h-8 mt-1.5 text-xs" />
                   </div>
-                  <Input defaultValue={p.caption || ''} onBlur={e => e.target.value !== (p.caption || '') && saveCaption(p, e.target.value)}
-                    placeholder="Légende…" className="h-8 mt-1.5 text-xs" />
-                </div>
-              ))}
-              <button onClick={() => photoRef.current?.click()} disabled={uploading}
-                className="aspect-square rounded-xl border-2 border-dashed border-gray-300 grid place-items-center text-gray-400 hover:border-primary hover:text-primary transition-colors disabled:opacity-60">
-                {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <div className="text-center"><Camera className="w-7 h-7 mx-auto" /><span className="text-xs font-medium">Ajouter</span></div>}
-              </button>
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
