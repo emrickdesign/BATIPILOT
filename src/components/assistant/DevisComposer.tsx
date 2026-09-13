@@ -16,12 +16,13 @@ import { formatCurrency } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { draftTotals, lineTotalHT, UNITS, type DevisDraft, type DraftLine, type Unit } from '@/lib/assistant/devis-shared'
 import { createRecognizer, getSpeechRecognitionCtor, speechLikelyBlocked } from '@/lib/speech'
+import { getTemplateConfig } from '@/lib/pdf-templates'
 import { toast } from 'sonner'
 
 const UNIT_LABELS: Record<Unit, string> = { m2: 'm²', ml: 'ml', u: 'u', forfait: 'forfait', h: 'h', j: 'j', piece: 'pièce' }
 const CELL = 'w-full bg-transparent outline-none rounded px-1 py-1 focus:bg-[#FDF3EF] focus:ring-1 focus:ring-[#E0674C]/40'
 
-type Company = { trade_name?: string; address?: string; phone?: string; siret?: string; legal_mentions?: string }
+type Company = { trade_name?: string; address?: string; phone?: string; siret?: string; legal_mentions?: string; template_style?: any }
 type ClientRow = { company_name?: string; first_name?: string; last_name?: string; type?: string; phone?: string; email?: string; billing_address?: string; site_address?: string }
 
 export default function DevisComposer({
@@ -55,7 +56,7 @@ export default function DevisComposer({
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       const [{ data: comp }, { data: cli }] = await Promise.all([
-        user ? supabase.from('companies').select('trade_name, address, phone, siret, legal_mentions').eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+        user ? supabase.from('companies').select('trade_name, address, phone, siret, legal_mentions, template_style').eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
         draft.clientId && draft.clientId !== 'demo'
           ? supabase.from('clients').select('company_name, first_name, last_name, type, phone, email, billing_address, site_address').eq('id', draft.clientId).maybeSingle()
           : Promise.resolve({ data: null }),
@@ -71,6 +72,11 @@ export default function DevisComposer({
   const validUntil = new Date(); validUntil.setDate(validUntil.getDate() + 30)
   const dateFr = (d: Date) => d.toLocaleDateString('fr-FR')
   const legalMentions = company?.legal_mentions || 'TVA à taux réduit — Article 279-0 bis du CGI (travaux de rénovation)'
+
+  // Design du MODÈLE choisi (Paramètres → Modèle de document) : le brouillon
+  // rend les vraies couleurs / police / style de tableau du document final.
+  const tpl = getTemplateConfig(company as unknown as Record<string, unknown>)
+  const serif = tpl.fontFamily === 'serif'
 
   const patchLine = (i: number, patch: Partial<DraftLine>) =>
     setDraft({ ...draft, lines: draft.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) })
@@ -150,7 +156,8 @@ export default function DevisComposer({
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-2xl bg-[#e9e7e2]">
       {/* ─── LA FEUILLE : vrai document devis/facture, éditable en place ─── */}
       <div className="min-h-0 flex-1 overflow-y-auto p-2.5 sm:p-4">
-        <div className="mx-auto max-w-[720px] rounded-lg bg-white p-4 text-[#22201b] shadow-[0_2px_16px_rgba(20,10,0,.14)] sm:p-7">
+        <div className="mx-auto max-w-[720px] rounded-lg bg-white p-4 text-[#22201b] shadow-[0_2px_16px_rgba(20,10,0,.14)] sm:p-7"
+          style={{ fontFamily: serif ? 'Georgia, "Times New Roman", serif' : undefined }}>
           {/* En-tête : entreprise / n° document / client */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 text-[13px] leading-tight">
@@ -160,7 +167,7 @@ export default function DevisComposer({
               {company?.siret && <p className="text-[11px] text-gray-400">SIRET : {company.siret}</p>}
             </div>
             <div className="flex-none text-right">
-              <p className="font-heading text-xl font-extrabold tracking-tight text-[#E0674C]">{docLabel}</p>
+              <p className="font-heading text-xl font-extrabold tracking-tight" style={{ color: tpl.primaryColor }}>{docLabel}</p>
               <span className="mt-1 inline-block rounded-full bg-gray-100 px-2 py-0.5 text-[11px] font-medium text-gray-500">Brouillon</span>
             </div>
           </div>
@@ -194,19 +201,19 @@ export default function DevisComposer({
           <div className="mt-3 overflow-x-auto">
             <table className="w-full min-w-[540px] border-collapse text-[13px]">
               <thead>
-                <tr className="border-y-2 border-[#22201b]/10 text-[11px] uppercase tracking-wide text-gray-400">
-                  <th className="py-1.5 pr-2 text-left font-semibold">Désignation</th>
+                <tr className="text-[11px] uppercase tracking-wide" style={{ backgroundColor: tpl.tableHeaderBg, color: tpl.tableHeaderTextColor }}>
+                  <th className="rounded-l py-1.5 pl-2 pr-2 text-left font-semibold">Désignation</th>
                   <th className="w-14 px-1 py-1.5 text-right font-semibold">Qté</th>
                   <th className="w-16 px-1 py-1.5 text-center font-semibold">Unité</th>
                   <th className="w-24 px-1 py-1.5 text-right font-semibold">P.U. HT</th>
                   <th className="w-14 px-1 py-1.5 text-center font-semibold">TVA</th>
                   <th className="w-24 px-1 py-1.5 text-right font-semibold">Total HT</th>
-                  <th className="w-5" />
+                  <th className="w-5 rounded-r" />
                 </tr>
               </thead>
               <tbody>
                 {draft.lines.map((l, i) => (
-                  <tr key={i} className="group border-b border-gray-100 align-top">
+                  <tr key={i} className="group border-b border-gray-100 align-top" style={tpl.stripeRows && i % 2 === 1 ? { backgroundColor: tpl.secondaryBg } : undefined}>
                     <td className="py-1.5 pr-2">
                       <input value={l.designation} onChange={e => patchLine(i, { designation: e.target.value })}
                         placeholder="Prestation…" className={`${CELL} font-medium text-marine`} />
@@ -256,7 +263,7 @@ export default function DevisComposer({
             <div className="w-56 space-y-1 text-[13px]">
               <div className="flex justify-between"><span className="text-gray-500">Total HT</span><span className="font-medium tabular-nums">{formatCurrency(totals.subtotalHT)}</span></div>
               <div className="flex justify-between"><span className="text-gray-500">TVA</span><span className="tabular-nums">{formatCurrency(totals.totalVAT)}</span></div>
-              <div className="flex justify-between border-t border-gray-200 pt-1 font-heading text-[15px] font-extrabold text-marine"><span>Total TTC</span><span className="tabular-nums">{formatCurrency(totals.totalTTC)}</span></div>
+              <div className="mt-1 flex justify-between rounded px-2 py-1 font-heading text-[15px] font-extrabold text-white" style={{ backgroundColor: tpl.primaryColor }}><span>Total TTC</span><span className="tabular-nums">{formatCurrency(totals.totalTTC)}</span></div>
             </div>
           </div>
 
