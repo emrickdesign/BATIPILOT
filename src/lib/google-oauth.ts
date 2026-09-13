@@ -16,23 +16,29 @@ export function hasAppCredentials(): boolean {
 }
 
 /**
+ * Origine canonique SANS « www ». Le domaine redirige tonpilote.com → www
+ * (config Vercel), donc l'app tourne sur www.tonpilote.com et enverrait un
+ * redirect_uri en www. On force la forme SANS www pour n'avoir qu'UNE seule URI
+ * à déclarer dans la console Google (https://tonpilote.com/...), identique entre
+ * la demande d'autorisation et l'échange du code. (localhost et alias sans www
+ * restent inchangés.)
+ */
+function canonicalOrigin(origin: string): string {
+  return origin.replace(/\/+$/, '').replace(/^(https?:\/\/)www\./i, '$1')
+}
+
+/**
  * URI de retour OAuth — DOIT être identique à l'octet près entre la demande
  * d'autorisation et l'échange du code, et être déclarée dans la console Google.
- *
- * Dérivée de l'origine de la requête : c'est la valeur observée comme correcte
- * en production (Google reçoit bien https://batipilot-orpin.vercel.app/...).
- * On n'utilise PAS NEXT_PUBLIC_APP_URL ici : cette variable sert aux relances
- * et une valeur périmée casserait silencieusement la connexion Gmail.
- * Conséquence : chaque alias/port depuis lequel on se connecte doit être
- * déclaré dans la console Google.
+ * Toujours sans www (cf. canonicalOrigin).
  */
 export function googleRedirectUri(origin: string): string {
-  return `${origin.replace(/\/+$/, '')}/api/auth/gmail/callback`
+  return `${canonicalOrigin(origin)}/api/auth/gmail/callback`
 }
 
 /** URI de retour OAuth pour Google Business Profile (avis). À déclarer dans la console. */
 export function gbpRedirectUri(origin: string): string {
-  return `${origin.replace(/\/+$/, '')}/api/auth/gbp/callback`
+  return `${canonicalOrigin(origin)}/api/auth/gbp/callback`
 }
 
 /** Credentials à utiliser : ceux de la connexion (ancien système) sinon ceux de l'app. */
