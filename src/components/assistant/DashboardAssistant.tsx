@@ -20,6 +20,8 @@ import {
 import type { PendingAction, AssistantCard } from '@/lib/assistant/tools'
 import type { DevisDraft } from '@/lib/assistant/devis-shared'
 import DevisComposer from './DevisComposer'
+import { toast } from 'sonner'
+import { createRecognizer, getSpeechRecognitionCtor, speechLikelyBlocked } from '@/lib/speech'
 
 type Preview = { kind: 'devis' | 'facture' | 'lien'; title: string; desc?: string; href: string }
 type ChatMsg = {
@@ -34,7 +36,6 @@ type ChatMsg = {
 type VoiceState = 'idle' | 'listening' | 'thinking' | 'speaking'
 
 const SUGGESTIONS = ['Où en sont mes paiements ?', 'Récap de mes derniers mails', 'Mes chantiers en cours', 'Prépare une facture pour…']
-const getSR = () => (typeof window === 'undefined' ? null : (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null)
 const DEFAULT_SIZE = { w: 400, h: 600 }
 
 function toPreview(navigateTo?: string | null, reply?: string): Preview | null {
@@ -69,6 +70,10 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
   const dictRef = useRef<any>(null)          // reconnaissance de la dictée
   const bufferRef = useRef('')
   const dictBaseRef = useRef('')
+  const dictStoppedRef = useRef(false)      // dictée coupée par l'utilisateur
+  const dictFinalRef = useRef('')           // texte final accumulé (persiste entre relances)
+  const listenStoppedRef = useRef(false)    // mode vocal manuel coupé par l'utilisateur
+  const listenFinalRef = useRef('')         // final accumulé (persiste entre relances)
   const sizeRef = useRef(DEFAULT_SIZE)
   useEffect(() => { msgsRef.current = msgs }, [msgs])
   useEffect(() => { sizeRef.current = size }, [size])
@@ -172,61 +177,87 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
   const cancelPending = (idx: number) => setMsgs(prev => prev.map((m, i) => i === idx ? { ...m, pending: null } : m))
 
   // ─── Dictée (micro de la barre d'écriture → remplit le champ) ───
-  const stopDictation = useCallback(() => { setDictating(false); try { dictRef.current?.stop() } catch {}; dictRef.current = null }, [])
-  const toggleDictation = useCallback(() => {
-    if (dictating) { stopDictation(); return }
-    const SR = getSR()
-    if (!SR) { inputRef.current?.focus(); return }
-    const rec = new SR()
-    rec.lang = 'fr-FR'; rec.interimResults = true; rec.continuous = true
-    dictBaseRef.current = typed ? typed.replace(/\s+$/, '') + ' ' : ''
-    let finalAcc = ''
+  const stopDictation = useCallback(() => { dictStoppedRef.current = true; setDictating(false); try { dictRef.current?.stop() } catch {}; dictRef.current = null }, [])
+  // (Re)crée une instance NEUVE à chaque relance (iOS coupe après une phrase).
+  const beginDict = useCallback(() => {
+    const rec = createRecognizer()
+    if (!rec) { setDictating(false); inputRef.current?.focus(); return }
     rec.onresult = (e: any) => {
       let itm = '', fin = ''
       for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i]; if (r.isFinal) fin += r[0].transcript; else itm += r[0].transcript }
-      if (fin) finalAcc += fin
-      setTyped((dictBaseRef.current + finalAcc + itm).replace(/\s+/g, ' ').trimStart())
+      if (fin) dictFinalRef.current += fin
+      setTyped((dictBaseRef.current + dictFinalRef.current + itm).replace(/\s+/g, ' ').trimStart())
     }
-    rec.onerror = () => setDictating(false)
-    rec.onend = () => { setDictating(false); dictRef.current = null; inputRef.current?.focus() }
-    dictRef.current = rec; setDictating(true)
-    try { rec.start() } catch { setDictating(false) }
-  }, [dictating, typed, stopDictation])
+    rec.onerror = (ev: any) => {
+      if (ev?.error === 'no-speech' || ev?.error === 'aborted') return
+      dictStoppedRef.current = true; setDictating(false)
+    }
+    rec.onend = () => {
+      dictRef.current = null
+      if (!dictStoppedRef.current) { setTimeout(() => { if (!dictStoppedRef.current) beginDict() }, 250); return }
+      setDictating(false); inputRef.current?.focus()
+    }
+    dictRef.current = rec
+    try { rec.start() } catch { /* onend relancera */ }
+  }, [])
+  const toggleDictation = useCallback(() => {
+    if (dictating) { stopDictation(); return }
+    if (!getSpeechRecognitionCtor()) { toast.error('Dictée non supportée par ce navigateur'); inputRef.current?.focus(); return }
+    if (speechLikelyBlocked()) { toast.error('La dictée est bloquée par iOS dans l’app installée — ouvrez TonPilote dans Safari.'); inputRef.current?.focus(); return }
+    dictBaseRef.current = typed ? typed.replace(/\s+$/, '') + ' ' : ''
+    dictFinalRef.current = ''
+    dictStoppedRef.current = false
+    setDictating(true)
+    beginDict()
+  }, [dictating, typed, stopDictation, beginDict])
 
   // ─── Mode vocal MANUEL (on active/coupe le micro soi-même) ───
   const stopListening = useCallback(() => {
+    listenStoppedRef.current = true
     setRecording(false)
     try { recRef.current?.stop() } catch {}
     recRef.current = null
     if (vsRef.current === 'listening') setVS('idle')
   }, [])
 
-  const startListening = useCallback(() => {
-    if (recording) { stopListening(); return }
-    try { window.speechSynthesis?.cancel() } catch {}
-    const SR = getSR()
-    if (!SR) return
-    const rec = new SR()
-    rec.lang = 'fr-FR'; rec.interimResults = true; rec.continuous = true
-    let finalAcc = ''
+  // Instance NEUVE à chaque relance (iOS coupe après une phrase → on repart tant
+  // que l'utilisateur n'a pas coupé, pour capter plusieurs phrases).
+  const beginListen = useCallback(() => {
+    const rec = createRecognizer()
+    if (!rec) { setRecording(false); if (vsRef.current === 'listening') setVS('idle'); return }
     rec.onresult = (e: any) => {
       let itm = '', fin = ''
       for (let i = e.resultIndex; i < e.results.length; i++) { const r = e.results[i]; if (r.isFinal) fin += r[0].transcript; else itm += r[0].transcript }
-      if (fin) finalAcc += fin
-      const full = (bufferRef.current + finalAcc + ' ' + itm).replace(/\s+/g, ' ').trim()
-      setBuffer(full)
+      if (fin) listenFinalRef.current += fin
+      setBuffer((bufferRef.current + ' ' + listenFinalRef.current + ' ' + itm).replace(/\s+/g, ' ').trim())
     }
-    rec.onerror = () => { setRecording(false); if (vsRef.current === 'listening') setVS('idle') }
+    rec.onerror = (ev: any) => {
+      if (ev?.error === 'no-speech' || ev?.error === 'aborted') return
+      listenStoppedRef.current = true; setRecording(false); if (vsRef.current === 'listening') setVS('idle')
+    }
     rec.onend = () => {
-      // on fige ce qui a été entendu ; on NE relance PAS et on NE répond PAS tout seul
-      bufferRef.current = (bufferRef.current + ' ' + finalAcc).replace(/\s+/g, ' ').trim()
-      recRef.current = null; setRecording(false)
-      if (vsRef.current === 'listening') setVS('idle')
+      recRef.current = null
+      if (!listenStoppedRef.current) { setTimeout(() => { if (!listenStoppedRef.current) beginListen() }, 250); return }
+      // Figé : on garde ce qui a été entendu (on NE répond PAS tout seul).
+      bufferRef.current = (bufferRef.current + ' ' + listenFinalRef.current).replace(/\s+/g, ' ').trim()
+      listenFinalRef.current = ''
+      setRecording(false); if (vsRef.current === 'listening') setVS('idle')
     }
-    recRef.current = rec; bufferRef.current = buffer
+    recRef.current = rec
+    try { rec.start() } catch { /* onend relancera */ }
+  }, [])
+
+  const startListening = useCallback(() => {
+    if (recording) { stopListening(); return }
+    if (!getSpeechRecognitionCtor()) { toast.error('Micro non supporté par ce navigateur'); return }
+    if (speechLikelyBlocked()) { toast.error('Le micro est bloqué par iOS dans l’app installée — ouvrez TonPilote dans Safari.'); return }
+    try { window.speechSynthesis?.cancel() } catch {}
+    listenStoppedRef.current = false
+    listenFinalRef.current = ''
+    bufferRef.current = buffer
     setRecording(true); setVS('listening')
-    try { rec.start() } catch { setRecording(false); setVS('idle') }
-  }, [recording, buffer, stopListening])
+    beginListen()
+  }, [recording, buffer, stopListening, beginListen])
 
   const askVoice = useCallback(() => {
     stopListening()
@@ -238,12 +269,17 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
 
   const enterVoice = useCallback(() => { stopDictation(); modeRef.current = 'voice'; setMode('voice'); setVS('idle'); setExpanded(true); bufferRef.current = ''; setBuffer('') }, [stopDictation])
   const exitVoice = useCallback(() => {
+    listenStoppedRef.current = true
     modeRef.current = 'chat'; setMode('chat'); setRecording(false); bufferRef.current = ''; setBuffer('')
     try { recRef.current?.abort() } catch {}; recRef.current = null
     try { window.speechSynthesis?.cancel() } catch {}
   }, [])
 
-  useEffect(() => () => { try { recRef.current?.abort() } catch {}; try { dictRef.current?.abort() } catch {}; try { window.speechSynthesis?.cancel() } catch {} }, [])
+  // Au démontage : on coupe tout et on empêche les relances programmées (setTimeout).
+  useEffect(() => () => {
+    listenStoppedRef.current = true; dictStoppedRef.current = true
+    try { recRef.current?.abort() } catch {}; try { dictRef.current?.abort() } catch {}; try { window.speechSynthesis?.cancel() } catch {}
+  }, [])
 
   const send = () => { const t = typed; if (t.trim()) { stopDictation(); ask(t) } }
   const vStatus = voiceState === 'listening' ? 'Je t’écoute…' : voiceState === 'thinking' ? 'Je réfléchis…' : voiceState === 'speaking' ? 'Je te réponds…' : 'Prêt — appuie sur le micro'
@@ -266,6 +302,7 @@ export default function DashboardAssistant({ onClose, demoSeed, initialMode, dem
   const selectCard = useCallback((c: AssistantCard) => { ask(c.send || c.label) }, [ask])
 
   const openFull = useCallback((href: string) => {
+    listenStoppedRef.current = true; dictStoppedRef.current = true
     try { recRef.current?.abort() } catch {}; try { window.speechSynthesis?.cancel() } catch {}
     router.push(href)
   }, [router])

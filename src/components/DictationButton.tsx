@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Mic, MicOff } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { createRecognizer, getSpeechRecognitionCtor, speechLikelyBlocked } from '@/lib/speech'
 
 type SpeechResult = { isFinal: boolean; 0: { transcript: string } }
 type SpeechEvent = { resultIndex: number; results: { length: number } & Record<number, SpeechResult> }
@@ -47,18 +48,11 @@ export default function DictationButton({
   // Le micro ne doit pas continuer si le composant disparaît
   useEffect(() => () => { stoppedByUser.current = true; recRef.current?.abort() }, [])
 
-  function start() {
-    const w = window as unknown as { SpeechRecognition?: new () => Recognition; webkitSpeechRecognition?: new () => Recognition }
-    const SR = w.SpeechRecognition || w.webkitSpeechRecognition
-    if (!SR) { toast.error('Dictée non supportée par ce navigateur (essayez Chrome)'); return }
-
-    baseRef.current = (value || '').trim()
-    stoppedByUser.current = false
-
-    const r = new SR()
-    r.lang = 'fr-FR'
-    r.continuous = true
-    r.interimResults = true
+  // (Re)crée UNE instance neuve à chaque démarrage/relance : réutiliser une
+  // instance déjà terminée est instable sur mobile (surtout iOS).
+  function begin() {
+    const r = createRecognizer() as Recognition | null
+    if (!r) { toast.error('Dictée non supportée par ce navigateur (essayez Chrome)'); setRecording(false); return }
 
     r.onresult = (e: SpeechEvent) => {
       let finals = ''
@@ -76,25 +70,35 @@ export default function DictationButton({
     }
 
     r.onend = () => {
-      // Coupure automatique après un silence : on repart, la dictée continue
-      if (!stoppedByUser.current) {
-        try { r.start() } catch { setRecording(false) }
-        return
-      }
+      recRef.current = null
+      // Coupure auto (silence, ou single-shot iOS) : on relance une instance NEUVE.
+      if (!stoppedByUser.current) { setTimeout(() => { if (!stoppedByUser.current) begin() }, 250); return }
       setRecording(false)
     }
 
     r.onerror = (ev: { error: string }) => {
       // 'no-speech' et 'aborted' sont normaux pendant une pause : onend relance
       if (ev.error === 'no-speech' || ev.error === 'aborted') return
-      if (ev.error === 'not-allowed') toast.error('Micro refusé — autorisez-le dans le navigateur')
-      else toast.error('Erreur micro')
+      if (ev.error === 'not-allowed' || ev.error === 'service-not-allowed') toast.error('Micro refusé — autorisez-le dans les réglages du navigateur')
+      else toast.error('Erreur micro — réessayez')
       stoppedByUser.current = true
       setRecording(false)
     }
 
     recRef.current = r
-    try { r.start(); setRecording(true) } catch { toast.error('Micro déjà actif') }
+    try { r.start() } catch { /* déjà démarré : ignore, onend relancera */ }
+  }
+
+  function start() {
+    if (!getSpeechRecognitionCtor()) { toast.error('Dictée non supportée par ce navigateur (essayez Chrome)'); return }
+    if (speechLikelyBlocked()) {
+      toast.error('La dictée vocale est bloquée par iOS dans l’app installée. Ouvrez TonPilote dans Safari pour dicter.')
+      return
+    }
+    baseRef.current = (value || '').trim()
+    stoppedByUser.current = false
+    setRecording(true)
+    begin()
   }
 
   function stop() {

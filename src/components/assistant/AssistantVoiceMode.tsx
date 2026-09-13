@@ -5,15 +5,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Mic, X, Keyboard, Send, Loader2, Check, Mail, MessageSquare, ChevronRight, Volume2, SlidersHorizontal } from 'lucide-react'
 import type { PendingAction } from '@/lib/assistant/tools'
+import { getSpeechRecognitionCtor, createRecognizer, speechLikelyBlocked } from '@/lib/speech'
 
 type Card = { label: string; sublabel?: string; href?: string }
 type Turn = { role: 'user' | 'assistant'; content: string }
 type Etat = 'listening' | 'thinking' | 'speaking' | 'idle'
-
-function getSR(): any {
-  if (typeof window === 'undefined') return null
-  return (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition || null
-}
 
 const AFFIRM = ['oui', 'ouais', 'vas-y', 'vas y', 'envoie', 'envoi', 'confirme', 'confirmer', "d'accord", 'daccord', 'ok', 'okay', 'parfait', 'go']
 const isAffirm = (t: string) => { const s = t.toLowerCase().trim().replace(/[.!?]/g, ''); return AFFIRM.some(a => s === a || s.startsWith(a + ' ')) }
@@ -36,6 +32,7 @@ export default function AssistantVoiceMode({ onClose, initial }: { onClose: () =
   const voiceURIRef = useRef('')
 
   const recRef = useRef<any>(null)
+  const makeRecRef = useRef<() => any>(() => null)
   const histRef = useRef<Turn[]>([])
   const etatRef = useRef<Etat>('idle')
   const pendingRef = useRef<PendingAction | null>(null)
@@ -82,10 +79,12 @@ export default function AssistantVoiceMode({ onClose, initial }: { onClose: () =
     } catch {}
   }
 
-  // ---- Micro (reconnaissance continue + relance auto) ----
+  // ---- Micro (reconnaissance + relance auto avec instance NEUVE à chaque fois) ----
   const startRec = useCallback(() => {
+    if (runningRef.current || closedRef.current) return
+    if (!recRef.current) recRef.current = makeRecRef.current()
     const rec = recRef.current
-    if (!rec || runningRef.current || closedRef.current) return
+    if (!rec) return
     try { rec.start(); runningRef.current = true } catch {}
   }, [])
 
@@ -151,47 +150,56 @@ export default function AssistantVoiceMode({ onClose, initial }: { onClose: () =
 
   useEffect(() => {
     closedRef.current = false
-    const SR = getSR()
-    if (!SR) { setSrSupported(false); setShowKeyboard(true); setState('idle'); return }
-    const rec = new SR()
-    rec.lang = 'fr-FR'
-    rec.interimResults = true
-    rec.continuous = true
-    rec.onstart = () => { runningRef.current = true; if (etatRef.current === 'idle') setState('listening') }
-    rec.onresult = (e: any) => {
-      let interim = '', final = ''
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const r = e.results[i]
-        if (r.isFinal) final += r[0].transcript
-        else interim += r[0].transcript
-      }
-      if (interim && etatRef.current === 'listening') setHeard(interim)
-      if (!final.trim()) return
-
-      // Anti-écho : ignore ce qui ressemble à ce que l'IA vient de dire — pendant qu'elle
-      // parle ET dans les ~900 ms qui suivent la fin (le micro capte encore la fin du TTS).
-      const spoken = lastSpokenRef.current.toLowerCase()
-      const f = final.toLowerCase().trim()
-      const nearSpeech = etatRef.current === 'speaking' || (Date.now() - speakEndRef.current) < 900
-      if (nearSpeech && f.length > 4 && spoken.includes(f.slice(0, Math.min(20, f.length)))) return
-
-      // Barge-in : couper la parole de l'IA.
-      if (etatRef.current === 'speaking') { try { window.speechSynthesis?.cancel() } catch {} }
-
-      // Pendant une confirmation, « oui » valide directement.
-      if (pendingRef.current && isAffirm(final)) { setHeard(final); confirmSend(); return }
-
-      ask(final)
+    if (!getSpeechRecognitionCtor() || speechLikelyBlocked()) {
+      // Non supporté, ou iOS en app installée (dictée web bloquée) → clavier.
+      setSrSupported(false); setShowKeyboard(true); setState('idle')
+      if (initial?.trim()) ask(initial)
+      return
     }
-    rec.onerror = (e: any) => { if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') { setSrSupported(false); setShowKeyboard(true) } }
-    rec.onend = () => { runningRef.current = false; if (!closedRef.current) setTimeout(startRec, 250) }
-    recRef.current = rec
+    // Fabrique : une NOUVELLE instance à chaque (re)démarrage (réutiliser une
+    // instance terminée est instable, surtout sur mobile).
+    makeRecRef.current = () => {
+      const rec = createRecognizer()
+      if (!rec) return null
+      rec.onstart = () => { runningRef.current = true; if (etatRef.current === 'idle') setState('listening') }
+      rec.onresult = (e: any) => {
+        let interim = '', final = ''
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const r = e.results[i]
+          if (r.isFinal) final += r[0].transcript
+          else interim += r[0].transcript
+        }
+        if (interim && etatRef.current === 'listening') setHeard(interim)
+        if (!final.trim()) return
+
+        // Anti-écho : ignore ce qui ressemble à ce que l'IA vient de dire — pendant qu'elle
+        // parle ET dans les ~900 ms qui suivent la fin (le micro capte encore la fin du TTS).
+        const spoken = lastSpokenRef.current.toLowerCase()
+        const f = final.toLowerCase().trim()
+        const nearSpeech = etatRef.current === 'speaking' || (Date.now() - speakEndRef.current) < 900
+        if (nearSpeech && f.length > 4 && spoken.includes(f.slice(0, Math.min(20, f.length)))) return
+
+        // Barge-in : couper la parole de l'IA.
+        if (etatRef.current === 'speaking') { try { window.speechSynthesis?.cancel() } catch {} }
+
+        // Pendant une confirmation, « oui » valide directement.
+        if (pendingRef.current && isAffirm(final)) { setHeard(final); confirmSend(); return }
+
+        ask(final)
+      }
+      rec.onerror = (e: any) => {
+        if (e?.error === 'not-allowed' || e?.error === 'service-not-allowed') { setSrSupported(false); setShowKeyboard(true) }
+      }
+      rec.onend = () => { runningRef.current = false; recRef.current = null; if (!closedRef.current) setTimeout(startRec, 250) }
+      return rec
+    }
+
     startRec()
     if (initial?.trim()) ask(initial)
 
     return () => {
       closedRef.current = true
-      try { rec.abort() } catch {}
+      try { recRef.current?.abort() } catch {}
       try { window.speechSynthesis?.cancel() } catch {}
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
