@@ -14,7 +14,7 @@ import DictationButton from '@/components/DictationButton'
 import CameraCapture from '@/components/CameraCapture'
 import ClientCombobox from '@/components/ClientCombobox'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { ArrowLeft, Camera, Loader2, Trash2, Sparkles, FileText, ImagePlus, HardHat, CheckCircle2 } from 'lucide-react'
+import { ArrowLeft, Camera, Loader2, Trash2, Sparkles, FileText, ImagePlus, HardHat, CheckCircle2, Pencil, Binoculars, PenLine } from 'lucide-react'
 import { clientDisplayName } from '@/lib/chantiers'
 
 export type VisitPhoto = { id: string; url: string; caption: string | null; storage_path: string }
@@ -40,7 +40,16 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
   const [projects, setProjects] = useState<ProjectOption[]>([])
   const [projId, setProjId] = useState('')
   const [validating, setValidating] = useState(false)
+  // Infos (client/adresse) repliées par défaut : on vient de les remplir à la création.
+  const [editInfo, setEditInfo] = useState(!visit.client_id)
   const photoRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
+  const notesRef = useRef<HTMLTextAreaElement>(null)
+
+  function focusNotes() {
+    notesRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    notesRef.current?.focus()
+  }
 
   async function patch(fields: Record<string, unknown>) {
     const { error } = await createClient().from('site_visits').update(fields).eq('id', visit.id)
@@ -162,12 +171,20 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
         <Link href="/visites"><Button variant="ghost" size="sm" className="gap-1"><ArrowLeft className="w-4 h-4" /> Visites</Button></Link>
       </div>
 
-      <div className="grid lg:grid-cols-2 gap-5 items-start">
-        {/* Colonne gauche : infos + notes + validation */}
-        <div className="space-y-5">
-          {/* En-tête éditable */}
-          <Card className="border-0 shadow-[var(--shadow-sm)]">
-            <CardContent className="p-4 space-y-3">
+      {/* En-tête compact : client + adresse en petit (repliés), modifiables au besoin */}
+      <Card className="border-0 shadow-[var(--shadow-sm)]">
+        <CardContent className="p-3">
+          {!editInfo ? (
+            <button onClick={() => setEditInfo(true)} className="w-full text-left flex items-center gap-2.5">
+              <span className="grid place-items-center w-9 h-9 rounded-lg bg-[#FCE7DE] text-[#C14E33] flex-shrink-0"><Binoculars className="w-4 h-4" /></span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-sm font-semibold text-marine truncate">{linkedClient ? clientDisplayName(linkedClient) : title}</span>
+                <span className="block text-xs text-gray-500 truncate">{address || 'Adresse non renseignée'}</span>
+              </span>
+              <span className="inline-flex items-center gap-1 text-xs font-medium text-primary flex-shrink-0"><Pencil className="w-3.5 h-3.5" /> Modifier</span>
+            </button>
+          ) : (
+            <div className="space-y-3">
               <Input value={title} onChange={e => setTitle(e.target.value)} onBlur={() => title.trim() && patch({ title: title.trim() })}
                 className="h-11 text-base font-semibold" placeholder="Nom de la visite" />
               <div className="grid sm:grid-cols-2 gap-3">
@@ -190,9 +207,29 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
                     className="h-10" placeholder="Adresse du chantier" />
                 </div>
               </div>
-            </CardContent>
-          </Card>
+              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setEditInfo(false)}><CheckCircle2 className="w-4 h-4" /> OK</Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
+      {/* Deux actions principales, bien visibles : écrire une note / prendre une photo */}
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
+        onChange={e => { if (e.target.files?.length) addPhotos(e.target.files); if (cameraRef.current) cameraRef.current.value = '' }} />
+      <div className="grid grid-cols-2 gap-3">
+        <button onClick={focusNotes}
+          className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-[#E0674C]/25 bg-[#FCE7DE]/40 py-4 text-[#C14E33] font-semibold hover:bg-[#FCE7DE]/70 transition-colors">
+          <PenLine className="w-6 h-6" /> Écrire une note
+        </button>
+        <button onClick={() => cameraRef.current?.click()} disabled={uploading}
+          className="flex flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-[#4C6F18]/25 bg-[#EDF4E0]/50 py-4 text-[#3F5C16] font-semibold hover:bg-[#EDF4E0] transition-colors disabled:opacity-60">
+          {uploading ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />} Prendre une photo
+        </button>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-5 items-start">
+        {/* Colonne gauche : notes + validation */}
+        <div className="space-y-5">
           {/* Notes + dictée */}
           <Card className="border-0 shadow-[var(--shadow-sm)]">
             <CardHeader className="pb-2 pt-4 px-4 flex flex-row items-center justify-between">
@@ -205,7 +242,7 @@ export default function VisiteTunnel({ visit, photos: initialPhotos, clients }: 
               </div>
             </CardHeader>
             <CardContent className="px-4 pb-4">
-              <Textarea value={notes} onChange={e => setNotes(e.target.value)} onBlur={() => patch({ transcript: notes.trim() || null })}
+              <Textarea ref={notesRef} value={notes} onChange={e => setNotes(e.target.value)} onBlur={() => patch({ transcript: notes.trim() || null })}
                 rows={6} placeholder="Parlez ou écrivez : état existant, dimensions, contraintes d'accès, souhaits du client…" />
               <p className="text-xs text-gray-400 mt-1.5">Astuce : appuyez sur le micro et décrivez à voix haute pendant que vous visitez.</p>
             </CardContent>
