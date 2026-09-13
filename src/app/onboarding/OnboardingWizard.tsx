@@ -9,6 +9,7 @@ import EntrepriseSearch from '@/components/EntrepriseSearch'
 import { TRADES } from '@/lib/trades'
 import type { CompanyResult } from '@/lib/siret'
 import { pricingSummary, sizeBucket } from '@/lib/pricing'
+import OnboardingBankConnect from './OnboardingBankConnect'
 import { toast } from 'sonner'
 import {
   ArrowLeft, ArrowRight, Check, Loader2, Sparkles, ListChecks, Clock3, Building2,
@@ -55,7 +56,7 @@ const STEPS = [
   { key: 'entreprise', label: 'Ton entreprise', hint: 'Identité' },
   { key: 'metier', label: 'Métier & équipe', hint: 'Ton activité' },
   { key: 'objectifs', label: 'Tes objectifs', hint: 'Ce qui compte' },
-  { key: 'facturation', label: 'Facturation', hint: 'Devis & factures' },
+  { key: 'facturation', label: 'Facturation & banque', hint: 'Devis, factures & banque' },
   { key: 'prix', label: 'Base de prix', hint: 'Ton catalogue' },
 ] as const
 
@@ -413,13 +414,15 @@ function StepObjectifs({ interests, setInterests, toggle }: { interests: string[
 function StepFacturation({ form, set }: { form: OnboardingForm; set: (f: keyof OnboardingForm, v: string) => void }) {
   return (
     <div>
-      <Head icon={<ReceiptText className="w-6 h-6" />} title="Facturation & mentions" sub="Ces réglages pré-remplissent tous tes devis et factures. Tout est modifiable plus tard." />
+      <Head icon={<ReceiptText className="w-6 h-6" />} title="Facturation & banque" sub="Ces réglages pré-remplissent tous tes devis et factures. Tout est modifiable plus tard." />
       <div className="space-y-3">
+        {/* Connexion bancaire (Bridge) — pour être opérationnel dès l'arrivée */}
+        <OnboardingBankConnect />
         <div className="grid grid-cols-2 gap-3">
           <Field label="Téléphone"><Input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="06 12 34 56 78" /></Field>
           <Field label="Email pro"><Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="contact@entreprise.fr" /></Field>
         </div>
-        <Field label="IBAN" hint="(affiché sur les factures)"><Input value={form.iban} onChange={e => set('iban', e.target.value)} placeholder="FR76 1234 5678 9012 3456 7890 123" /></Field>
+        <Field label="IBAN" hint="(affiché sur les factures pour le paiement client)"><Input value={form.iban} onChange={e => set('iban', e.target.value)} placeholder="FR76 1234 5678 9012 3456 7890 123" /></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Assurance décennale"><Input value={form.insurance_decennale} onChange={e => set('insurance_decennale', e.target.value)} placeholder="AXA — n°123456" /></Field>
           <Field label="RC Professionnelle"><Input value={form.insurance_rc} onChange={e => set('insurance_rc', e.target.value)} placeholder="Allianz — n°789012" /></Field>
