@@ -5,8 +5,8 @@
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#0f1b2d",
-  "theme_color": "#c1531e",
+  "background_color": "#FBF9F5",
+  "theme_color": "#E0674C",
   "lang": "fr",
   "orientation": "portrait-primary",
   "icons": [

@@ -3,10 +3,14 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
   // Landing publique (page de vente) servie à `/` + ses assets statiques sous /landing,
-  // et le manifest PWA : accessibles à tout visiteur non connecté, sans contrôle d'auth.
-  // Sinon le proxy renverrait chaque prospect vers /login avant même de voir la page.
+  // le manifest PWA, le service worker et les icônes d'app : accessibles sans auth.
+  // (Sinon le proxy renvoie vers /login, ce qui casse l'installation PWA et l'affichage
+  //  de la page de vente pour les visiteurs non connectés.)
   const path = request.nextUrl.pathname
-  if (path === '/' || path.startsWith('/landing') || path === '/manifest.json' || path.startsWith('/reset-password')) {
+  if (
+    path === '/' || path.startsWith('/landing') || path === '/manifest.json' ||
+    path === '/sw.js' || path.startsWith('/icons') || path.startsWith('/reset-password')
+  ) {
     return NextResponse.next({ request })
   }
 

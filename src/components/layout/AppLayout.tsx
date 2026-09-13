@@ -12,6 +12,7 @@ import { useState, useEffect } from 'react'
 import { isPole } from '@/lib/roles'
 import NotificationBell from '@/components/NotificationBell'
 import AssistantLauncher from '@/components/assistant/AssistantLauncher'
+import PwaInstall from '@/components/PwaInstall'
 
 type NavLink = { href: string; label: string; icon: any; teamOnly?: boolean }
 
@@ -380,6 +381,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
       {/* Assistant IA flottant, présent sur toutes les pages */}
       <AssistantLauncher />
+
+      {/* Pop-up « Ajouter à l'écran d'accueil » (1 fois, après l'arrivée dans l'app) */}
+      <PwaInstall />
     </div>
   )
 }
