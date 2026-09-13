@@ -115,35 +115,15 @@ function NouvelleFactureForm() {
   }
 
   return (
-    <div className="space-y-4 max-w-3xl">
-      <div className="flex items-center gap-3">
-        <Link href="/factures"><Button variant="ghost" size="sm" className="gap-1"><ArrowLeft className="w-4 h-4" /> Retour</Button></Link>
-        <h1 className="text-2xl font-bold text-gray-900">Nouvelle facture directe</h1>
+    <div className="rounded-2xl bg-[#e9e7e2] p-3 sm:p-6">
+      <div className="mx-auto mb-3 flex max-w-[820px] items-center justify-between gap-2">
+        <Link href="/factures"><Button variant="ghost" size="sm" className="gap-1 bg-white/70 hover:bg-white"><ArrowLeft className="w-4 h-4" /> Retour</Button></Link>
+        <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? 'Création…' : 'Créer la facture'}</Button>
       </div>
+      <p className="mx-auto mb-3 max-w-[820px] text-center text-[12px] text-gray-500">💡 Pour facturer depuis un devis accepté, utilise « Créer la facture » sur la page du devis.</p>
 
-      <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg text-sm text-blue-700 border border-blue-200">
-        <span>💡</span>
-        <span>Pour facturer depuis un devis accepté, utilisez le bouton "Créer la facture" depuis la page du devis.</span>
-      </div>
-
-      <Card>
-        <CardHeader className="pb-3 pt-4 px-4"><CardTitle className="text-base">Client *</CardTitle></CardHeader>
-        <CardContent className="px-4 pb-4">
-          <select value={clientId} onChange={e => setClientId(e.target.value)}
-            className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm bg-white">
-            <option value="">Sélectionner un client...</option>
-            {clients.map(c => (
-              <option key={c.id} value={c.id}>
-                {c.type === 'professionnel' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Sans nom'}
-              </option>
-            ))}
-          </select>
-        </CardContent>
-      </Card>
-
-      {/* Document vivant : rendu réel au design du modèle choisi */}
-      <Card>
-        <CardContent className="p-4 sm:p-6" style={{ fontFamily: serif ? 'Georgia, "Times New Roman", serif' : undefined }}>
+      {/* LA FEUILLE A4 — la facture, 100 % prévisualisée et éditable en place */}
+      <div className="mx-auto max-w-[820px] rounded-lg bg-white p-5 text-[#22201b] shadow-[0_2px_20px_rgba(20,10,0,.16)] sm:p-9" style={{ fontFamily: serif ? 'Georgia, "Times New Roman", serif' : undefined }}>
           {/* En-tête entreprise / FACTURE */}
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0 text-[13px] leading-tight">
@@ -157,14 +137,19 @@ function NouvelleFactureForm() {
           {/* Client + dates */}
           <div className="mt-4 grid grid-cols-2 gap-4 border-t border-gray-100 pt-3 text-[13px]">
             <div>
-              <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Facturé à</p>
-              {selectedClient ? (
-                <>
-                  <p className="font-semibold text-marine truncate">{clientDisplayName(selectedClient)}</p>
-                  {selectedClient.billing_address && <p className="text-gray-500 truncate">{selectedClient.billing_address}</p>}
-                  {selectedClient.email && <p className="text-gray-500 truncate">{selectedClient.email}</p>}
-                </>
-              ) : <p className="italic text-gray-300">Choisis un client ci-dessus</p>}
+              <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Facturé à</p>
+              <select value={clientId} onChange={e => setClientId(e.target.value)} className="w-full rounded-md border border-gray-200 bg-white px-2 py-1.5 text-[13px]">
+                <option value="">Choisir un client…</option>
+                {clients.map(c => (
+                  <option key={c.id} value={c.id}>{c.type === 'professionnel' ? c.company_name : `${c.first_name || ''} ${c.last_name || ''}`.trim() || 'Sans nom'}</option>
+                ))}
+              </select>
+              {selectedClient && (
+                <div className="mt-1 leading-snug text-gray-500">
+                  {selectedClient.billing_address && <p className="truncate">{selectedClient.billing_address}</p>}
+                  {selectedClient.email && <p className="truncate">{selectedClient.email}</p>}
+                </div>
+              )}
             </div>
             <div className="text-right text-gray-600">
               <p>Date : <span className="font-medium text-marine">{dFr(docToday)}</span></p>
@@ -229,14 +214,7 @@ function NouvelleFactureForm() {
             <Label className="text-sm text-gray-500 whitespace-nowrap">Échéance (jours) :</Label>
             <Input type="number" value={dueDays} onChange={e => setDueDays(e.target.value)} className="w-20 h-8 text-sm" min="1" />
           </div>
-        </CardContent>
-      </Card>
-
-      <div className="pb-6">
-        <Button className="w-full h-12 text-base" onClick={handleSave} disabled={saving}>
-          {saving ? 'Création...' : 'Créer la facture'}
-        </Button>
-      </div>
+      </div>{/* fin feuille A4 */}
     </div>
   )
 }
