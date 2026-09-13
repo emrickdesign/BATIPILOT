@@ -13,11 +13,14 @@ import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 import Link from 'next/link'
 import { formatCurrency } from '@/lib/utils'
 import { insertWithNextNumber } from '@/lib/invoice-number'
+import { clientDisplayName } from '@/lib/clients'
+import { getTemplateConfig } from '@/lib/pdf-templates'
 import type { Client } from '@/types'
 
 type Line = { tempId: string; designation: string; quantity: number; unit: string; unit_price_ht: number; vat_rate: number; total_ht: number }
 
 const UNITS = { m2: 'm²', ml: 'ml', u: 'unité', forfait: 'forfait', h: 'heure', j: 'jour', piece: 'pièce' }
+const DOC_CELL = 'w-full bg-transparent outline-none rounded px-1 py-1 focus:bg-[#FDF3EF] focus:ring-1 focus:ring-[#E0674C]/40'
 
 function NouvelleFactureForm() {
   const router = useRouter()
@@ -27,10 +30,16 @@ function NouvelleFactureForm() {
   const [lines, setLines] = useState<Line[]>([])
   const [saving, setSaving] = useState(false)
   const [dueDays, setDueDays] = useState('30')
+  const [company, setCompany] = useState<Record<string, any> | null>(null)
 
   useEffect(() => {
-    createClient().from('clients').select('*').order('created_at', { ascending: false }).then(({ data }) => setClients(data || []))
+    const supabase = createClient()
+    supabase.from('clients').select('*').order('created_at', { ascending: false }).then(({ data }) => setClients(data || []))
+    supabase.from('companies').select('trade_name, address, phone, siret, template_style').maybeSingle().then(({ data }) => setCompany(data || null))
   }, [])
+
+  const tpl = getTemplateConfig(company || {})
+  const serif = tpl.fontFamily === 'serif'
 
   function addLine() {
     setLines(prev => [...prev, { tempId: crypto.randomUUID(), designation: '', quantity: 1, unit: 'u', unit_price_ht: 0, vat_rate: 10, total_ht: 0 }])
@@ -48,6 +57,10 @@ function NouvelleFactureForm() {
   const subtotalHT = lines.reduce((s, l) => s + l.total_ht, 0)
   const totalVAT = lines.reduce((s, l) => s + l.total_ht * l.vat_rate / 100, 0)
   const totalTTC = subtotalHT + totalVAT
+  const selectedClient = clients.find(c => c.id === clientId) || null
+  const docToday = new Date()
+  const docDue = new Date(); docDue.setDate(docDue.getDate() + (parseInt(dueDays) || 30))
+  const dFr = (d: Date) => d.toLocaleDateString('fr-FR')
 
   async function handleSave() {
     if (!clientId) { toast.error('Choisissez un client'); return }
@@ -128,59 +141,96 @@ function NouvelleFactureForm() {
         </CardContent>
       </Card>
 
+      {/* Document vivant : rendu réel au design du modèle choisi */}
       <Card>
-        <CardHeader className="pb-3 pt-4 px-4 flex flex-row items-center justify-between">
-          <CardTitle className="text-base">Prestations</CardTitle>
-          <span className="text-sm text-gray-400">{lines.length} ligne{lines.length > 1 ? 's' : ''}</span>
-        </CardHeader>
-        <CardContent className="px-4 pb-4 space-y-2">
-          {lines.map(line => (
-            <div key={line.tempId} className="border border-gray-200 rounded-lg p-3 space-y-2">
-              <div className="flex gap-2">
-                <Input value={line.designation} onChange={e => updateLine(line.tempId, 'designation', e.target.value)}
-                  placeholder="Désignation" className="flex-1 font-medium" />
-                <button onClick={() => setLines(prev => prev.filter(l => l.tempId !== line.tempId))} className="text-gray-300 hover:text-red-500">
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                <div><Label className="text-xs text-gray-500">Qté</Label>
-                  <Input type="number" value={line.quantity} onChange={e => updateLine(line.tempId, 'quantity', parseFloat(e.target.value) || 0)} className="h-8 text-sm" min="0" step="0.1" /></div>
-                <div><Label className="text-xs text-gray-500">Unité</Label>
-                  <select value={line.unit} onChange={e => updateLine(line.tempId, 'unit', e.target.value)}
-                    className="w-full h-8 border border-gray-200 rounded-md px-2 text-sm bg-white">
-                    {Object.entries(UNITS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select></div>
-                <div><Label className="text-xs text-gray-500">Prix HT</Label>
-                  <Input type="number" value={line.unit_price_ht} onChange={e => updateLine(line.tempId, 'unit_price_ht', parseFloat(e.target.value) || 0)} className="h-8 text-sm" min="0" step="0.01" /></div>
-                <div><Label className="text-xs text-gray-500">TVA %</Label>
-                  <select value={line.vat_rate} onChange={e => updateLine(line.tempId, 'vat_rate', parseFloat(e.target.value))}
-                    className="w-full h-8 border border-gray-200 rounded-md px-2 text-sm bg-white">
-                    <option value={5.5}>5.5%</option><option value={10}>10%</option><option value={20}>20%</option>
-                  </select></div>
-              </div>
-              <div className="text-right text-sm font-semibold text-gray-900">{formatCurrency(line.total_ht)} HT</div>
+        <CardContent className="p-4 sm:p-6" style={{ fontFamily: serif ? 'Georgia, "Times New Roman", serif' : undefined }}>
+          {/* En-tête entreprise / FACTURE */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0 text-[13px] leading-tight">
+              <p className="font-heading text-base font-extrabold text-marine">{company?.trade_name || 'Votre entreprise'}</p>
+              {company?.address && <p className="text-gray-500">{company.address}</p>}
+              {company?.phone && <p className="text-gray-500">{company.phone}</p>}
+              {company?.siret && <p className="text-[11px] text-gray-400">SIRET : {company.siret}</p>}
             </div>
-          ))}
-          <Button variant="outline" className="w-full gap-2 border-dashed" onClick={addLine}>
-            <Plus className="w-4 h-4" /> Ajouter une prestation
-          </Button>
-        </CardContent>
-      </Card>
-
-      {lines.length > 0 && (
-        <Card><CardContent className="p-4">
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between"><span className="text-gray-600">Total HT</span><span className="font-semibold">{formatCurrency(subtotalHT)}</span></div>
-            <div className="flex justify-between"><span className="text-gray-600">TVA</span><span>{formatCurrency(totalVAT)}</span></div>
-            <div className="flex justify-between text-base font-bold border-t pt-2 mt-2"><span>Total TTC</span><span>{formatCurrency(totalTTC)}</span></div>
+            <p className="flex-none font-heading text-xl font-extrabold tracking-tight" style={{ color: tpl.primaryColor }}>FACTURE</p>
           </div>
-          <div className="mt-3 flex gap-2 items-center">
+          {/* Client + dates */}
+          <div className="mt-4 grid grid-cols-2 gap-4 border-t border-gray-100 pt-3 text-[13px]">
+            <div>
+              <p className="mb-0.5 text-[11px] font-semibold uppercase tracking-wide text-gray-400">Facturé à</p>
+              {selectedClient ? (
+                <>
+                  <p className="font-semibold text-marine truncate">{clientDisplayName(selectedClient)}</p>
+                  {selectedClient.billing_address && <p className="text-gray-500 truncate">{selectedClient.billing_address}</p>}
+                  {selectedClient.email && <p className="text-gray-500 truncate">{selectedClient.email}</p>}
+                </>
+              ) : <p className="italic text-gray-300">Choisis un client ci-dessus</p>}
+            </div>
+            <div className="text-right text-gray-600">
+              <p>Date : <span className="font-medium text-marine">{dFr(docToday)}</span></p>
+              <p>Échéance : <span className="font-medium text-marine">{dFr(docDue)}</span></p>
+            </div>
+          </div>
+
+          {/* Table éditable au design du modèle */}
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[560px] border-collapse text-[13px]">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wide" style={{ backgroundColor: tpl.tableHeaderBg, color: tpl.tableHeaderTextColor }}>
+                  <th className="py-1.5 pl-2 pr-2 text-left font-semibold">Désignation</th>
+                  <th className="w-14 px-1 py-1.5 text-right font-semibold">Qté</th>
+                  <th className="w-16 px-1 py-1.5 text-center font-semibold">Unité</th>
+                  <th className="w-24 px-1 py-1.5 text-right font-semibold">P.U. HT</th>
+                  <th className="w-14 px-1 py-1.5 text-center font-semibold">TVA</th>
+                  <th className="w-24 px-1 py-1.5 text-right font-semibold">Total HT</th>
+                  <th className="w-6" />
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line, i) => (
+                  <tr key={line.tempId} className="group border-b border-gray-100 align-top"
+                    style={tpl.stripeRows && i % 2 === 1 ? { backgroundColor: tpl.secondaryBg } : undefined}>
+                    <td className="py-1.5 pr-2"><input value={line.designation} onChange={e => updateLine(line.tempId, 'designation', e.target.value)}
+                      placeholder="Prestation…" className={`${DOC_CELL} font-medium text-marine`} /></td>
+                    <td className="px-0.5 py-1.5"><input type="number" min={0} step={0.1} value={line.quantity}
+                      onChange={e => updateLine(line.tempId, 'quantity', parseFloat(e.target.value) || 0)} className={`${DOC_CELL} text-right tabular-nums`} /></td>
+                    <td className="px-0.5 py-1.5"><select value={line.unit} onChange={e => updateLine(line.tempId, 'unit', e.target.value)} className={`${DOC_CELL} cursor-pointer text-center`}>
+                      {Object.entries(UNITS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select></td>
+                    <td className="px-0.5 py-1.5"><input type="number" min={0} step={0.01} value={line.unit_price_ht}
+                      onChange={e => updateLine(line.tempId, 'unit_price_ht', parseFloat(e.target.value) || 0)} className={`${DOC_CELL} text-right tabular-nums`} /></td>
+                    <td className="px-0.5 py-1.5"><select value={line.vat_rate} onChange={e => updateLine(line.tempId, 'vat_rate', parseFloat(e.target.value))} className={`${DOC_CELL} cursor-pointer text-center`}>
+                      <option value={5.5}>5,5%</option><option value={10}>10%</option><option value={20}>20%</option>
+                    </select></td>
+                    <td className="px-1 py-2 text-right font-semibold tabular-nums text-marine">{formatCurrency(line.total_ht)}</td>
+                    <td className="py-2 text-right"><button onClick={() => setLines(prev => prev.filter(l => l.tempId !== line.tempId))} title="Supprimer"
+                      className="grid h-5 w-5 place-items-center rounded text-gray-300 opacity-0 transition-opacity hover:bg-red-50 hover:text-red-500 group-hover:opacity-100"><Trash2 className="h-3.5 w-3.5" /></button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button onClick={addLine} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-gray-300 py-1.5 text-[12px] font-medium text-gray-400 hover:border-[#E0674C]/50 hover:text-[#E0674C]">
+            <Plus className="h-3.5 w-3.5" /> Ajouter une prestation
+          </button>
+
+          {/* Totaux */}
+          {lines.length > 0 && (
+            <div className="mt-4 flex justify-end">
+              <div className="w-60 space-y-1 text-[13px]">
+                <div className="flex justify-between"><span className="text-gray-500">Total HT</span><span className="font-medium tabular-nums">{formatCurrency(subtotalHT)}</span></div>
+                <div className="flex justify-between"><span className="text-gray-500">TVA</span><span className="tabular-nums">{formatCurrency(totalVAT)}</span></div>
+                <div className="mt-1 flex justify-between rounded px-3 py-1.5 text-base font-bold text-white" style={{ backgroundColor: tpl.primaryColor }}><span>Total TTC</span><span className="tabular-nums">{formatCurrency(totalTTC)}</span></div>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-4 flex items-center gap-2 border-t border-gray-100 pt-3">
             <Label className="text-sm text-gray-500 whitespace-nowrap">Échéance (jours) :</Label>
             <Input type="number" value={dueDays} onChange={e => setDueDays(e.target.value)} className="w-20 h-8 text-sm" min="1" />
           </div>
-        </CardContent></Card>
-      )}
+        </CardContent>
+      </Card>
 
       <div className="pb-6">
         <Button className="w-full h-12 text-base" onClick={handleSave} disabled={saving}>
