@@ -11,8 +11,6 @@ import { formatCurrency } from '@/lib/utils'
 import { categorizeExpense, CATEGORY_LABELS, type ExpenseCategory } from '@/lib/bank/categorize'
 import { timeProgress, isAValider } from '@/lib/chantiers'
 import { isRelanceDue } from '@/lib/relances'
-import ChantiersActifsList from './ChantiersActifsList'
-import EncaissementsChart from './EncaissementsChart'
 import DonutMetricCard from '@/components/charts/DonutMetricCard'
 import StatCard, { type StatTone } from '@/components/charts/StatCard'
 import TodoSnooze from './TodoSnooze'
@@ -637,81 +635,38 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* 2. À traiter (moitié gauche) + Évolution des encaissements (moitié droite) */}
-      <div className="grid lg:grid-cols-2 gap-4 items-stretch animate-fade-up" style={{ animationDelay: '120ms' }}>
-        <div className="flex flex-col">
-          <Card className="flex-1 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
-            <CardContent className="p-3">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1.5">À traiter aujourd&apos;hui</h2>
-              {d.todos.length === 0 ? (
-                <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Rien d&apos;urgent — tout est à jour. Belle journée !
-                </div>
-              ) : (
-                <div className="space-y-0.5">
-                  {d.todos.slice(0, 4).map((t) => (
-                    <TodoItem key={t.key} href={t.href} icon={t.icon} tile={t.tile} text={t.text} todoKey={t.key} />
-                  ))}
-                  {d.todos.length > 4 && (
-                    <details className="group/more">
-                      <summary className="flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-primary cursor-pointer list-none hover:underline">
-                        <span className="group-open/more:hidden">Afficher plus ({d.todos.length - 4})</span>
-                        <span className="hidden group-open/more:inline">Réduire</span>
-                        <ArrowRight className="w-3.5 h-3.5 rotate-90 group-open/more:-rotate-90 transition-transform" />
-                      </summary>
-                      <div className="space-y-0.5 mt-0.5">
-                        {d.todos.slice(4).map((t) => (
-                          <TodoItem key={t.key} href={t.href} icon={t.icon} tile={t.tile} text={t.text} todoKey={t.key} />
-                        ))}
-                      </div>
-                    </details>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-        <div className="flex flex-col">
-          <Card className="flex-1 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
-            <CardContent className="p-5">
-              <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Évolution des encaissements</h2>
-              <EncaissementsChart series={d.series} />
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
-      {/* 3. Suivi des chantiers */}
-      <div className="animate-fade-up" style={{ animationDelay: '150ms' }}>
-        <div className="grid lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-1">
-            <DonutMetricCard
-              title="Statut des chantiers"
-              subtitle="Répartition en temps réel"
-              total={String(d.chantiers.enCours + d.chantiers.aDemarrer + d.chantiers.enRetard + d.chantiers.aFacturer)}
-              centerLabel="Chantiers"
-              segments={[
-                { label: 'En cours', value: d.chantiers.enCours, color: '#22A45A' },
-                { label: 'À démarrer', value: d.chantiers.aDemarrer, color: '#2F7DE0' },
-                { label: 'À facturer', value: d.chantiers.aFacturer, color: '#E6B02E' },
-                { label: 'En retard', value: d.chantiers.enRetard, color: '#DC3B2E' },
-              ]}
-              emptyMessage="Aucun chantier en cours pour le moment."
-            />
-          </div>
-          <Card className="lg:col-span-2 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between mb-4 gap-3">
-                <div className="min-w-0">
-                  <span className="block text-xs font-semibold uppercase tracking-wider text-gray-400">Suivi des chantiers</span>
-                  <h3 className="text-sm font-semibold text-gray-500 mt-0.5">Chantiers actifs · avancement</h3>
-                </div>
-                <Link href="/chantiers" className="text-xs font-medium text-primary hover:underline flex-shrink-0 mt-0.5">Voir les chantiers</Link>
+      {/* 2. À traiter aujourd'hui (pleine largeur) */}
+      <div className="animate-fade-up" style={{ animationDelay: '120ms' }}>
+        <Card className="border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
+          <CardContent className="p-3">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2 px-1.5">À traiter aujourd&apos;hui</h2>
+            {d.todos.length === 0 ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400 py-4">
+                <CheckCircle2 className="w-4 h-4 text-emerald-500" /> Rien d&apos;urgent — tout est à jour. Belle journée !
               </div>
-              <ChantiersActifsList items={d.chantiersActifs} />
-            </CardContent>
-          </Card>
-        </div>
+            ) : (
+              <div className="space-y-0.5">
+                {d.todos.slice(0, 4).map((t) => (
+                  <TodoItem key={t.key} href={t.href} icon={t.icon} tile={t.tile} text={t.text} todoKey={t.key} />
+                ))}
+                {d.todos.length > 4 && (
+                  <details className="group/more">
+                    <summary className="flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-primary cursor-pointer list-none hover:underline">
+                      <span className="group-open/more:hidden">Afficher plus ({d.todos.length - 4})</span>
+                      <span className="hidden group-open/more:inline">Réduire</span>
+                      <ArrowRight className="w-3.5 h-3.5 rotate-90 group-open/more:-rotate-90 transition-transform" />
+                    </summary>
+                    <div className="space-y-0.5 mt-0.5">
+                      {d.todos.slice(4).map((t) => (
+                        <TodoItem key={t.key} href={t.href} icon={t.icon} tile={t.tile} text={t.text} todoKey={t.key} />
+                      ))}
+                    </div>
+                  </details>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* 6. Administratif & comptable */}
@@ -754,9 +709,9 @@ export default async function DashboardPage() {
               />
             </div>
           </div>
-          {/* Barres 6 mois à droite (plus large) — desktop uniquement */}
-          <Card className="hidden lg:block lg:col-span-2 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
-            <CardContent className="p-5">
+          {/* Barres 6 mois — entrées/sorties par mois (visible aussi sur mobile) */}
+          <Card className="col-span-2 lg:col-span-2 border border-gray-200/80 bg-gradient-to-br from-white to-[#FBF2EC]">
+            <CardContent className="p-4 sm:p-5">
               <CashflowBars data={d.cashflow} />
             </CardContent>
           </Card>
