@@ -68,7 +68,6 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
       columns={PROSPECT_COLUMNS}
       items={items}
       onMove={move}
-      hideHeaders
       footer={<p className="text-[11px] text-gray-400 mt-3">Glissez une carte pour changer son statut.</p>}
       renderCard={(p) => {
         const dot = dotOf(p.col)

@@ -6,7 +6,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Plus, UserPlus } from 'lucide-react'
 import type { Client, ClientStatus } from '@/types'
 import { clientDisplayName } from '@/lib/clients'
-import { STAT_TONES } from '@/components/charts/StatCard'
 import ProspectsKanban from './ProspectsKanban'
 import { PROSPECT_COLUMNS, type ProspectCardData } from './kanban-config'
 
@@ -60,8 +59,6 @@ export default async function ProspectsPage() {
     }
   }
 
-  const inColumn = (p: Client, c: typeof PROSPECT_COLUMNS[number]) => p.status === c.key || (c.extra?.includes(p.status) ?? false)
-  const countCol = (c: typeof PROSPECT_COLUMNS[number]) => list.filter(p => inColumn(p, c)).length
   const colOf = (status: ClientStatus): ClientStatus | null =>
     PROSPECT_COLUMNS.find(c => c.key === status || (c.extra?.includes(status) ?? false))?.key ?? null
 
@@ -108,33 +105,11 @@ export default async function ProspectsPage() {
           </CardContent>
         </Card>
       ) : (
-        <>
-          {/* §5.1 Résumé pipeline — tuiles KPI pleine couleur (une par statut) */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 animate-fade-up">
-            {PROSPECT_COLUMNS.map(c => {
-              const t = STAT_TONES[c.tone]
-              return (
-                <div
-                  key={c.key}
-                  className="relative overflow-hidden rounded-xl p-4 text-white transition-all duration-200 hover:-translate-y-0.5"
-                  style={{ background: `linear-gradient(140deg, ${t.base} 0%, ${t.deep} 100%)`, boxShadow: `0 16px 34px -16px ${t.glow}` }}
-                >
-                  <div aria-hidden className="absolute -top-10 -right-8 w-28 h-28 rounded-full pointer-events-none"
-                    style={{ background: 'radial-gradient(circle, rgba(255,255,255,.20), transparent 70%)' }} />
-                  <div className="relative">
-                    <div className="text-[28px] font-bold leading-none tabular-nums">{countCol(c)}</div>
-                    <div className="text-[13px] text-white/90 mt-1.5 font-medium">{c.label}</div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-
-          {/* §5.2 Vue Kanban — glisser-déposer, grille responsive (s'adapte au repli de la sidebar) */}
-          <div className="animate-fade-up">
-            <ProspectsKanban initialItems={kanbanItems} />
-          </div>
-        </>
+        /* Vue Kanban — chaque colonne porte son compteur en en-tête (glisser-déposer,
+           défilement horizontal sur mobile). Plus de bandeau KPI séparé en haut. */
+        <div className="animate-fade-up">
+          <ProspectsKanban initialItems={kanbanItems} />
+        </div>
       )}
     </DottedPage>
   )
