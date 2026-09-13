@@ -99,17 +99,23 @@ export default function PwaInstall() {
           {mode === 'ios' && (
             <div className="space-y-3">
               <Step n={1} icon={<Share className="h-4 w-4" />}>Appuie sur <b>Partager</b> en bas de Safari.</Step>
-              <Step n={2} icon={<Plus className="h-4 w-4" />}>Choisis <b>« Sur l’écran d’accueil »</b>.</Step>
-              <Step n={3} icon={<Smartphone className="h-4 w-4" />}>Valide avec <b>Ajouter</b> — c’est prêt.</Step>
+              <Step n={2} icon={<Plus className="h-4 w-4" />}>Choisis <b>« Sur l’écran d’accueil »</b> puis <b>Ajouter</b>.</Step>
+              <Step n={3} icon={<Smartphone className="h-4 w-4" />}>Ouvre TonPilote depuis <b>l’icône</b> de l’écran d’accueil.</Step>
             </div>
           )}
 
           {mode === 'manual' && (
             <div className="space-y-3">
-              <Step n={1} icon={<MonitorDown className="h-4 w-4" />}>Ouvre le menu <b>⋮</b> de ton navigateur (en haut à droite).</Step>
-              <Step n={2} icon={<Download className="h-4 w-4" />}>Choisis <b>« Installer TonPilote »</b> (ou « Ajouter à l’écran d’accueil »).</Step>
+              <Step n={1} icon={<MonitorDown className="h-4 w-4" />}>Sur Chrome : menu <b>⋮</b> (3 points, en haut à droite).</Step>
+              <Step n={2} icon={<Download className="h-4 w-4" />}>Choisis <b>« Installer l’application »</b> (ou « Ajouter à l’écran d’accueil »).</Step>
+              <Step n={3} icon={<Smartphone className="h-4 w-4" />}>Ouvre TonPilote depuis <b>l’icône</b> installée.</Step>
             </div>
           )}
+
+          {/* Rappel important : rester dans l'app installée, pas dans le navigateur */}
+          <div className="mt-3 rounded-xl bg-[#F1F6E9] border border-[#4C6F18]/20 px-3 py-2.5 text-[12px] text-[#3A5613]">
+            Une fois installée, ouvre TonPilote depuis <b>l’icône de ton écran d’accueil</b> et <b>ferme cet onglet du navigateur</b> — sinon tu continues dans le navigateur.
+          </div>
 
           <button onClick={dismiss} className="mt-4 w-full text-center text-[13px] font-medium text-gray-400 hover:text-gray-600">Plus tard</button>
         </div>
