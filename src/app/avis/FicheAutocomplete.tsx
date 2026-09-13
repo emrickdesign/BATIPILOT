@@ -23,8 +23,12 @@ export default function FicheAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [detail, setDetail] = useState<string | null>(null)
+  // Phase de chargement : tant que Google Maps n'est pas prêt, on NE laisse PAS
+  // taper dans le champ simple — sinon, quand Maps finit de charger, on masque/
+  // remplace ce champ et le clavier mobile se ferme en plein milieu de la saisie.
+  const [phase, setPhase] = useState<'loading' | 'legacy' | 'element' | 'error'>('loading')
   const onSelectRef = useRef(onSelect)
-  onSelectRef.current = onSelect
+  useEffect(() => { onSelectRef.current = onSelect }, [onSelect])
 
   useEffect(() => {
     if (!apiKey) return
@@ -69,6 +73,7 @@ export default function FicheAutocomplete({
             reviews: Array.isArray(p.reviews) ? p.reviews.slice(0, 3).map((rv: any) => ({ author: rv.author_name || '', rating: rv.rating || 0, text: rv.text || '' })) : [],
           })
         })
+        setPhase('legacy')
         return
       }
 
@@ -76,7 +81,7 @@ export default function FicheAutocomplete({
       if (places.PlaceAutocompleteElement && containerRef.current) {
         const el: any = new places.PlaceAutocompleteElement({ includedRegionCodes: ['fr'], ...(bounds ? { locationBias: bounds } : {}) })
         el.style.width = '100%'
-        if (inputRef.current) inputRef.current.style.display = 'none'
+        setPhase('element') // masque le champ simple (via `hidden`) proprement
         containerRef.current.appendChild(el)
         cleanup = () => { if (el.parentNode) el.parentNode.removeChild(el) }
         el.addEventListener('gmp-select', async (event: any) => {
@@ -99,7 +104,7 @@ export default function FicheAutocomplete({
       throw new Error('Aucun widget d\'autocomplétion disponible.')
     }).catch((e: any) => {
       console.error('[avis][maps]', e)
-      if (!cancelled) setDetail(String(e?.message || e))
+      if (!cancelled) { setDetail(String(e?.message || e)); setPhase('error') }
     })
 
     return () => { cancelled = true; cleanup() }
@@ -108,7 +113,17 @@ export default function FicheAutocomplete({
   if (!apiKey) return null
   return (
     <div className="space-y-1.5">
-      <input ref={inputRef} type="text" placeholder="Tapez le nom de votre entreprise…" className={INPUT_CLASS} />
+      <input
+        ref={inputRef}
+        type="text"
+        // Désactivé tant que Maps charge : évite de taper dans un champ qui va être
+        // remplacé (le clavier se fermait au 1er caractère). Masqué en mode « element ».
+        disabled={phase === 'loading'}
+        hidden={phase === 'element'}
+        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+        placeholder={phase === 'loading' ? 'Chargement de la recherche…' : 'Tapez le nom de votre entreprise…'}
+        className={`${INPUT_CLASS} disabled:bg-gray-50 disabled:text-gray-400`}
+      />
       <div ref={containerRef} className="w-full" />
       {detail && <p className="text-xs text-rose-600 break-words">Recherche indisponible : {detail} — utilisez la méthode manuelle ci-dessous.</p>}
     </div>

@@ -226,6 +226,10 @@
   }
 }
 
+/* Liste d'autocomplétion Google Places (avis) : toujours au-dessus (elle est
+   ajoutée sur <body>, hors de nos conteneurs). */
+.pac-container { z-index: 100000 !important; }
+
 /* ─── Animations & micro-interactions (skill potentieel-design) ───────────── */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(10px); }
