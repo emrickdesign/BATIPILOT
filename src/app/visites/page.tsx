@@ -57,12 +57,12 @@ export default async function VisitesPage() {
 
   return (
     <div className="space-y-5 animate-fade-up">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Visites de repérage</h1>
           <p className="text-gray-500 mt-1 text-sm">Sur place : photos + notes vocales, à rattacher au chantier.</p>
         </div>
-        <NouvelleVisiteDialog />
+        <div className="sm:flex-shrink-0"><NouvelleVisiteDialog /></div>
       </div>
 
       {items.length === 0 ? (

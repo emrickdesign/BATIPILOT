@@ -74,7 +74,7 @@ export default function NouvelleVisiteDialog({ variant = 'default' }: { variant?
       {variant === 'empty' ? (
         <Button onClick={() => setOpen(true)} className="mt-4 gap-1.5"><Plus className="w-4 h-4" /> Démarrer une visite</Button>
       ) : (
-        <Button onClick={() => setOpen(true)} className="gap-1.5"><Plus className="w-4 h-4" /> Nouvelle visite</Button>
+        <Button onClick={() => setOpen(true)} className="w-full sm:w-auto h-11 px-5 text-[15px] font-semibold gap-2 shadow-[var(--shadow-brand)]"><Plus className="w-5 h-5" /> Nouvelle visite</Button>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>

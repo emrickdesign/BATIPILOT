@@ -19,6 +19,9 @@ export default function AssistantLauncher() {
   // Sur le tableau de bord, l'assistant est déjà ancré à droite (DashboardShell) :
   // on masque le lanceur flottant global pour ne pas avoir deux assistants.
   if (pathname === '/dashboard') return null
+  // Sur la messagerie, le composeur occupe déjà le bas de l'écran : le bouton
+  // flottant recouvrait le bouton d'envoi sur mobile → on le masque ici.
+  if (pathname?.startsWith('/messages')) return null
 
   return (
     <>

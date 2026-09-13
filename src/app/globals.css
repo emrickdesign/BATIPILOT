@@ -214,6 +214,18 @@
   }
 }
 
+/* iOS zoome automatiquement (et ne dézoome pas) dès qu'un champ fait < 16px :
+   c'est la cause du « clavier qui remonte tout » puis « page trop zoomée » après
+   fermeture. On force 16px minimum sur mobile pour TOUS les champs de saisie.
+   Hors @layer volontairement, pour battre les utilitaires (text-sm, etc.). */
+@media (max-width: 640px) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  textarea,
+  select {
+    font-size: 16px;
+  }
+}
+
 /* ─── Animations & micro-interactions (skill potentieel-design) ───────────── */
 @keyframes fade-up {
   from { opacity: 0; transform: translateY(10px); }

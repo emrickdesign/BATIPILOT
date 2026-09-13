@@ -89,12 +89,12 @@ export default async function ProspectsPage() {
   return (
     <DottedPage className="space-y-5">
       <div className="flex items-start justify-between gap-4 animate-fade-up">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Suivi des prospects</h1>
-          <p className="text-gray-500 mt-1 text-sm">Suivi automatique de vos pistes, du premier contact au devis accepté. Les actions (devis, relance, facture) se font depuis la section Devis.</p>
+          <p className="text-gray-500 mt-1 text-sm">Du premier contact au devis accepté.<span className="hidden sm:inline"> Les actions (devis, relance, facture) se font depuis la section Devis.</span></p>
         </div>
-        <Link href="/clients/nouveau">
-          <Button className="h-10 gap-2 shadow-sm"><Plus className="w-4 h-4" /> Nouveau prospect</Button>
+        <Link href="/clients/nouveau" className="flex-shrink-0">
+          <Button className="h-10 gap-2 shadow-sm"><Plus className="w-4 h-4" /> <span className="hidden sm:inline">Nouveau prospect</span><span className="sm:hidden">Nouveau</span></Button>
         </Link>
       </div>
 

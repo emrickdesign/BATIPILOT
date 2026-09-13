@@ -4,7 +4,6 @@
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Camera, Search, Image as ImageIcon, MapPin, ClipboardList, CheckCircle2, Clock, Archive } from 'lucide-react'
-import StatCard from '@/components/charts/StatCard'
 import { visitStatusLabels } from '@/lib/visites'
 import ArchiveVisitButton from './ArchiveVisitButton'
 
@@ -65,12 +64,24 @@ export default function VisitesGallery({ visits }: { visits: VisitItem[] }) {
 
   return (
     <div className="space-y-5">
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 animate-fade-up">
-        <StatCard label="Visites" value={String(stats.total)} icon={ClipboardList} tone="coral" note="au total" />
-        <StatCard label="Validées" value={String(stats.valide)} icon={CheckCircle2} tone="green" note="prêtes à rattacher" />
-        <StatCard label="En cours" value={String(stats.encours)} icon={Clock} tone="amber" note="à finaliser" />
-        <StatCard label="Photos" value={String(stats.photos)} icon={ImageIcon} tone="blue" note="prises sur site" />
+      {/* Stats — mini-cartes compactes (icône + chiffre + libellé sur une ligne) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 animate-fade-up">
+        {([
+          { icon: ClipboardList, value: stats.total, label: 'Visites', tint: 'bg-[#FCE7DE] text-[#C14E33]' },
+          { icon: CheckCircle2, value: stats.valide, label: 'Validées', tint: 'bg-[#EDF4E0] text-[#4C6F18]' },
+          { icon: Clock, value: stats.encours, label: 'En cours', tint: 'bg-[#FBEFD4] text-[#8A5A08]' },
+          { icon: ImageIcon, value: stats.photos, label: 'Photos', tint: 'bg-[#E3ECFB] text-[#2F6BE8]' },
+        ] as const).map(s => (
+          <div key={s.label} className="flex items-center gap-2.5 rounded-xl border border-gray-200/80 bg-white px-3 py-2.5">
+            <span className={`grid place-items-center w-8 h-8 rounded-lg flex-shrink-0 ${s.tint}`}>
+              <s.icon className="w-4 h-4" strokeWidth={2.2} />
+            </span>
+            <div className="min-w-0 leading-none">
+              <div className="text-lg font-bold tabular-nums text-marine">{s.value}</div>
+              <div className="text-[11px] text-gray-500 mt-0.5 truncate">{s.label}</div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Filtres + recherche */}

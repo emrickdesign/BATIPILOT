@@ -69,7 +69,7 @@ export default function ProspectsKanban({ initialItems }: { initialItems: Prospe
       items={items}
       onMove={move}
       hideHeaders
-      footer={<p className="text-[11px] text-gray-400 mt-3">Glissez une carte d&apos;une colonne à l&apos;autre pour changer son statut. Accepté = conversion en client.</p>}
+      footer={<p className="text-[11px] text-gray-400 mt-3">Glissez une carte pour changer son statut.</p>}
       renderCard={(p) => {
         const dot = dotOf(p.col)
         const daysLeft = p.col === 'devis_envoye' && p.relanceQuote ? daysUntilExpiry(p.relanceQuote.validUntil) : null
