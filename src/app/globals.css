@@ -361,3 +361,27 @@
   }
   .card-interactive:hover { transform: none; }
 }
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Icônes animées (menu latéral + boutons) — CSS pur, zéro dépendance.
+   Neutralisé automatiquement par le bloc prefers-reduced-motion ci-dessus
+   (il force animation-duration à ~0 en !important).
+   ───────────────────────────────────────────────────────────────────────────── */
+
+/* Boutons : l'icône réagit au survol PARTOUT dans l'app (envoi, etc.). */
+button:hover svg.lucide:not(.animate-spin) { animation: tp-ic-pop 0.4s ease; transform-origin: 50% 55%; }
+
+/* Menu latéral : chaque icône a sa signature au survol de son entrée. */
+.tp-navlink:hover .tp-ic-pop  { animation: tp-ic-pop  0.42s ease; }
+.tp-navlink:hover .tp-ic-bob  { animation: tp-ic-bob  0.5s  ease; }
+.tp-navlink:hover .tp-ic-spin { animation: tp-ic-spin 0.6s  ease; }
+.tp-navlink:hover .tp-ic-ring { animation: tp-ic-ring 0.65s ease; transform-origin: 50% 12%; }
+.tp-navlink:hover .tp-ic-roll { animation: tp-ic-roll 0.55s ease; }
+.tp-navlink:hover .tp-ic-scan { animation: tp-ic-scan 0.6s  ease; }
+
+@keyframes tp-ic-pop  { 0%, 100% { transform: scale(1); } 45% { transform: scale(1.22); } }
+@keyframes tp-ic-bob  { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@keyframes tp-ic-spin { to { transform: rotate(360deg); } }
+@keyframes tp-ic-ring { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(16deg); } 35% { transform: rotate(-13deg); } 55% { transform: rotate(9deg); } 78% { transform: rotate(-5deg); } }
+@keyframes tp-ic-roll { 0% { transform: translateX(-2px); } 60% { transform: translateX(3px); } 100% { transform: translateX(0); } }
+@keyframes tp-ic-scan { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }

@@ -99,6 +99,16 @@ function Logo({ collapsed }: { collapsed?: boolean }) {
   )
 }
 
+// Signature d'animation par entrée de menu (jouée au survol, cf. globals.css .tp-ic-*).
+const NAV_ANIM: Record<string, string> = {
+  '/parametres': 'spin', '/heures': 'spin', '/avis': 'spin',
+  '/relances': 'ring',
+  '/vehicules': 'roll',
+  '/tickets': 'scan', '/plans': 'scan',
+  '/chantiers': 'bob', '/emails': 'bob',
+}
+const navAnim = (href: string) => NAV_ANIM[href] || 'pop'
+
 function NavItem({ href, label, icon: Icon, active, onClick, mobile, collapsed, badge }: {
   href: string; label: string; icon: any; active: boolean; onClick?: () => void; mobile?: boolean; collapsed?: boolean; badge?: number
 }) {
@@ -109,14 +119,14 @@ function NavItem({ href, label, icon: Icon, active, onClick, mobile, collapsed, 
       onClick={onClick}
       title={collapsed ? label : undefined}
       className={cn(
-        'group relative flex items-center gap-3 rounded-xl font-medium transition-all duration-200 overflow-hidden whitespace-nowrap',
+        'tp-navlink group relative flex items-center gap-3 rounded-xl font-medium transition-all duration-200 overflow-hidden whitespace-nowrap',
         collapsed ? 'justify-center px-0 py-2.5' : mobile ? 'px-3 py-3 text-[15px]' : 'px-3 py-2.5 text-sm',
         active
           ? 'bg-white text-[var(--sidebar-primary-foreground)] shadow-[0_5px_14px_rgba(60,20,0,0.22)]'
           : 'text-white/80 hover:bg-white/15 hover:text-white'
       )}
     >
-      <Icon className={cn('w-[18px] h-[18px] flex-shrink-0 transition-transform', !active && 'text-white/70 group-hover:text-white group-hover:scale-110')} strokeWidth={2.1} />
+      <Icon className={cn('w-[18px] h-[18px] flex-shrink-0', `tp-ic-${navAnim(href)}`, !active && 'text-white/70 group-hover:text-white')} strokeWidth={2.1} />
       {!collapsed && <span className="flex-1 truncate">{label}</span>}
       {showBadge && (collapsed ? (
         <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#E5484D] ring-2 ring-[var(--sidebar,#C14E33)]" />
