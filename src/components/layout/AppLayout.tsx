@@ -48,7 +48,7 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
       { href: '/equipe', label: 'Salariés', icon: Users2, teamOnly: true },
       { href: '/sous-traitants', label: 'Sous-traitants', icon: Handshake },
       { href: '/vehicules', label: 'Véhicules', icon: Truck, teamOnly: true },
-      { href: '/comptes-rendus', label: 'Comptes-rendus', icon: ClipboardList },
+      { href: '/comptes-rendus', label: 'Comptes-rendus', icon: ClipboardList, teamOnly: true },
     ],
   },
   {
