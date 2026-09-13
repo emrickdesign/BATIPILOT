@@ -176,7 +176,7 @@ export default function OnboardingWizard({
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-xl mx-auto w-full px-5 md:px-10 py-8 md:py-12">
+          <div className="w-full px-5 md:px-10 lg:px-14 py-8 md:py-12">
             {step === 0 && <StepEntreprise form={form} set={set} applySirene={applySirene} />}
             {step === 1 && <StepMetier {...{ primaryTrade, setPrimaryTrade, secondaryTrades, setSecondaryTrades, employees, setEmployees, toggle }} />}
             {step === 2 && <StepObjectifs {...{ interests, setInterests, toggle }} />}
@@ -186,8 +186,8 @@ export default function OnboardingWizard({
         </div>
 
         {/* actions */}
-        <footer className="border-t border-black/5 bg-white/70 backdrop-blur px-5 md:px-10 py-4">
-          <div className="max-w-xl mx-auto w-full flex items-center justify-between gap-3">
+        <footer className="border-t border-black/5 bg-white/70 backdrop-blur px-5 md:px-10 lg:px-14 py-4">
+          <div className="w-full flex items-center justify-between gap-3">
             <Button variant="ghost" onClick={() => setStep(s => Math.max(0, s - 1))} disabled={step === 0 || finishing} className="gap-1.5">
               <ArrowLeft className="w-4 h-4" /> Retour
             </Button>
