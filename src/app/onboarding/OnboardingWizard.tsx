@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -9,7 +9,6 @@ import EntrepriseSearch from '@/components/EntrepriseSearch'
 import { TRADES } from '@/lib/trades'
 import type { CompanyResult } from '@/lib/siret'
 import { pricingSummary, sizeBucket } from '@/lib/pricing'
-import OnboardingBankConnect from './OnboardingBankConnect'
 import { toast } from 'sonner'
 import {
   ArrowLeft, ArrowRight, Check, Loader2, Sparkles, ListChecks, Clock3, Building2,
@@ -56,7 +55,7 @@ const STEPS = [
   { key: 'entreprise', label: 'Ton entreprise', hint: 'Identité' },
   { key: 'metier', label: 'Métier & équipe', hint: 'Ton activité' },
   { key: 'objectifs', label: 'Tes objectifs', hint: 'Ce qui compte' },
-  { key: 'facturation', label: 'Facturation & banque', hint: 'Devis, factures & banque' },
+  { key: 'facturation', label: 'Facturation', hint: 'Devis, factures & assurances' },
   { key: 'prix', label: 'Base de prix', hint: 'Ton catalogue' },
 ] as const
 
@@ -100,6 +99,31 @@ export default function OnboardingWizard({
   const [interests, setInterests] = useState<string[]>(Array.isArray(initial.interests) ? initial.interests : [])
   const [priceChoice, setPriceChoice] = useState<PriceChoice>('seed')
 
+  // Persistance de la progression : si l'utilisateur quitte l'onboarding (ex.
+  // aller connecter sa banque, ou l'app installée qui rouvre le navigateur) puis
+  // revient, il reprend là où il s'était arrêté — au lieu de repartir au début.
+  const [restored, setRestored] = useState(false)
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('tp_onboarding_v1')
+      if (raw) {
+        const s = JSON.parse(raw)
+        if (s.form) setForm(f => ({ ...f, ...s.form }))
+        if (typeof s.step === 'number') setStep(s.step)
+        if (typeof s.primaryTrade === 'string') setPrimaryTrade(s.primaryTrade)
+        if (Array.isArray(s.secondaryTrades)) setSecondaryTrades(s.secondaryTrades)
+        if (typeof s.employees === 'number') setEmployees(s.employees)
+        if (Array.isArray(s.interests)) setInterests(s.interests)
+        if (s.priceChoice) setPriceChoice(s.priceChoice)
+      }
+    } catch {}
+    setRestored(true)
+  }, [])
+  useEffect(() => {
+    if (!restored) return
+    try { localStorage.setItem('tp_onboarding_v1', JSON.stringify({ step, form, primaryTrade, secondaryTrades, employees, interests, priceChoice })) } catch {}
+  }, [restored, step, form, primaryTrade, secondaryTrades, employees, interests, priceChoice])
+
   const set = (field: keyof OnboardingForm, value: string) => setForm(p => ({ ...p, [field]: value }))
   const toggle = (arr: string[], v: string) => arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]
 
@@ -111,11 +135,13 @@ export default function OnboardingWizard({
   const canNext = () => {
     if (step === 0) return form.trade_name.trim().length > 0
     if (step === 1) return primaryTrade.length > 0
+    if (step === 3) return form.insurance_decennale.trim().length > 0 && form.insurance_rc.trim().length > 0
     return true
   }
 
   function next() {
     if (step < STEPS.length - 1) { setStep(s => s + 1); return }
+    try { localStorage.removeItem('tp_onboarding_v1') } catch {}
     onFinish({ form, primaryTrade, secondaryTrades: secondaryTrades.filter(t => t !== primaryTrade), companySize: sizeBucket(employees), employeesCount: employees, interests, priceChoice })
   }
 
@@ -193,7 +219,7 @@ export default function OnboardingWizard({
               <ArrowLeft className="w-4 h-4" /> Retour
             </Button>
             <div className="flex items-center gap-3">
-              {(step === 2 || step === 3) && (
+              {step === 2 && (
                 <button type="button" onClick={next} disabled={finishing} className="text-sm text-slate-400 hover:text-slate-600">Passer</button>
               )}
               <Button onClick={next} disabled={!canNext() || finishing} size="lg" className="gap-1.5">
@@ -226,27 +252,35 @@ function Head({ icon, title, sub }: { icon: React.ReactNode; title: string; sub:
 function StepEntreprise({ form, set, applySirene }: { form: OnboardingForm; set: (f: keyof OnboardingForm, v: string) => void; applySirene: (c: CompanyResult) => void }) {
   return (
     <div>
-      <Head icon={<Building2 className="w-6 h-6" />} title="Ton entreprise" sub="Cherche-la pour tout pré-remplir, ou saisis à la main." />
+      <Head icon={<Building2 className="w-6 h-6" />} title="Ton entreprise" sub="Tape juste le nom de ton entreprise : on remplit le SIRET et l’adresse automatiquement (ils servent à tes devis, factures et mentions légales)." />
       <div className="rounded-2xl border border-primary/20 bg-accent/40 p-4 mb-4">
-        <Label className="text-primary">Rechercher dans l’annuaire officiel <span className="font-normal opacity-70">— gratuit</span></Label>
+        <Label className="text-primary">Ton entreprise <span className="font-normal opacity-70">— annuaire officiel, gratuit</span></Label>
         <div className="mt-2"><EntrepriseSearch onSelect={applySirene} /></div>
-        <p className="text-xs text-slate-500 mt-2">Nom, ville ou SIRET — SIRET, adresse et raison sociale importés d’un clic.</p>
+        <p className="text-xs text-slate-500 mt-2">Écris le nom de ton entreprise et sélectionne-la : SIRET, adresse et raison sociale se remplissent d’un clic.</p>
       </div>
       <div className="space-y-3">
-        <Field label="Nom commercial *"><Input value={form.trade_name} onChange={e => set('trade_name', e.target.value)} placeholder="Mon Entreprise BTP" /></Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="SIRET"><Input value={form.siret} onChange={e => set('siret', e.target.value)} placeholder="123 456 789 00012" /></Field>
-          <Field label="Statut juridique">
-            <select value={form.legal_status} onChange={e => set('legal_status', e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
-              <option value="">Sélectionner…</option>
-              <option value="micro-entreprise">Micro-entreprise</option>
-              <option value="EI">EI (Entreprise individuelle)</option>
-              <option value="EURL">EURL</option><option value="SARL">SARL</option>
-              <option value="SAS">SAS</option><option value="SASU">SASU</option>
-            </select>
-          </Field>
-        </div>
-        <Field label="Adresse"><Textarea value={form.address} onChange={e => set('address', e.target.value)} rows={2} placeholder="12 rue des Artisans, 75001 Paris" /></Field>
+        <Field label="Nom commercial *"><Input value={form.trade_name} onChange={e => set('trade_name', e.target.value)} placeholder="Nom de ton entreprise…" /></Field>
+        {/* Infos légales : pré-remplies par la recherche, repliées pour ne pas surcharger. */}
+        <details className="rounded-xl border border-slate-200 bg-white px-3 py-2 group">
+          <summary className="flex items-center justify-between cursor-pointer list-none text-sm font-medium text-slate-600 py-1">
+            Infos légales <span className="text-xs font-normal text-slate-400">(SIRET, statut, adresse — remplies auto)</span>
+          </summary>
+          <div className="space-y-3 pt-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="SIRET"><Input value={form.siret} onChange={e => set('siret', e.target.value)} placeholder="Rempli auto…" /></Field>
+              <Field label="Statut juridique">
+                <select value={form.legal_status} onChange={e => set('legal_status', e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
+                  <option value="">Sélectionner…</option>
+                  <option value="micro-entreprise">Micro-entreprise</option>
+                  <option value="EI">EI (Entreprise individuelle)</option>
+                  <option value="EURL">EURL</option><option value="SARL">SARL</option>
+                  <option value="SAS">SAS</option><option value="SASU">SASU</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Adresse"><Textarea value={form.address} onChange={e => set('address', e.target.value)} rows={2} placeholder="Remplie auto…" /></Field>
+          </div>
+        </details>
       </div>
     </div>
   )
@@ -281,7 +315,7 @@ function StepMetier({ primaryTrade, setPrimaryTrade, secondaryTrades, setSeconda
 
       {primaryTrade && (
         <div className="mb-6 animate-fade-up">
-          <Label>Autres métiers exercés <span className="font-normal text-slate-400">(optionnel)</span></Label>
+          <Label>Tu fais plusieurs corps d’état ? <span className="font-normal text-slate-400">Ajoute-les (autant que tu veux)</span></Label>
           <div className="flex flex-wrap gap-2 mt-2">
             {TRADES.filter(t => t.id !== primaryTrade && t.id !== 'renovation_generale' && t.id !== 'autre').map(t => {
               const on = secondaryTrades.includes(t.id)
@@ -392,7 +426,7 @@ function TarifCard({ employees }: { employees: number }) {
 function StepObjectifs({ interests, setInterests, toggle }: { interests: string[]; setInterests: (v: string[]) => void; toggle: (arr: string[], v: string) => string[] }) {
   return (
     <div>
-      <Head icon={<Target className="w-6 h-6" />} title="Qu’est-ce qui te ferait gagner le plus ?" sub="Choisis ce qui compte pour toi — on met tes priorités en avant. Facultatif." />
+      <Head icon={<Target className="w-6 h-6" />} title="Qu’est-ce qui te ferait gagner le plus d’argent&nbsp;?" sub="Choisis ce qui compte le plus pour toi — on met ces leviers en avant dans ton espace. Facultatif." />
       <div className="grid sm:grid-cols-2 gap-2.5">
         {GOALS.map(g => {
           const on = interests.includes(g.id)
@@ -414,29 +448,36 @@ function StepObjectifs({ interests, setInterests, toggle }: { interests: string[
 function StepFacturation({ form, set }: { form: OnboardingForm; set: (f: keyof OnboardingForm, v: string) => void }) {
   return (
     <div>
-      <Head icon={<ReceiptText className="w-6 h-6" />} title="Facturation & banque" sub="Ces réglages pré-remplissent tous tes devis et factures. Tout est modifiable plus tard." />
+      <Head icon={<ReceiptText className="w-6 h-6" />} title="Facturation & assurances" sub="Ces infos s’impriment automatiquement sur tous tes devis et factures (obligatoire pour être conforme). Tout est modifiable plus tard." />
       <div className="space-y-3">
-        {/* Connexion bancaire (Bridge) — pour être opérationnel dès l'arrivée */}
-        <OnboardingBankConnect />
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Téléphone"><Input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="06 12 34 56 78" /></Field>
-          <Field label="Email pro"><Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="contact@entreprise.fr" /></Field>
+          <Field label="Téléphone"><Input value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="06…" /></Field>
+          <Field label="Email pro"><Input type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="contact@…" /></Field>
         </div>
-        <Field label="IBAN" hint="(affiché sur les factures pour le paiement client)"><Input value={form.iban} onChange={e => set('iban', e.target.value)} placeholder="FR76 1234 5678 9012 3456 7890 123" /></Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Assurance décennale"><Input value={form.insurance_decennale} onChange={e => set('insurance_decennale', e.target.value)} placeholder="AXA — n°123456" /></Field>
-          <Field label="RC Professionnelle"><Input value={form.insurance_rc} onChange={e => set('insurance_rc', e.target.value)} placeholder="Allianz — n°789012" /></Field>
+        <Field label="IBAN" hint="— pour que le client paie par virement (imprimé sur les factures)"><Input value={form.iban} onChange={e => set('iban', e.target.value)} placeholder="FR76…" /></Field>
+
+        {/* Assurances : obligatoires sur les devis/factures des artisans du BTP */}
+        <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3">
+          <p className="text-xs text-amber-800 mb-2">Obligatoire sur tes devis et factures : sans ces numéros, ils ne sont pas conformes.</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Assurance décennale *"><Input value={form.insurance_decennale} onChange={e => set('insurance_decennale', e.target.value)} placeholder="Assureur + n°…" /></Field>
+            <Field label="RC Pro *"><Input value={form.insurance_rc} onChange={e => set('insurance_rc', e.target.value)} placeholder="Assureur + n°…" /></Field>
+          </div>
+          <p className="text-[11px] text-amber-700/80 mt-1.5">Tu les trouves sur ton attestation d’assurance (ou un ancien devis/facture).</p>
         </div>
+
         <div className="grid grid-cols-3 gap-3">
-          <Field label="Validité devis (j)"><Input type="number" min="1" value={form.quote_validity_days} onChange={e => set('quote_validity_days', e.target.value)} /></Field>
-          <Field label="Acompte (%)"><Input type="number" min="0" max="100" value={form.default_deposit_percent} onChange={e => set('default_deposit_percent', e.target.value)} /></Field>
-          <Field label="TVA (%)">
+          <Field label="Validité devis (j)" hint="— durée pendant laquelle ton prix reste valable"><Input type="number" min="1" value={form.quote_validity_days} onChange={e => set('quote_validity_days', e.target.value)} /></Field>
+          <Field label="Acompte (%)" hint="— demandé à la signature"><Input type="number" min="0" max="100" value={form.default_deposit_percent} onChange={e => set('default_deposit_percent', e.target.value)} /></Field>
+          <Field label="TVA par défaut">
             <select value={form.default_vat_rate} onChange={e => set('default_vat_rate', e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2.5 text-sm bg-white">
-              <option value="5.5">5,5%</option><option value="10">10%</option><option value="20">20%</option>
+              <option value="10">10 % — rénovation</option>
+              <option value="20">20 % — neuf / standard</option>
+              <option value="5.5">5,5 % — rénovation énergétique</option>
             </select>
           </Field>
         </div>
-        <Field label="Conditions de paiement"><Input value={form.payment_terms} onChange={e => set('payment_terms', e.target.value)} /></Field>
+        <p className="text-[11px] text-slate-400 -mt-1">Modifiable devis par devis ; c’est juste la valeur pré-remplie.</p>
       </div>
     </div>
   )
@@ -446,20 +487,17 @@ function StepFacturation({ form, set }: { form: OnboardingForm; set: (f: keyof O
 function StepPrix({ priceChoice, setPriceChoice }: { priceChoice: PriceChoice; setPriceChoice: (v: PriceChoice) => void }) {
   return (
     <div>
-      <Head icon={<ListChecks className="w-6 h-6" />} title="Ta base de prix" sub="Le catalogue de tes prestations, pour chiffrer un devis en quelques clics." />
+      <Head icon={<ListChecks className="w-6 h-6" />} title="Ta base de prix" sub="Le catalogue de tes prestations, pour chiffrer un devis en quelques clics. Deux façons : la faire générer, ou importer ton propre document." />
       <div className="space-y-2.5">
         <ChoiceCard active={priceChoice === 'seed'} onClick={() => setPriceChoice('seed')} icon={<ListChecks className="w-5 h-5" />}
-          title="Installer une base type adaptée à mon métier" badge="Recommandé"
+          title="Base type adaptée à mon métier" badge="Recommandé"
           desc="Prestations et prix indicatifs prêts à l’emploi, filtrés selon ton corps d’état." />
         <ChoiceCard active={priceChoice === 'ia'} onClick={() => setPriceChoice('ia')} icon={<Sparkles className="w-5 h-5" />}
-          title="Construire ma base avec l’IA"
-          desc="Décris ton activité, ton coût horaire et ta marge : l’IA génère une base personnalisée." />
+          title="Faite par l’IA"
+          desc="Décris ton activité, ton coût horaire et ta marge : l’IA génère ta base personnalisée." />
         <ChoiceCard active={priceChoice === 'later'} onClick={() => setPriceChoice('later')} icon={<Clock3 className="w-5 h-5" />}
-          title="Plus tard"
-          desc="Tu pourras créer ta base à tout moment depuis l’onglet Prix." />
-      </div>
-      <div className="rounded-xl border border-primary/20 bg-accent/40 p-3.5 mt-4 text-sm text-marine">
-        <b className="text-primary">Astuce</b> — après l’installation, connecte ta banque dans Réglages : les virements reçus se rapprochent tout seuls de tes factures.
+          title="Importer mon document / plus tard"
+          desc="Tu importeras ta propre grille de prix (ou ton modèle de devis) depuis l’onglet Prix quand tu veux." />
       </div>
     </div>
   )
