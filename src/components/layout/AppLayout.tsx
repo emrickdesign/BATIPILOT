@@ -14,7 +14,7 @@ import NotificationBell from '@/components/NotificationBell'
 import AssistantLauncher from '@/components/assistant/AssistantLauncher'
 import PwaInstall from '@/components/PwaInstall'
 
-type NavLink = { href: string; label: string; icon: any; teamOnly?: boolean }
+type NavLink = { href: string; label: string; icon: any; teamOnly?: boolean; mobileLabel?: string }
 
 // Accès direct (hors groupes), épinglé en haut
 const topNav: NavLink[] = [
@@ -56,7 +56,7 @@ const navGroups: { id: string; label: string; items: NavLink[] }[] = [
     label: 'Admin & finances',
     items: [
       { href: '/finances', label: 'Finances', icon: Landmark },
-      { href: '/tickets', label: 'Scan tout', icon: ScanLine },
+      { href: '/tickets', label: 'Documents scannés', mobileLabel: 'Scanner', icon: ScanLine },
       { href: '/comptable', label: 'Comptable', icon: Calculator },
       { href: '/documents', label: 'Documents', icon: FolderOpen },
     ],
@@ -110,15 +110,16 @@ const NAV_ANIM: Record<string, string> = {
 }
 const navAnim = (href: string) => NAV_ANIM[href] || 'pop'
 
-function NavItem({ href, label, icon: Icon, active, onClick, mobile, collapsed, badge }: {
-  href: string; label: string; icon: any; active: boolean; onClick?: () => void; mobile?: boolean; collapsed?: boolean; badge?: number
+function NavItem({ href, label, mobileLabel, icon: Icon, active, onClick, mobile, collapsed, badge }: {
+  href: string; label: string; mobileLabel?: string; icon: any; active: boolean; onClick?: () => void; mobile?: boolean; collapsed?: boolean; badge?: number
 }) {
+  const shownLabel = mobile && mobileLabel ? mobileLabel : label
   const showBadge = !!badge && badge > 0
   return (
     <Link
       href={href}
       onClick={onClick}
-      title={collapsed ? label : undefined}
+      title={collapsed ? shownLabel : undefined}
       className={cn(
         'tp-navlink group relative flex items-center gap-3 rounded-xl font-medium transition-all duration-200 overflow-hidden whitespace-nowrap',
         collapsed ? 'justify-center px-0 py-2.5' : mobile ? 'px-3 py-3 text-[15px]' : 'px-3 py-2.5 text-sm',
@@ -128,7 +129,7 @@ function NavItem({ href, label, icon: Icon, active, onClick, mobile, collapsed, 
       )}
     >
       <Icon className={cn('w-[18px] h-[18px] flex-shrink-0', `tp-ic-${navAnim(href)}`, !active && 'text-white/70 group-hover:text-white')} strokeWidth={2.1} />
-      {!collapsed && <span className="flex-1 truncate">{label}</span>}
+      {!collapsed && <span className="flex-1 truncate">{shownLabel}</span>}
       {showBadge && (collapsed ? (
         <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#E5484D] ring-2 ring-[var(--sidebar,#C14E33)]" />
       ) : (

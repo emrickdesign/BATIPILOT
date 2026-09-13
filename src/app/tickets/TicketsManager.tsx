@@ -220,7 +220,11 @@ export default function TicketsManager({
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">Scan tout</h1>
+          <h1 className="text-2xl md:text-[26px] font-bold font-heading text-marine">
+            {/* Desktop = récap à exporter / envoyer au comptable ; mobile = action de scan */}
+            <span className="md:hidden">Scanner un document</span>
+            <span className="hidden md:inline">Documents scannés</span>
+          </h1>
           <p className="text-gray-500 mt-1 text-sm">
             {mode === 'ticket'
               ? 'Photographiez vos tickets : on lit le montant et la TVA, et on garde le justificatif.'
@@ -232,15 +236,16 @@ export default function TicketsManager({
           </p>
         </div>
         {mode === 'ticket' && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(f) }} />
             <input ref={importRef} type="file" accept="image/*,.pdf,.png,.jpg,.jpeg,.webp" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleScan(f) }} />
-            <Button variant="outline" className="h-10 gap-2" disabled={scanning} onClick={() => importRef.current?.click()}>
+            <Button variant="outline" className="h-11 sm:h-10 gap-2" disabled={scanning} onClick={() => importRef.current?.click()}>
               <Upload className="w-4 h-4" /> Importer
             </Button>
-            <Button className="h-10 gap-2 shadow-sm" disabled={scanning} onClick={() => cameraRef.current?.click()}>
+            {/* Action principale, proéminente sur mobile (pleine largeur) */}
+            <Button className="flex-1 sm:flex-none h-11 sm:h-10 gap-2 shadow-sm" disabled={scanning} onClick={() => cameraRef.current?.click()}>
               {scanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
               {scanning ? 'Lecture...' : 'Prendre en photo'}
             </Button>
