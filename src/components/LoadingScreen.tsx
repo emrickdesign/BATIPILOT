@@ -12,7 +12,7 @@ export default function LoadingScreen() {
           <span className="absolute w-20 h-20 rounded-[22px] bg-primary/25 animate-logo-ring [animation-delay:1s]" />
           {/* Logo animé (respire) */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="TonPilote" className="relative w-20 h-20 rounded-[22px] shadow-[var(--shadow-brand)] animate-logo-breathe" />
+          <img src="/icons/icon-512.png" alt="TonPilote" className="relative w-20 h-20 rounded-[22px] object-cover shadow-[var(--shadow-brand)] animate-logo-breathe" />
         </div>
         <p className="text-xl font-bold font-heading text-marine">Ton<span className="text-primary">Pilote</span></p>
         <div className="flex items-center gap-2 text-sm text-gray-400">

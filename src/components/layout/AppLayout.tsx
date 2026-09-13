@@ -83,10 +83,10 @@ function Logo({ collapsed }: { collapsed?: boolean }) {
   const [logoOk, setLogoOk] = useState(true)
   return (
     <div className={cn('flex items-center gap-2.5 min-w-0', collapsed && 'justify-center w-full')}>
-      <span className="grid place-items-center w-9 h-9 rounded-xl bg-white/95 shadow-[0_4px_14px_rgba(60,20,0,0.18)] flex-shrink-0 overflow-hidden">
+      <span className="grid place-items-center w-9 h-9 rounded-xl shadow-[0_4px_14px_rgba(60,20,0,0.18)] flex-shrink-0 overflow-hidden">
         {logoOk ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src="/logo.png" alt="TonPilote" className="w-full h-full object-cover" onError={() => setLogoOk(false)} />
+          <img src="/icons/icon-192.png" alt="TonPilote" className="w-full h-full object-cover" onError={() => setLogoOk(false)} />
         ) : (
           <HardHat className="w-5 h-5 text-[#D05C43]" strokeWidth={2.2} />
         )}
